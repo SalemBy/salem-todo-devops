@@ -1,6 +1,6 @@
 $kind: http-request
 name: Create task
-order: 2000
+order: 6000
 method: POST
 url: "{{baseUrl}}/tasks"
 headers:

@@ -1,0 +1,17 @@
+$kind: http-request
+name: Archive project again
+order: 12000
+method: DELETE
+url: '{{baseUrl}}/projects/{{projectId}}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      if (!pm.collectionVariables.get('projectId')) throw new Error('Run Create project first');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Repeated archive is successful', () => {
+        pm.response.to.have.status(204);
+        pm.expect(pm.response.text()).to.eql('');
+      });

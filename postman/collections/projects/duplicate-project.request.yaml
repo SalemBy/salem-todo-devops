@@ -1,0 +1,26 @@
+$kind: http-request
+name: Reject duplicate project key
+order: 5000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Duplicate","key":"{{projectKey}}"}'
+examples: './.resources/duplicate-project.resources/examples/'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      if (!pm.collectionVariables.get('projectId')) throw new Error('Run Create project first');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Duplicate key produces a safe conflict response', () => {
+        pm.response.to.have.status(409);
+        const problem = pm.response.json();
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:409');
+        pm.expect(problem.detail).to.eql('Project key already exists');
+        pm.expect(problem.errors).to.eql([]);
+      });

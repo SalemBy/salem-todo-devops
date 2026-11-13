@@ -86,6 +86,63 @@ HTTP 204 with no body, including for an already inactive task, or HTTP 404
 for an unknown ID. PUT cannot reactivate or edit an inactive task.
 Reading individual tasks is not implemented yet.
 
+## Projects
+
+Projects are independent of tasks in this first version. Task association is
+planned separately in issue #3; the existing Task API is unchanged.
+
+| Endpoint | Behavior |
+|---|---|
+| `POST /projects` | Creates an active project; returns 201, a project DTO, and a Location header |
+| `GET /projects` | Returns active projects by default |
+| `GET /projects?active=true`, `false`, or `all` | Filters projects; returns an array, including `[]` for no matches |
+| `GET /projects/{id}` | Returns an active or archived project, or 404 if unknown |
+| `PUT /projects/{id}` | Replaces name/description; returns 200, or 404 for unknown/archived projects |
+| `DELETE /projects/{id}` | Archives a project; returns 204, or 404 if unknown |
+
+Create a project:
+
+```json
+{"name":"Todo Platform","key":"TODO","description":"Project management backend"}
+```
+
+Name is required and nonblank (maximum 200 characters). Key is required, unique,
+and immutable: 2–10 uppercase ASCII letters or digits, starting with a letter.
+Lowercase keys are rejected rather than normalized. `LEGACY` is reserved for
+the future existing-task migration and cannot be created through the API.
+Description is optional (maximum 2000 characters). Project names can repeat.
+Invalid inputs, malformed JSON/IDs, and invalid active filters return 400 using
+the existing problem-details contract. Duplicate keys return 409, including
+concurrent creation attempts and reuse of an archived project's key.
+
+Update a project using only the editable fields:
+
+```json
+{"name":"Updated project name","description":"Updated details"}
+```
+
+PUT requires name; omitted/null description clears it. ID, key, active, and
+creation time are server-managed and cannot be changed through the request.
+Each response includes `id`, `name`, `key`, `description`, `active`, `createdAt`,
+and `updatedAt`. DELETE preserves the row and details, changes active to false,
+and updates the modification time on the first transition. Repeated DELETE is
+successful without changing the modification time again. Archived projects
+remain readable and their keys stay reserved. No restore operation is provided.
+
+Flyway migration V3 creates `projects` with a database uniqueness constraint.
+It does not modify existing task rows or create project/task relationships.
+The same project HTTP contract runs against H2 and PostgreSQL; PostgreSQL tests
+also verify upgrading a V2 database with existing active and inactive tasks.
+
+The separate `postman/collections/projects` collection runs a create/read/list/
+update/archive scenario and negative checks with captured IDs and a generated
+key. Run it only against a disposable development or test database: it leaves
+one archived project per run.
+
+```powershell
+postman collection run postman/collections/projects
+```
+
 ## API errors
 
 Controller and routing errors use `Content-Type: application/problem+json`.

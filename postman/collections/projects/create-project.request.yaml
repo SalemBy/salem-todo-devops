@@ -1,0 +1,31 @@
+$kind: http-request
+name: Create project and capture its ID
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Postman project","key":"{{projectKey}}","description":"Created by project CRUD checks"}'
+examples: './.resources/create-project.resources/examples/'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('projectKey', 'P' + pm.variables.replaceIn('{{$randomUUID}}').replace(/-/g, '').slice(0, 9).toUpperCase());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Project is created with Location and server fields', () => {
+        pm.response.to.have.status(201);
+        const project = pm.response.json();
+        pm.expect(project.id).to.be.a('number');
+        pm.expect(project.key).to.eql(pm.collectionVariables.get('projectKey'));
+        pm.expect(project.active).to.eql(true);
+        pm.expect(project.createdAt).to.be.a('string');
+        pm.expect(project.updatedAt).to.be.a('string');
+        pm.expect(pm.response.headers.get('Location')).to.match(new RegExp('/projects/' + project.id + '$'));
+        pm.collectionVariables.set('projectId', String(project.id));
+        pm.collectionVariables.set('projectCreatedAt', project.createdAt);
+      });

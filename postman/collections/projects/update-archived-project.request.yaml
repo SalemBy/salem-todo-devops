@@ -1,0 +1,22 @@
+$kind: http-request
+name: Reject update of archived project
+order: 11000
+method: PUT
+url: '{{baseUrl}}/projects/{{projectId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Should not change"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      if (!pm.collectionVariables.get('projectId')) throw new Error('Run Create project first');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Archived project cannot be updated', () => {
+        pm.response.to.have.status(404);
+        pm.expect(pm.response.json().detail).to.eql('Project not found');
+      });

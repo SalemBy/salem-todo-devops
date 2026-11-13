@@ -1,0 +1,9 @@
+$kind: collection
+name: Project CRUD
+variables:
+  baseUrl: http://127.0.0.1:8080
+  projectId: ""
+  projectKey: ""
+  projectCreatedAt: ""
+auth:
+  type: noauth
