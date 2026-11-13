@@ -39,3 +39,17 @@ archive behavior. Successful and conflict examples are saved alongside requests.
 No hardcoded existing project ID is used. Run the collection in order; individual
 requests require the variables from creation. Each run leaves one archived
 project in the selected database, so use disposable test data.
+
+## Required field regressions
+
+Each request tests one invalid field while keeping other fields valid. The data
+file covers omitted, null, empty, ordinary whitespace, non-breaking/figure/narrow
+spaces, and zero-width spaces. Run against a disposable test database:
+
+```powershell
+postman collection run postman/collections/validation-regressions -d postman/documents/required-fields-cases.json
+```
+
+All 27 requests must return 400 with an error for the tested field. If a
+regression returns 201, this run can leave invalid test records. Automated
+HTTP/service tests also assert that rejected input does not change database rows.

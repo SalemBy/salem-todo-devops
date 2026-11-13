@@ -5,6 +5,9 @@ import github.salemby.projetotodo.dto.request.UpdateProjectRequest;
 import github.salemby.projetotodo.dto.response.ProjectResponse;
 import github.salemby.projetotodo.entity.Project;
 import github.salemby.projetotodo.repository.ProjectRepository;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import org.springframework.validation.annotation.Validated;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -16,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 
 @Service
+@Validated
 public class ProjectService {
     private final ProjectRepository projectRepository;
 
@@ -24,7 +28,7 @@ public class ProjectService {
     }
 
     @Transactional
-    public ProjectResponse create(CreateProjectRequest request) {
+    public ProjectResponse create(@NotNull @Valid CreateProjectRequest request) {
         try {
             return toResponse(projectRepository.saveAndFlush(
                 new Project(request.name(), request.key(), request.description())));
@@ -55,7 +59,7 @@ public class ProjectService {
     }
 
     @Transactional
-    public ProjectResponse update(Long id, UpdateProjectRequest request) {
+    public ProjectResponse update(Long id, @NotNull @Valid UpdateProjectRequest request) {
         Project project = projectRepository.findByIdAndActiveTrue(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
         project.setName(request.name());

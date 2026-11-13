@@ -1,0 +1,38 @@
+[
+  {
+    "label": "omitted",
+    "omit": true
+  },
+  {
+    "label": "null",
+    "value": null
+  },
+  {
+    "label": "empty",
+    "value": ""
+  },
+  {
+    "label": "space",
+    "value": " "
+  },
+  {
+    "label": "tabs and newlines",
+    "value": "\t\r\n"
+  },
+  {
+    "label": "non-breaking space U+00A0",
+    "value": " "
+  },
+  {
+    "label": "figure space U+2007",
+    "value": " "
+  },
+  {
+    "label": "narrow non-breaking space U+202F",
+    "value": " "
+  },
+  {
+    "label": "zero width space U+200B",
+    "value": "​"
+  }
+]

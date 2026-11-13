@@ -1,6 +1,6 @@
 $kind: http-request
 name: List active projects
-order: 3000
+order: 2000
 method: GET
 url: '{{baseUrl}}/projects'
 scripts:

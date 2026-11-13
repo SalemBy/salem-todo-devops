@@ -1,21 +1,18 @@
 $kind: http-request
-name: Create project and capture its ID
-order: 1000
+order: 3000
 method: POST
-url: '{{baseUrl}}/projects'
+url: "{{baseUrl}}/projects"
 headers:
   Content-Type: application/json
 body:
   type: json
   content: '{"name":"Postman project","key":"{{projectKey}}","description":"Created by project CRUD checks"}'
-examples: './.resources/create-project.resources/examples/'
+examples: .resources/Create project and capture its ID.resources/examples
 scripts:
   - type: beforeRequest
+    code: pm.collectionVariables.set('projectKey', 'P' + pm.variables.replaceIn('{{$randomUUID}}').replace(/-/g, '').slice(0, 9).toUpperCase());
     language: text/javascript
-    code: |-
-      pm.collectionVariables.set('projectKey', 'P' + pm.variables.replaceIn('{{$randomUUID}}').replace(/-/g, '').slice(0, 9).toUpperCase());
   - type: afterResponse
-    language: text/javascript
     code: |-
       pm.test('Project is created with Location and server fields', () => {
         pm.response.to.have.status(201);
@@ -29,3 +26,4 @@ scripts:
         pm.collectionVariables.set('projectId', String(project.id));
         pm.collectionVariables.set('projectCreatedAt', project.createdAt);
       });
+    language: text/javascript

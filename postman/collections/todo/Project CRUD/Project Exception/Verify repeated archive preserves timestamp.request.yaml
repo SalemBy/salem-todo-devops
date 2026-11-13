@@ -1,5 +1,5 @@
 $kind: http-request
-name: Read project
+name: Verify repeated archive preserves timestamp
 order: 2000
 method: GET
 url: '{{baseUrl}}/projects/{{projectId}}'
@@ -11,8 +11,8 @@ scripts:
   - type: afterResponse
     language: text/javascript
     code: |-
-      pm.test('Created project is readable', () => {
+      pm.test('Repeated archive does not modify the row again', () => {
         pm.response.to.have.status(200);
-        pm.expect(String(pm.response.json().id)).to.eql(pm.collectionVariables.get('projectId'));
-        pm.expect(pm.response.json().active).to.eql(true);
+        pm.expect(pm.response.json().updatedAt).to.eql(pm.collectionVariables.get('archivedUpdatedAt'));
+        pm.expect(pm.response.json().name).to.eql('Updated Postman project');
       });

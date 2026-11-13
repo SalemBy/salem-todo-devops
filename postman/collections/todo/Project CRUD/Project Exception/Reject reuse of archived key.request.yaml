@@ -1,6 +1,6 @@
 $kind: http-request
 name: Reject reuse of archived key
-order: 14000
+order: 1000
 method: POST
 url: '{{baseUrl}}/projects'
 headers:

@@ -1,6 +1,6 @@
 $kind: http-request
 name: Reject invalid project fields
-order: 6000
+order: 5000
 method: POST
 url: '{{baseUrl}}/projects'
 headers:

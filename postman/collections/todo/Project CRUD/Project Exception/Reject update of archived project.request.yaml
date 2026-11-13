@@ -1,6 +1,6 @@
 $kind: http-request
 name: Reject update of archived project
-order: 11000
+order: 4000
 method: PUT
 url: '{{baseUrl}}/projects/{{projectId}}'
 headers:

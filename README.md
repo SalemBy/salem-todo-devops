@@ -20,6 +20,12 @@ The application also reads `.env` from the project root as a properties file.
 This file is excluded from Git. Run the application with the project root as
 its working directory.
 
+After changing Maven dependencies, reload all Maven projects in IntelliJ and
+fully stop/restart the application. An already running JVM keeps its original
+classpath; recompiling source alone does not add new validation libraries.
+Validation is mandatory: the application now refuses to start without a working
+Bean Validation provider instead of serving requests without field checks.
+
 For file-based configuration, copy the shared template and edit the local copy:
 
 ```powershell
@@ -62,6 +68,13 @@ The response is HTTP 201 with the saved task and a Location header. New tasks
 have status `PENDING`. Title is required, with a maximum of 200 characters;
 description is optional, with a maximum of 2000 characters. Invalid requests
 return HTTP 400.
+
+Required task titles and project names must contain visible text. Omitted,
+null, empty, whitespace-only values, Unicode separator-only values (including
+non-breaking spaces), and zero-width format-only values are rejected on both
+create and update. Project key validation also rejects blank values. Validation
+is enforced at HTTP and Spring-managed service entry points using DTO constraints.
+Project input fields are `name` and `key`; task input uses `title`.
 
 `GET /tasks` returns HTTP 200 with a JSON array of active tasks, or `[]`
 when none match. Use `?active=true` for active tasks (the default),

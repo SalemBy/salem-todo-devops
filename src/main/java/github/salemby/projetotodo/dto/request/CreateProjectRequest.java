@@ -1,11 +1,12 @@
 package github.salemby.projetotodo.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import github.salemby.projetotodo.validation.NotBlankText;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record CreateProjectRequest(
-    @NotBlank(message = "Name is required")
+    @NotBlankText(message = "Name is required")
     @Size(max = 200, message = "Name must contain at most 200 characters")
     String name,
     @NotBlank(message = "Key is required")

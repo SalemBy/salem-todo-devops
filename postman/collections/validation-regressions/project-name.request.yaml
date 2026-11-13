@@ -1,0 +1,27 @@
+$kind: http-request
+name: Reject blank project name
+order: 2000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{{validationBody}}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      const data = pm.iterationData.toObject();
+      const body = {"key":"VALID"};
+      if (!data.omit) body.name = Object.prototype.hasOwnProperty.call(data, 'value') ? data.value : ' ';
+      pm.variables.set('validationBody', JSON.stringify(body));
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('name is rejected independently (' + (pm.iterationData.get('label') || 'space') + ')', () => {
+        pm.response.to.have.status(400);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+        const problem = pm.response.json();
+        pm.expect(problem.errors.some(error => error.field === 'name')).to.eql(true);
+      });

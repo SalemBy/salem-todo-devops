@@ -1,5 +1,7 @@
 package github.salemby.projetotodo.exception;
 
+import jakarta.validation.ConstraintViolationException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
@@ -25,6 +27,18 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     public record FieldError(String field, String message) {
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Object> handleConstraintViolation(ConstraintViolationException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request validation failed");
+        var errors = ex.getConstraintViolations().stream().map(violation -> {
+            String field = "request";
+            for (var node : violation.getPropertyPath()) field = node.getName();
+            return new FieldError(field, violation.getMessage());
+        }).sorted(Comparator.comparing(FieldError::field).thenComparing(FieldError::message)).toList();
+        problem.setProperty("errors", errors);
+        return createResponseEntity(problem, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
     }
 
     @Override

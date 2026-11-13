@@ -1,6 +1,6 @@
 $kind: http-request
 name: List inactive projects
-order: 9000
+order: 7000
 method: GET
 url: '{{baseUrl}}/projects?active=false'
 queryParams:
