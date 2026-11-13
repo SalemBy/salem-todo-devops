@@ -86,6 +86,33 @@ HTTP 204 with no body, including for an already inactive task, or HTTP 404
 for an unknown ID. PUT cannot reactivate or edit an inactive task.
 Reading individual tasks is not implemented yet.
 
+## API errors
+
+Controller and routing errors use `Content-Type: application/problem+json`.
+All error responses include `type`, `title`, `status`, `detail`, `instance`
+(request path without query parameters), and `errors` (an array, empty when
+there are no field-level violations). Error types are stable URNs based on HTTP
+status, such as `urn:projetotodo:problem:400`.
+
+For example, posting a blank title returns HTTP 400:
+
+```json
+{
+  "type": "urn:projetotodo:problem:400",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Request validation failed",
+  "instance": "/tasks",
+  "errors": [{"field": "title", "message": "Title is required"}]
+}
+```
+
+Malformed JSON, missing bodies, invalid enum values, and invalid parameter types
+return 400. Unknown resources return 404, unsupported methods return 405, and
+unsupported request media types return 415. Unexpected failures return 500 with
+a generic detail; exception messages, stack traces, and rejected values are not
+returned to clients. Relevant protocol headers such as `Allow` are preserved.
+
 ## Project folders
 
 - `src/main/java/.../controller`: HTTP endpoints.
@@ -109,7 +136,31 @@ Reading individual tasks is not implemented yet.
 
 Tests use an in-memory H2 database and a random HTTP port, leaving the local
 PostgreSQL database unchanged. Flyway creates the schema, and Hibernate validates it.
-These tests verify H2 behavior; they do not establish PostgreSQL connectivity.
+The default build verifies H2 behavior. PostgreSQL integration tests are opt-in
+locally and mandatory in CI.
+
+### PostgreSQL integration tests
+
+Provision a dedicated, disposable PostgreSQL 18 database. Never point the test
+suite at the application's real database. The test user needs permission to
+create/drop schemas. Supply its connection details separately from `DB_*`:
+
+```powershell
+$env:TEST_DB_URL = 'jdbc:postgresql://127.0.0.1:5432/todo_integration'
+$env:TEST_DB_USERNAME = 'todo_test'
+$testCredential = Get-Credential -UserName todo_test -Message 'Test database credentials'
+$env:TEST_DB_PASSWORD = $testCredential.GetNetworkCredential().Password
+.\mvnw.cmd -B --no-transfer-progress -Ppostgres-it verify
+```
+
+This runs the same task HTTP and error contract against H2 and PostgreSQL, then
+tests a PostgreSQL V1-to-V2 migration with an existing task. The migration test
+uses a randomly named schema and removes only that schema afterward. It checks
+data preservation and PostgreSQL not-null/check constraints. The HTTP suite
+expects an otherwise empty test database and cleans up records it creates.
+Missing PostgreSQL configuration or unavailable PostgreSQL fails the opt-in build;
+integration tests are not silently skipped. Maven Failsafe writes PostgreSQL
+reports to `target/failsafe-reports`; H2 reports remain in `target/surefire-reports`.
 
 To test and package the application in one command:
 
@@ -123,8 +174,9 @@ On Linux or macOS, use `./mvnw` instead of `.\mvnw.cmd`.
 
 The `Java CI` GitHub Actions workflow runs on pushes and pull requests to
 `master`, and can also be started manually from the Actions tab. It installs
-Temurin Java 17, caches Maven dependencies, and runs `./mvnw -B
---no-transfer-progress verify`. No database credentials are needed: tests use H2.
+Temurin Java 17, caches Maven dependencies, starts a disposable PostgreSQL 18
+service, and runs `./mvnw -B --no-transfer-progress -Ppostgres-it verify`.
+CI uses test-only database credentials; application database secrets are not needed.
 
 Test reports are uploaded even if the build fails (when reports exist). A
 successful build also uploads the executable JAR. Artifacts are retained for
