@@ -10,9 +10,7 @@ postman collection run postman/collections/todo
 ```
 
 The collection includes requests that create, update, and soft delete tasks.
-Run it against a disposable development or test database. Set the collection's
-`taskId` variable to a task you intend to update or deactivate; it currently
-defaults to `1`. Requests do not automatically reuse the ID from creation.
+Run it against a disposable development or test database. The collection captures the created task ID and reuses it for updates and soft deletion.
 To use a different port:
 
 ```powershell
@@ -29,7 +27,7 @@ is local to each developer; credentials must not be committed.
 Run the project-only scenario separately:
 
 ```powershell
-postman collection run postman/collections/projects
+postman collection run postman/collections/todo -i "Project CRUD"
 ```
 
 It generates a valid unique project key, captures the created project ID, and

@@ -1,4 +1,4 @@
-# Projeto Todo
+# Salem Todo DevOps
 
 Spring Boot REST backend for a to-do application. Uses Java 17, Maven Wrapper
 3.9.9, Spring MVC, Spring Data JPA, Flyway, and PostgreSQL.
@@ -35,7 +35,7 @@ Copy-Item .env.example .env
 Skip the copy if `.env` already exists. Replace the password placeholder in
 `.env` with your local database password. Never commit that file.
 
-In the `ProjetoTodoApplication` run configuration, set the environment variable
+In the `SalemTodoDevOpsApplication` run configuration, set the environment variable
 `DB_PASSWORD` to that password, then run the application. Optional overrides:
 `DB_URL` (default `jdbc:postgresql://127.0.0.1:5432/todo`) and `DB_USERNAME`
 (default `postgres`). Keep passwords out of committed files. Flyway applies
@@ -147,13 +147,13 @@ It does not modify existing task rows or create project/task relationships.
 The same project HTTP contract runs against H2 and PostgreSQL; PostgreSQL tests
 also verify upgrading a V2 database with existing active and inactive tasks.
 
-The separate `postman/collections/projects` collection runs a create/read/list/
+The `Project CRUD` folder in `postman/collections/todo` runs a create/read/list/
 update/archive scenario and negative checks with captured IDs and a generated
 key. Run it only against a disposable development or test database: it leaves
 one archived project per run.
 
 ```powershell
-postman collection run postman/collections/projects
+postman collection run postman/collections/todo -i "Project CRUD"
 ```
 
 ## API errors
@@ -258,3 +258,16 @@ Use GitHub issues to define features and bugs, then work on a feature branch and
 open a pull request to `master`. Include `Closes #<issue-number>` in the PR
 description and wait for CI before merging. See [CONTRIBUTING.md](CONTRIBUTING.md)
 for the full workflow and the current branch protection limitation.
+
+## Product identity
+
+Salem is the company; Todo DevOps is the product. The backend is published as Salem Todo DevOps.
+
+- Repository: https://github.com/SalemBy/salem-todo-devops
+- Maven coordinates: github.salemby:salem-todo-devops
+- Java package: github.salemby.tododevops
+- Entry point: SalemTodoDevOpsApplication
+
+After reloading Maven in IntelliJ, update the run configuration's main class to github.salemby.tododevops.SalemTodoDevOpsApplication and restart the application. The local checkout directory can retain its existing name.
+
+Database names, Flyway migrations and the existing urn:projetotodo:problem error identifiers remain stable for compatibility.

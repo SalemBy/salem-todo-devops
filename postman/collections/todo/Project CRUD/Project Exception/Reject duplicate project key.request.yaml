@@ -6,7 +6,7 @@ headers:
   Content-Type: application/json
 body:
   type: json
-  content: '{"name":"Duplicate","key":"ABCTD"}'
+  content: '{"name":"Duplicate","key":"{{projectKey}}"}'
 examples: .resources/Reject duplicate project key.resources/examples
 scripts:
   - type: beforeRequest

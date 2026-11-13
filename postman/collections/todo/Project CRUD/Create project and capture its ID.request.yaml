@@ -1,5 +1,5 @@
 $kind: http-request
-order: 3000
+order: 1000
 method: POST
 url: "{{baseUrl}}/projects"
 headers:

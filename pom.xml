@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>github.salemby</groupId>
-	<artifactId>ProjetoTodo</artifactId>
+	<artifactId>salem-todo-devops</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>Projeto Todo</name>
-	<description>Projeto Todo</description>
+	<name>Salem Todo DevOps</name>
+	<description>Salem Todo DevOps</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -42,7 +42,6 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
