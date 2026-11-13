@@ -1,6 +1,6 @@
 $kind: http-request
 name: Get all tasks including inactive
-order: 1000
+order: 6000
 method: GET
 url: '{{baseUrl}}/tasks?active=all'
 queryParams:

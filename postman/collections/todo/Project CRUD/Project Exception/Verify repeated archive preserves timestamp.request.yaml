@@ -1,6 +1,6 @@
 $kind: http-request
 name: Verify repeated archive preserves timestamp
-order: 2000
+order: 3500
 method: GET
 url: '{{baseUrl}}/projects/{{projectId}}'
 scripts:
