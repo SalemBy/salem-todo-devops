@@ -20,6 +20,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: todo_integration
+          POSTGRES_USER: todo_test
+          POSTGRES_PASSWORD: ci-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U todo_test -d todo_integration"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -34,14 +49,20 @@ jobs:
           cache: maven
 
       - name: Build and test
-        run: ./mvnw -B --no-transfer-progress verify
+        run: ./mvnw -B --no-transfer-progress -Ppostgres-it verify
+        env:
+          TEST_DB_URL: jdbc:postgresql://localhost:5432/todo_integration
+          TEST_DB_USERNAME: todo_test
+          TEST_DB_PASSWORD: ci-test-only
 
       - name: Upload test reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
           name: test-reports
-          path: target/surefire-reports/
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
           if-no-files-found: warn
           retention-days: 14
 

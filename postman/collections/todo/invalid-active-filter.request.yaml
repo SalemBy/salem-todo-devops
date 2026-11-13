@@ -1,0 +1,21 @@
+$kind: http-request
+name: Reject invalid active filter
+order: 9000
+method: GET
+url: '{{baseUrl}}/tasks?active=invalid'
+queryParams:
+  - key: active
+    value: invalid
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Service errors use the problem details contract', () => {
+        pm.response.to.have.status(400);
+        const problem = pm.response.json();
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:400');
+        pm.expect(problem.status).to.eql(400);
+        pm.expect(problem.detail).to.eql('Active must be true, false, or all');
+        pm.expect(problem.instance).to.eql('/tasks');
+        pm.expect(problem.errors).to.eql([]);
+      });
