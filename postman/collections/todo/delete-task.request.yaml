@@ -1,0 +1,13 @@
+$kind: http-request
+name: Soft delete task
+order: 5000
+method: DELETE
+url: '{{baseUrl}}/tasks/{{taskId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Task is deactivated', () => {
+        pm.response.to.have.status(204);
+        pm.expect(pm.response.text()).to.eql('');
+      });

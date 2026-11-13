@@ -1,0 +1,9 @@
+$kind: collection
+name: Projeto Todo
+variables:
+  - key: baseUrl
+    value: http://127.0.0.1:8080
+  - key: taskId
+    value: '1'
+auth:
+  type: noauth

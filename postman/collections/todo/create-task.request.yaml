@@ -1,0 +1,22 @@
+$kind: http-request
+name: Create task
+order: 2000
+method: POST
+url: "{{baseUrl}}/tasks"
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"My second task","description":"Created with Postman"}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Task is created', () => {
+        pm.response.to.have.status(201);
+        const task = pm.response.json();
+        pm.expect(task.id).to.be.a('number');
+        pm.expect(task.title).to.eql('My first task');
+        pm.expect(task.status).to.eql('PENDING');
+        pm.response.to.have.header('Location');
+      });
+    language: text/javascript

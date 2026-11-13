@@ -1,0 +1,23 @@
+$kind: http-request
+name: Update task
+order: 3000
+method: PUT
+url: '{{baseUrl}}/tasks/{{taskId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {"title":"Updated task","description":"Updated with Postman","status":"IN_PROGRESS"}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Task is updated', () => {
+        pm.response.to.have.status(200);
+        const task = pm.response.json();
+        pm.expect(String(task.id)).to.eql(String(pm.variables.get('taskId')));
+        pm.expect(task.title).to.eql('Updated task');
+        pm.expect(task.description).to.eql('Updated with Postman');
+        pm.expect(task.status).to.eql('IN_PROGRESS');
+      });

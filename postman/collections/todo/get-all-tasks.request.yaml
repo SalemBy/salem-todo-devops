@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get all tasks including inactive
+order: 7000
+method: GET
+url: '{{baseUrl}}/tasks?active=all'
+queryParams:
+  - key: active
+    value: all
