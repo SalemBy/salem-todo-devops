@@ -1,0 +1,31 @@
+name: Bug report
+description: Report a reproducible problem.
+title: '[Bug] '
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the relevant endpoint and a sanitized request when applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Include status codes or sanitized logs. Never include passwords or tokens.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Commit or version, Java version, operating system, and database.
+    validations:
+      required: true

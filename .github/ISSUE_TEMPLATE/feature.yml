@@ -1,0 +1,31 @@
+name: Feature request
+description: Propose a feature with clear acceptance criteria.
+title: '[Feature] '
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Problem and goal
+      description: Who needs this feature, and what problem does it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected behavior
+      description: Describe the user flow or API behavior. Include examples when useful.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable conditions that must be met to finish this issue.
+      placeholder: '- [ ] ...'
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and additional context
+      description: Mention dependencies, constraints, or work left for another issue.

@@ -129,3 +129,10 @@ Temurin Java 17, caches Maven dependencies, and runs `./mvnw -B
 Test reports are uploaded even if the build fails (when reports exist). A
 successful build also uploads the executable JAR. Artifacts are retained for
 14 days and can be downloaded from the workflow run. Deployment is not configured.
+
+## Development workflow
+
+Use GitHub issues to define features and bugs, then work on a feature branch and
+open a pull request to `master`. Include `Closes #<issue-number>` in the PR
+description and wait for CI before merging. See [CONTRIBUTING.md](CONTRIBUTING.md)
+for the full workflow and the current branch protection limitation.
