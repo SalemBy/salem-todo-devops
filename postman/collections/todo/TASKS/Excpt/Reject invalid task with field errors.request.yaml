@@ -1,16 +1,14 @@
 $kind: http-request
-name: Reject invalid task with field errors
-order: 8000
+order: 2000
 method: POST
-url: '{{baseUrl}}/tasks'
+url: "{{baseUrl}}/tasks"
 headers:
   Content-Type: application/json
 body:
   type: json
-  content: '{"title":" "}'
+  content: '{"title":""}'
 scripts:
   - type: afterResponse
-    language: text/javascript
     code: |-
       pm.test('Validation uses the problem details contract', () => {
         pm.response.to.have.status(400);
@@ -23,3 +21,4 @@ scripts:
         pm.expect(problem.instance).to.eql('/tasks');
         pm.expect(problem.errors).to.deep.include({field: 'title', message: 'Title is required'});
       });
+    language: text/javascript

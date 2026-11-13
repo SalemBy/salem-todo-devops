@@ -1,0 +1,7 @@
+$kind: collection
+name: Required fields validation regressions
+variables:
+  - key: baseUrl
+    value: http://127.0.0.1:8080
+auth:
+  type: noauth

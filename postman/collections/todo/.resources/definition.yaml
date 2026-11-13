@@ -1,9 +1,10 @@
 $kind: collection
 name: Projeto Todo
 variables:
-  - key: baseUrl
-    value: http://127.0.0.1:8080
-  - key: taskId
-    value: '1'
+  baseUrl: http://127.0.0.1:8080
+  taskId: "1"
+  projectKey: ""
+  projectId: ""
+  projectCreatedAt: ""
 auth:
   type: noauth

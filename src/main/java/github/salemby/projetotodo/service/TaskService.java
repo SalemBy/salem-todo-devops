@@ -5,6 +5,9 @@ import github.salemby.projetotodo.dto.request.UpdateTaskRequest;
 import github.salemby.projetotodo.dto.response.TaskResponse;
 import github.salemby.projetotodo.entity.Task;
 import github.salemby.projetotodo.repository.TaskRepository;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @Service
+@Validated
 public class TaskService {
     private final TaskRepository taskRepository;
 
@@ -33,7 +37,7 @@ public class TaskService {
     }
 
     @Transactional
-    public TaskResponse create(CreateTaskRequest request) {
+    public TaskResponse create(@NotNull @Valid CreateTaskRequest request) {
         Task task = new Task();
         task.setTitle(request.title());
         task.setDescription(request.description());
@@ -42,7 +46,7 @@ public class TaskService {
     }
 
     @Transactional
-    public TaskResponse update(Long id, UpdateTaskRequest request) {
+    public TaskResponse update(Long id, @NotNull @Valid UpdateTaskRequest request) {
         Task task = taskRepository.findByIdAndActiveTrue(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
         task.setTitle(request.title());

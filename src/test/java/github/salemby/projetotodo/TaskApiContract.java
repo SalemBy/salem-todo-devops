@@ -3,6 +3,9 @@ package github.salemby.projetotodo;
 import github.salemby.projetotodo.entity.Task;
 import github.salemby.projetotodo.enums.TaskStatus;
 import github.salemby.projetotodo.repository.TaskRepository;
+import github.salemby.projetotodo.service.TaskService;
+import github.salemby.projetotodo.dto.request.CreateTaskRequest;
+import github.salemby.projetotodo.dto.response.TaskResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,6 +15,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -27,13 +32,24 @@ abstract class TaskApiContract {
     @TestConfiguration(proxyBeanMethods = false)
     static class FailureConfiguration {
         @Bean
-        FailureEndpoint failureEndpoint() {
-            return new FailureEndpoint();
+        FailureEndpoint failureEndpoint(TaskService taskService) {
+            return new FailureEndpoint(taskService);
         }
     }
 
     @RestController
     static class FailureEndpoint {
+        private final TaskService taskService;
+
+        FailureEndpoint(TaskService taskService) {
+            this.taskService = taskService;
+        }
+
+        @PostMapping("/test-only/service-validation")
+        public TaskResponse createWithoutControllerValidation(@RequestBody CreateTaskRequest request) {
+            return taskService.create(request);
+        }
+
         @GetMapping("/test-only/failure")
         public void fail() {
             throw new IllegalStateException("Sensitive internal database information");
@@ -64,6 +80,16 @@ abstract class TaskApiContract {
         assertProblem(methodError, 405, "/tasks");
         assertTrue(methodError.headers().firstValue("Allow").orElseThrow().contains("POST"));
         assertProblem(sendRequest("POST", "/tasks", "text", "text/plain"), 415, "/tasks");
+    }
+
+    @Test
+    void serviceValidationStillReturnsFieldErrorsWithoutControllerValid() throws Exception {
+        long count = tasks.count();
+        var response = sendRequest("POST", "/test-only/service-validation", "{\"title\":\" \"}", "application/json");
+        var problem = assertProblem(response, 400, "/test-only/service-validation");
+        assertEquals("title", problem.get("errors").get(0).get("field").asText());
+        assertEquals("Title is required", problem.get("errors").get(0).get("message").asText());
+        assertEquals(count, tasks.count());
     }
 
     @Test

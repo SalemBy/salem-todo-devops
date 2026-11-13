@@ -1,0 +1,14 @@
+$kind: http-example
+name: Created project
+response:
+  statusCode: 201
+  statusText: Created
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Location
+      value: http://127.0.0.1:8080/projects/42
+  body:
+    type: json
+    content: '{"id":42,"name":"Postman project","key":"DEMO","description":null,"active":true,"createdAt":"2026-01-01T12:00:00Z","updatedAt":"2026-01-01T12:00:00Z"}'
+order: 1000

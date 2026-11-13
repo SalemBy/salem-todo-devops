@@ -1,0 +1,22 @@
+$kind: http-request
+name: Reject reuse of archived key
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Cannot reuse key","key":"{{projectKey}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      if (!pm.collectionVariables.get('projectId')) throw new Error('Run Create project first');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Archived projects retain key uniqueness', () => {
+        pm.response.to.have.status(409);
+        pm.expect(pm.response.json().detail).to.eql('Project key already exists');
+      });

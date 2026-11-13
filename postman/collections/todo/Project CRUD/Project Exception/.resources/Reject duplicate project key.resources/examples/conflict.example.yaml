@@ -1,0 +1,12 @@
+$kind: http-example
+name: Duplicate project key
+response:
+  statusCode: 409
+  statusText: Conflict
+  headers:
+    - key: Content-Type
+      value: application/problem+json
+  body:
+    type: json
+    content: '{"type":"urn:projetotodo:problem:409","title":"Conflict","status":409,"detail":"Project key already exists","instance":"/projects","errors":[]}'
+order: 1000

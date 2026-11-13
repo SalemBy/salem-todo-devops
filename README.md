@@ -20,6 +20,12 @@ The application also reads `.env` from the project root as a properties file.
 This file is excluded from Git. Run the application with the project root as
 its working directory.
 
+After changing Maven dependencies, reload all Maven projects in IntelliJ and
+fully stop/restart the application. An already running JVM keeps its original
+classpath; recompiling source alone does not add new validation libraries.
+Validation is mandatory: the application now refuses to start without a working
+Bean Validation provider instead of serving requests without field checks.
+
 For file-based configuration, copy the shared template and edit the local copy:
 
 ```powershell
@@ -63,6 +69,13 @@ have status `PENDING`. Title is required, with a maximum of 200 characters;
 description is optional, with a maximum of 2000 characters. Invalid requests
 return HTTP 400.
 
+Required task titles and project names must contain visible text. Omitted,
+null, empty, whitespace-only values, Unicode separator-only values (including
+non-breaking spaces), and zero-width format-only values are rejected on both
+create and update. Project key validation also rejects blank values. Validation
+is enforced at HTTP and Spring-managed service entry points using DTO constraints.
+Project input fields are `name` and `key`; task input uses `title`.
+
 `GET /tasks` returns HTTP 200 with a JSON array of active tasks, or `[]`
 when none match. Use `?active=true` for active tasks (the default),
 `?active=false` for inactive tasks, or `?active=all` for every task.
@@ -85,6 +98,63 @@ the modification time, preserving the database row and task details. Returns
 HTTP 204 with no body, including for an already inactive task, or HTTP 404
 for an unknown ID. PUT cannot reactivate or edit an inactive task.
 Reading individual tasks is not implemented yet.
+
+## Projects
+
+Projects are independent of tasks in this first version. Task association is
+planned separately in issue #3; the existing Task API is unchanged.
+
+| Endpoint | Behavior |
+|---|---|
+| `POST /projects` | Creates an active project; returns 201, a project DTO, and a Location header |
+| `GET /projects` | Returns active projects by default |
+| `GET /projects?active=true`, `false`, or `all` | Filters projects; returns an array, including `[]` for no matches |
+| `GET /projects/{id}` | Returns an active or archived project, or 404 if unknown |
+| `PUT /projects/{id}` | Replaces name/description; returns 200, or 404 for unknown/archived projects |
+| `DELETE /projects/{id}` | Archives a project; returns 204, or 404 if unknown |
+
+Create a project:
+
+```json
+{"name":"Todo Platform","key":"TODO","description":"Project management backend"}
+```
+
+Name is required and nonblank (maximum 200 characters). Key is required, unique,
+and immutable: 2–10 uppercase ASCII letters or digits, starting with a letter.
+Lowercase keys are rejected rather than normalized. `LEGACY` is reserved for
+the future existing-task migration and cannot be created through the API.
+Description is optional (maximum 2000 characters). Project names can repeat.
+Invalid inputs, malformed JSON/IDs, and invalid active filters return 400 using
+the existing problem-details contract. Duplicate keys return 409, including
+concurrent creation attempts and reuse of an archived project's key.
+
+Update a project using only the editable fields:
+
+```json
+{"name":"Updated project name","description":"Updated details"}
+```
+
+PUT requires name; omitted/null description clears it. ID, key, active, and
+creation time are server-managed and cannot be changed through the request.
+Each response includes `id`, `name`, `key`, `description`, `active`, `createdAt`,
+and `updatedAt`. DELETE preserves the row and details, changes active to false,
+and updates the modification time on the first transition. Repeated DELETE is
+successful without changing the modification time again. Archived projects
+remain readable and their keys stay reserved. No restore operation is provided.
+
+Flyway migration V3 creates `projects` with a database uniqueness constraint.
+It does not modify existing task rows or create project/task relationships.
+The same project HTTP contract runs against H2 and PostgreSQL; PostgreSQL tests
+also verify upgrading a V2 database with existing active and inactive tasks.
+
+The separate `postman/collections/projects` collection runs a create/read/list/
+update/archive scenario and negative checks with captured IDs and a generated
+key. Run it only against a disposable development or test database: it leaves
+one archived project per run.
+
+```powershell
+postman collection run postman/collections/projects
+```
 
 ## API errors
 
