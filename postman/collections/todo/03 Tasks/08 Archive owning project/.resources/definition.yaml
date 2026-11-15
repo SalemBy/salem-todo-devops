@@ -1,0 +1,4 @@
+$kind: collection
+order: 8000
+description: |-
+  Create a second active task and capture it using GET, then archive the owner. Project archival must preserve both active and inactive tasks.

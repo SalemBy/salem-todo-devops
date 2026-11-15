@@ -1,0 +1,4 @@
+$kind: collection
+order: 9000
+description: |-
+  Run after Archive owning project. Creating, updating or deleting tasks in an archived project returns 409. This also applies to already inactive tasks.

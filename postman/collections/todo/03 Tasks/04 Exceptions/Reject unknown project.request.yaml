@@ -1,0 +1,18 @@
+$kind: http-request
+order: 9000
+method: POST
+url: '{{baseUrl}}/projects/9223372036854775807/tasks'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Valid title"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Unknown project is rejected', () => {
+        pm.response.to.have.status(404);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+        pm.expect(pm.response.json().status).to.eql(404);
+      });

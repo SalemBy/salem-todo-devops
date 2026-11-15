@@ -1,0 +1,4 @@
+$kind: collection
+order: 2000
+description: |-
+  Run this entire folder in order. It creates a project with a unique key, captures its ID, verifies updates and errors, then archives it. It is independent of Tasks. Expected responses: 201 create, 200 reads and updates, 204 archive, 400 validation, 404 archived updates, 409 duplicate keys.

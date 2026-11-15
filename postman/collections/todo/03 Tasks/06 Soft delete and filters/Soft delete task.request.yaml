@@ -1,0 +1,12 @@
+$kind: http-request
+order: 1000
+method: DELETE
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks/{{taskId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Task is deactivated', () => {
+        pm.response.to.have.status(204);
+        pm.expect(pm.response.text()).to.eql('');
+      });

@@ -24,7 +24,7 @@ class ValidationStartupTests {
         .withUserConfiguration(ValidationConfigurationScan.class);
 
     @Configuration(proxyBeanMethods = false)
-    @ComponentScan("github.salemby.tododevops.config")
+    @ComponentScan("github.salemby.tododevops.shared.config")
     static class ValidationConfigurationScan {
     }
 

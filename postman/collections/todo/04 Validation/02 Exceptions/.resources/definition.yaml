@@ -1,0 +1,4 @@
+$kind: collection
+order: 2000
+description: |-
+  Each request invalidates only one required field. Dataset cases include omitted, null, empty, whitespace and invisible characters. Every invalid request must return 400 and identify the field.

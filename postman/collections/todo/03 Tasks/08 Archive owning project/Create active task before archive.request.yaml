@@ -1,0 +1,18 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Preserve during project archive"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Active task exists before project archive', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('activeTaskId', String(pm.response.json().id));
+        pm.collectionVariables.set('activeTaskSnapshot', JSON.stringify(pm.response.json()));
+      });

@@ -1,0 +1,18 @@
+$kind: http-request
+order: 2000
+method: GET
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks/{{taskId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Soft deletion preserves task ownership and details', () => {
+        pm.response.to.have.status(200);
+        const t = pm.response.json();
+        pm.expect(t.active).to.eql(false);
+        pm.expect(String(t.projectId)).to.eql(pm.collectionVariables.get('taskProjectId'));
+        pm.expect(t.title).to.eql('Updated task');
+        pm.expect(t.status).to.eql('IN_PROGRESS');
+        pm.expect(t.createdAt).to.eql(pm.collectionVariables.get('taskCreatedAt'));
+        pm.collectionVariables.set('inactiveTaskSnapshot', JSON.stringify(t));
+      });

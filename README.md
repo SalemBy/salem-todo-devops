@@ -58,7 +58,7 @@ $env:JAVA_HOME = 'C:\Users\julio\.jdks\ms-17.0.15'
 The server listens at `http://127.0.0.1:8080`. `GET /` returns application status.
 There is no browser task interface yet.
 
-Create a task with `POST /tasks`, using `Content-Type: application/json`:
+Create a project first using POST /projects and use its returned ID. Create a task with `POST /projects/{projectId}/tasks`, using `Content-Type: application/json`:
 
 ```json
 {"title": "My first task", "description": "Optional details"}
@@ -76,13 +76,13 @@ create and update. Project key validation also rejects blank values. Validation
 is enforced at HTTP and Spring-managed service entry points using DTO constraints.
 Project input fields are `name` and `key`; task input uses `title`.
 
-`GET /tasks` returns HTTP 200 with a JSON array of active tasks, or `[]`
+`GET /projects/{projectId}/tasks` returns HTTP 200 with a JSON array of active tasks, or `[]`
 when none match. Use `?active=true` for active tasks (the default),
-`?active=false` for inactive tasks, or `?active=all` for every task.
+`?active=false` for inactive tasks, or `?active=all` for every task in that project.
 Other filter values return HTTP 400. Task responses include an `active` boolean.
 New tasks are active; migration V2 also marks existing tasks active.
 
-`PUT /tasks/{id}` replaces an existing task's title, description, and status:
+`PUT /projects/{projectId}/tasks/{id}` replaces an existing task's title, description, and status:
 
 ```json
 {"title":"Updated task","description":"Updated details","status":"IN_PROGRESS"}
@@ -93,16 +93,15 @@ Title follows the same rules as creation. Status is required and must be
 Returns HTTP 200 with the updated task, HTTP 400 for invalid input, or HTTP 404
 when the ID does not exist or the task is inactive. ID and creation time are preserved.
 
-`DELETE /tasks/{id}` performs a soft delete: it sets `active=false` and updates
+`DELETE /projects/{projectId}/tasks/{id}` performs a soft delete: it sets `active=false` and updates
 the modification time, preserving the database row and task details. Returns
 HTTP 204 with no body, including for an already inactive task, or HTTP 404
 for an unknown ID. PUT cannot reactivate or edit an inactive task.
-Reading individual tasks is not implemented yet.
+GET /projects/{projectId}/tasks/{id} reads active or inactive tasks; an unknown task returns 404.
 
 ## Projects
 
-Projects are independent of tasks in this first version. Task association is
-planned separately in issue #3; the existing Task API is unchanged.
+Every task belongs to exactly one project. Project assignment cannot be changed.
 
 | Endpoint | Behavior |
 |---|---|
@@ -121,8 +120,7 @@ Create a project:
 
 Name is required and nonblank (maximum 200 characters). Key is required, unique,
 and immutable: 2–10 uppercase ASCII letters or digits, starting with a letter.
-Lowercase keys are rejected rather than normalized. `LEGACY` is reserved for
-the future existing-task migration and cannot be created through the API.
+Lowercase keys are rejected rather than normalized.
 Description is optional (maximum 2000 characters). Project names can repeat.
 Invalid inputs, malformed JSON/IDs, and invalid active filters return 400 using
 the existing problem-details contract. Duplicate keys return 409, including
@@ -147,13 +145,13 @@ It does not modify existing task rows or create project/task relationships.
 The same project HTTP contract runs against H2 and PostgreSQL; PostgreSQL tests
 also verify upgrading a V2 database with existing active and inactive tasks.
 
-The `Project CRUD` folder in `postman/collections/todo` runs a create/read/list/
+The `02 Projects` folder in `postman/collections/todo` runs a create/read/list/
 update/archive scenario and negative checks with captured IDs and a generated
 key. Run it only against a disposable development or test database: it leaves
 one archived project per run.
 
 ```powershell
-postman collection run postman/collections/todo -i "Project CRUD"
+postman collection run postman/collections/todo -i "02 Projects"
 ```
 
 ## API errors
@@ -172,7 +170,7 @@ For example, posting a blank title returns HTTP 400:
   "title": "Bad Request",
   "status": 400,
   "detail": "Request validation failed",
-  "instance": "/tasks",
+  "instance": "/projects/1/tasks",
   "errors": [{"field": "title", "message": "Title is required"}]
 }
 ```
@@ -271,3 +269,36 @@ Salem is the company; Todo DevOps is the product. The backend is published as Sa
 After reloading Maven in IntelliJ, update the run configuration's main class to github.salemby.tododevops.SalemTodoDevOpsApplication and restart the application. The local checkout directory can retain its existing name.
 
 Database names, Flyway migrations and the existing urn:projetotodo:problem error identifiers remain stable for compatibility.
+
+## Project backlogs and modular structure
+
+Every task endpoint requires the project ID in its URL:
+
+| Method | Endpoint |
+| --- | --- |
+| POST / GET | `/projects/{projectId}/tasks` |
+| GET / PUT / DELETE | `/projects/{projectId}/tasks/{id}` |
+
+The project ID is no longer part of the create DTO. The URL determines ownership;
+an extra projectId in JSON cannot override it. Responses still include projectId.
+The old /tasks routes, including /tasks?projectId=..., return 404.
+
+Lists are filtered in the database and accept active=true (default), false or all,
+within that project only. Known empty projects return []; unknown projects or
+tasks belonging to a different project return 404. Malformed, fractional or
+nonpositive project IDs return 400. A query parameter cannot select another project.
+
+All task writes in an archived project return 409, including updates to inactive tasks.
+In an active project, updating an inactive task returns 404. Archival preserves task
+state and timestamps. No operation can move a task between projects.
+
+Project-scoped routes establish the ownership boundary; they do not implement
+user authorization. Accounts, invitations, membership checks and permissions
+remain future work. Until those checks exist, knowing a project ID is sufficient
+to call its API.
+
+Migration V4 adds mandatory project ownership without creating a system project.
+This development version requires an empty pre-association tasks table. This API
+change does not require another migration or reset any database.
+
+See [architecture](docs/architecture.md) for the workmanagement module, dependency rules and transaction boundaries.

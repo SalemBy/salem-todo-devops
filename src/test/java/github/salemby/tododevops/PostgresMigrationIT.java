@@ -19,7 +19,7 @@ class PostgresMigrationIT {
         // Only this randomly named test schema is migrated and cleaned.
         String schema = "migration_test_" + UUID.randomUUID().toString().replace("-", "");
         Flyway flyway = Flyway.configure().dataSource(url, username, password)
-            .schemas(schema).cleanDisabled(false).load();
+            .schemas(schema).target("3").cleanDisabled(false).load();
         try {
             Flyway.configure().dataSource(url, username, password).schemas(schema)
                 .target("1").load().migrate();
@@ -72,7 +72,7 @@ class PostgresMigrationIT {
         String password = requiredEnvironment("TEST_DB_PASSWORD");
         String schema = "project_upgrade_" + UUID.randomUUID().toString().replace("-", "");
         Flyway flyway = Flyway.configure().dataSource(url, username, password)
-            .schemas(schema).cleanDisabled(false).load();
+            .schemas(schema).target("3").cleanDisabled(false).load();
         try {
             Flyway.configure().dataSource(url, username, password).schemas(schema)
                 .target("2").load().migrate();

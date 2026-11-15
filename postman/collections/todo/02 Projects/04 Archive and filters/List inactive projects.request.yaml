@@ -1,0 +1,17 @@
+$kind: http-request
+order: 4000
+method: GET
+url: '{{baseUrl}}/projects?active=false'
+queryParams:
+  - key: active
+    value: 'false'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Inactive filter includes the archived project', () => {
+        pm.response.to.have.status(200);
+        const projects = pm.response.json();
+        projects.forEach(project => pm.expect(project.active).to.eql(false));
+        pm.expect(projects.some(project => String(project.id) === pm.collectionVariables.get('projectId'))).to.eql(true);
+      });

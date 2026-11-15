@@ -1,0 +1,4 @@
+$kind: collection
+order: 10000
+description: |-
+  Archived project backlogs remain readable. Compare stored task snapshots to prove that archival and rejected writes preserved task data.

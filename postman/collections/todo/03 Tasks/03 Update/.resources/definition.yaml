@@ -1,0 +1,4 @@
+$kind: collection
+order: 3000
+description: |-
+  PUT /projects/{projectId}/tasks/{id} updates title, description and status. An extra projectId is ignored: ownership cannot change. Record persisted state before validation failures.

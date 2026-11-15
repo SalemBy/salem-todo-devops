@@ -1,0 +1,18 @@
+$kind: http-request
+order: 3000
+method: PUT
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks/{{activeTaskId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Must not change","status":"COMPLETED"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Request is rejected with 409', () => {
+        pm.response.to.have.status(409);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+        pm.expect(pm.response.json().status).to.eql(409);
+      });

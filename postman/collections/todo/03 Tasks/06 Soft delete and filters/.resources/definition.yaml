@@ -1,0 +1,4 @@
+$kind: collection
+order: 6000
+description: |-
+  DELETE archives only the task. GET by ID remains readable. Check project backlog filters for active=true, false and all.

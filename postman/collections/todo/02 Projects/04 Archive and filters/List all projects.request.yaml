@@ -1,0 +1,15 @@
+$kind: http-request
+order: 5000
+method: GET
+url: '{{baseUrl}}/projects?active=all'
+queryParams:
+  - key: active
+    value: 'all'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('All filter includes the archived project', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().some(project => String(project.id) === pm.collectionVariables.get('projectId'))).to.eql(true);
+      });
