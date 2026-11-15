@@ -1,0 +1,14 @@
+$kind: http-example
+name: Created task with project ownership
+order: 1000
+response:
+  statusCode: 201
+  statusText: Created
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Location
+      value: http://127.0.0.1:8080/projects/42/tasks/101
+  body:
+    type: json
+    content: '{"id":101,"projectId":42,"title":"My first task","description":"Created with Postman","status":"PENDING","createdAt":"2026-01-01T12:00:00Z","updatedAt":"2026-01-01T12:00:00Z","active":true}'

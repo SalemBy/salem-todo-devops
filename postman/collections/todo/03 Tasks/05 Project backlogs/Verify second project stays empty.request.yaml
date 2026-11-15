@@ -1,0 +1,15 @@
+$kind: http-request
+order: 2000
+method: GET
+url: '{{baseUrl}}/projects/{{otherProjectId}}/tasks?active=all'
+queryParams:
+  - key: active
+    value: 'all'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Task was not moved to the second project', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json()).to.eql([]);
+      });

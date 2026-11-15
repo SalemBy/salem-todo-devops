@@ -1,0 +1,4 @@
+$kind: collection
+order: 2000
+description: |-
+  Update name and description; project key and creation time stay fixed. The final GET records persisted state before rejected updates.

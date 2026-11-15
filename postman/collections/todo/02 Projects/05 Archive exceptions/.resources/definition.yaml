@@ -1,0 +1,4 @@
+$kind: collection
+order: 5000
+description: |-
+  Run after Archive and filters. Archived keys remain unique, repeated archive is idempotent, and archived projects cannot be updated.

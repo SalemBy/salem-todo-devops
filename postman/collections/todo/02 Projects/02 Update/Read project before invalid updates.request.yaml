@@ -1,0 +1,12 @@
+$kind: http-request
+order: 3000
+method: GET
+url: '{{baseUrl}}/projects/{{projectId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Persisted resource is readable before the next operation', () => {
+        pm.response.to.have.status(200);
+        pm.collectionVariables.set('projectBeforeInvalidUpdate', JSON.stringify(pm.response.json()));
+      });

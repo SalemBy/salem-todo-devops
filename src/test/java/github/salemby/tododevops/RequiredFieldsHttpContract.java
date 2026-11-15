@@ -1,9 +1,9 @@
 package github.salemby.tododevops;
 
-import github.salemby.tododevops.entity.Project;
-import github.salemby.tododevops.entity.Task;
-import github.salemby.tododevops.repository.ProjectRepository;
-import github.salemby.tododevops.repository.TaskRepository;
+import github.salemby.tododevops.workmanagement.domain.Project;
+import github.salemby.tododevops.workmanagement.domain.Task;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +18,17 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(classes = SalemTodoDevOpsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-abstract class RequiredFieldsHttpContract {
+abstract class RequiredFieldsHttpContract {    private github.salemby.tododevops.workmanagement.domain.Project owner;
+    @Autowired github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository ownerProjects;
+    @org.junit.jupiter.api.BeforeEach
+    void createOwner() {
+        owner = ownerProjects.saveAndFlush(new github.salemby.tododevops.workmanagement.domain.Project("Task owner", "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(), null));
+    }
+    @org.junit.jupiter.api.AfterEach
+    void cleanupOwner() {
+        tasks.deleteAll(tasks.findAllByProjectId(owner.getId()));
+        ownerProjects.deleteById(owner.getId());
+    }
     @Autowired Environment environment;
     @Autowired TaskRepository tasks;
     @Autowired ProjectRepository projects;
@@ -35,20 +45,20 @@ abstract class RequiredFieldsHttpContract {
 
     @Test
     void rejectsEveryBlankTaskTitleOnCreateAndUpdate() throws Exception {
-        Task task = new Task();
+        Task task = new Task(owner);
         task.setTitle("Original");
         long id = tasks.saveAndFlush(task).getId();
         taskIds.add(id);
         var before = tasks.findById(id).orElseThrow();
         for (String title : blankValues()) {
             var fields = new HashMap<String, Object>();
-            fields.put("title", title);
-            assertRejected("POST", "/tasks", fields, "title", false);
+            fields.put("title", title); fields.put("projectId", owner.getId());
+            assertRejected("POST", "/projects/" + owner.getId() + "/tasks", fields, "title", false);
             fields.put("status", "PENDING");
-            assertRejected("PUT", "/tasks/" + id, fields, "title", false);
+            assertRejected("PUT", "/projects/" + owner.getId() + "/tasks/" + id, fields, "title", false);
         }
-        assertRejected("POST", "/tasks", Map.of(), "title", false);
-        assertRejected("PUT", "/tasks/" + id, Map.of("status", "PENDING"), "title", false);
+        assertRejected("POST", "/projects/" + owner.getId() + "/tasks", Map.of("projectId", owner.getId()), "title", false);
+        assertRejected("PUT", "/projects/" + owner.getId() + "/tasks/" + id, Map.of("status", "PENDING"), "title", false);
         assertEquals("Original", tasks.findById(id).orElseThrow().getTitle());
         assertEquals(before.getUpdatedAt(), tasks.findById(id).orElseThrow().getUpdatedAt());
     }

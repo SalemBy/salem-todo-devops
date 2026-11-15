@@ -1,0 +1,4 @@
+$kind: collection
+order: 1000
+description: |-
+  Create the valid owning project used to isolate task-title validation from project validation.

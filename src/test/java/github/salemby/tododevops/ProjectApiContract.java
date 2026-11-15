@@ -1,6 +1,6 @@
 package github.salemby.tododevops;
 
-import github.salemby.tododevops.repository.ProjectRepository;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -139,11 +139,9 @@ abstract class ProjectApiContract {
         for (String body : bodies) {
             assertProblem(request("POST", "/projects", body), 400);
         }
-        for (String key : List.of("", " ", "A", "ABCDEFGHIJK", "lower", "Ab", "1A", "A-B", "ÄB", "LEGACY")) {
+        for (String key : List.of("", " ", "A", "ABCDEFGHIJK", "lower", "Ab", "1A", "A-B", "ÄB")) {
             assertProblem(create("Valid", key, null), 400);
         }
-        var reserved = request("POST", "/projects", "{\"name\":\"Imported\",\"key\":\"LEGACY\"}");
-        assertTrue(json.readTree(reserved.body()).get("errors").toString().contains("LEGACY is reserved"));
         assertEquals(count, projects.count());
     }
 

@@ -1,8 +1,8 @@
 package github.salemby.tododevops;
 
-import github.salemby.tododevops.dto.request.CreateProjectRequest;
-import github.salemby.tododevops.repository.ProjectRepository;
-import github.salemby.tododevops.service.ProjectService;
+import github.salemby.tododevops.workmanagement.application.dto.request.CreateProjectRequest;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
+import github.salemby.tododevops.workmanagement.application.ProjectService;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 

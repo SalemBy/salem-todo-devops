@@ -1,0 +1,11 @@
+$kind: http-request
+order: 2000
+method: DELETE
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks/{{taskId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Reject task deletion in archived project', () => {
+        pm.response.to.have.status(409);
+      });

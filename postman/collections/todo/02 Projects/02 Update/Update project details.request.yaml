@@ -1,0 +1,25 @@
+$kind: http-request
+order: 1000
+method: PUT
+url: '{{baseUrl}}/projects/{{projectId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Updated Postman project","description":"Updated details"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      if (!pm.collectionVariables.get('projectId')) throw new Error('Run Create project first');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Details change while key and creation time are preserved', () => {
+        pm.response.to.have.status(200);
+        const project = pm.response.json();
+        pm.expect(project.name).to.eql('Updated Postman project');
+        pm.expect(project.description).to.eql('Updated details');
+        pm.expect(project.key).to.eql(pm.collectionVariables.get('projectKey'));
+        pm.expect(Date.parse(project.createdAt)).to.eql(Date.parse(pm.collectionVariables.get('projectCreatedAt')));
+      });

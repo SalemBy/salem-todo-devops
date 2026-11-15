@@ -1,0 +1,4 @@
+$kind: collection
+order: 2000
+description: |-
+  POST /tasks requires a positive projectId and a title. Capture taskId and the persisted creation time. New tasks are active with PENDING status.

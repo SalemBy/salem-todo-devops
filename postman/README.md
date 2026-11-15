@@ -1,53 +1,111 @@
-# Postman and Codex
+# Salem Todo DevOps — Postman guide
 
-Install Postman CLI and verify that `postman --version` works in your terminal.
-Restart IntelliJ after changing PATH so new terminals inherit it.
+One collection contains all requests: `postman/collections/todo`.
+Open this repository in Postman's Native Git workflow to use these same files in
+the desktop app. Expand **Salem Todo DevOps** and follow the numbered folders.
 
-Start the Spring Boot application, then run from the project root:
+## Start here
+
+1. Start the API against a disposable development or test database.
+2. Set the collection variable `baseUrl` (default: `http://127.0.0.1:8080`).
+3. Send **01 Status → Application status**. Expect HTTP 200 and `status: running`.
+4. Use Collection Runner to run an entire feature folder in order.
+
+Setup requests create records and capture their IDs automatically. Leave generated
+ID, key and snapshot variables empty initially; their descriptions explain their
+purpose. Run setup again when rerunning a feature or after resetting the database.
+Individual requests depend on earlier steps in their feature.
+
+## Collection layout
+
+```text
+Salem Todo DevOps
+├── 01 Status
+├── 02 Projects
+│   ├── 01 Create and read
+│   ├── 02 Update
+│   ├── 03 Exceptions
+│   ├── 04 Archive and filters
+│   └── 05 Archive exceptions
+├── 03 Tasks
+│   ├── 01 Setup
+│   ├── 02 Create and read
+│   ├── 03 Update
+│   ├── 04 Exceptions
+│   ├── 05 Project backlogs
+│   ├── 06 Soft delete and filters
+│   ├── 07 Inactive task exceptions
+│   ├── 08 Archive owning project
+│   ├── 09 Archived project exceptions
+│   └── 10 Read retained history
+└── 04 Validation
+    ├── 01 Setup
+    └── 02 Exceptions
+```
+
+**Projects**, **Tasks** and **Validation** each have their own setup and can run
+independently. The task scenario creates two projects to verify that ownership
+cannot move and that backlogs remain separate. The project scenario uses its own
+projectId; task scenarios use taskProjectId and otherProjectId.
+
+Exceptions folders intentionally produce error responses. A 400, 404 or 409 is
+a passing test when it matches the expected contract. Check the assertion results,
+not only the HTTP status color in Postman.
+
+## Run from the CLI
 
 ```powershell
+# Full collection: 68 requests and 68 assertions
 postman collection run postman/collections/todo
+
+# Independent project or task scenario
+postman collection run postman/collections/todo -i "02 Projects"
+postman collection run postman/collections/todo -i "03 Tasks"
+
+# Override the address for an isolated test instance
+postman collection run postman/collections/todo --env-var baseUrl=http://127.0.0.1:18080
+
+# Nine required-field cases: 36 requests and 36 assertions
+postman collection run postman/collections/todo -i "04 Validation" -d postman/documents/required-fields-cases.json
 ```
 
-The collection includes requests that create, update, and soft delete tasks.
-Run it against a disposable development or test database. The collection captures the created task ID and reuses it for updates and soft deletion.
-To use a different port:
+For the same dataset in the desktop app, select **04 Validation** in Collection
+Runner and choose `postman/documents/required-fields-cases.json` as its data file.
+Each iteration creates one valid owner and tests three invalid required fields.
+Cases cover missing, null, empty, ordinary whitespace and invisible characters.
+Without a data file, Validation tests whitespace once.
 
-```powershell
-postman collection run postman/collections/todo --env-var baseUrl=http://127.0.0.1:8081
-```
+## Rules exercised
 
-For desktop use, open this project through Postman's Native Git workflow.
-The root `AGENTS.md` and `postman/skills/` provide Codex's CLI integration.
-The `.postman/resources.yaml` file records the workspace binding. Account login
-is local to each developer; credentials must not be committed.
+| Operation | Expected behavior |
+| --- | --- |
+| Create project | 201; unique uppercase key, required visible name |
+| Update project | 200; name and description may change, key stays fixed |
+| Archive project | 204; repeated archive preserves its timestamp |
+| Create task | 201; requires an existing active project and visible title |
+| Update task | 200; title, description and status may change, project stays fixed |
+| Read backlogs | 200; project isolation and active=true/false/all filters |
+| Soft delete task | 204; task remains readable with active=false |
+| Invalid fields or filters | 400 with ProblemDetail and appropriate field errors |
+| Unknown project or inactive task update | 404 |
+| Duplicate project key or writes in archived project | 409 |
 
-## Project CRUD checks
+All task operations use /projects/{projectId}/tasks, with /{taskId} for individual tasks.
+The URL supplies ownership; creation bodies contain title and optional description.
+Global /tasks routes are unavailable (404). Cross-project reads, updates and deletes
+return 404. Fractional project IDs return 400. Tests verify rejected writes preserve data.
 
-Run the project-only scenario separately:
+An extra key in a project update or projectId in a task payload is ignored; tests
+verify that identity and ownership remain unchanged. Project archival preserves
+both active and inactive tasks. All writes in an archived project return 409;
+updating an inactive task in an active project returns 404. Rejected updates are followed by reads comparing
+the complete persisted record, including timestamps, to an earlier GET response.
 
-```powershell
-postman collection run postman/collections/todo -i "Project CRUD"
-```
+No automatic system project is assumed or created. Scenarios leave their generated
+records in the target database, some archived. Use disposable data. The collection
+does not reset a database or delete unrelated user records.
 
-It generates a valid unique project key, captures the created project ID, and
-reuses it for read, update, and archive requests. It verifies active filters,
-duplicate/reserved keys, archived reads, rejected archived updates, and repeated
-archive behavior. Successful and conflict examples are saved alongside requests.
-No hardcoded existing project ID is used. Run the collection in order; individual
-requests require the variables from creation. Each run leaves one archived
-project in the selected database, so use disposable test data.
-
-## Required field regressions
-
-Each request tests one invalid field while keeping other fields valid. The data
-file covers omitted, null, empty, ordinary whitespace, non-breaking/figure/narrow
-spaces, and zero-width spaces. Run against a disposable test database:
-
-```powershell
-postman collection run postman/collections/validation-regressions -d postman/documents/required-fields-cases.json
-```
-
-All 27 requests must return 400 with an error for the tested field. If a
-regression returns 201, this run can leave invalid test records. Automated
-HTTP/service tests also assert that rejected input does not change database rows.
+All future requests belong in this collection, grouped by feature and with clear
+Exceptions folders. Keep setup, mutation and verification steps ordered. The
+`.postman/resources.yaml` workspace binding and local CLI login are separate from
+the collection files; do not commit credentials.

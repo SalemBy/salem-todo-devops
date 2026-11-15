@@ -1,0 +1,4 @@
+$kind: collection
+order: 1000
+description: |-
+  Start here to verify baseUrl and confirm that Salem Todo DevOps is running. GET / must return 200.

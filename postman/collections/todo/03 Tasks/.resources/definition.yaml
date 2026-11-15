@@ -1,0 +1,4 @@
+$kind: collection
+order: 3000
+description: |-
+  Run this entire folder in order. Setup creates two fresh projects. The scenario creates a task, verifies immutable ownership and updates, soft deletes it, then creates a second active task and archives the owner. It is independent of Projects. Never use existing user task IDs for this scenario.

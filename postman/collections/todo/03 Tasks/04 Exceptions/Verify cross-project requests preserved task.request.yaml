@@ -1,0 +1,13 @@
+$kind: http-request
+order: 15000
+method: GET
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks/{{taskId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Cross-project requests leave task unchanged', () => {
+        pm.response.to.have.status(200);
+        pm.expect(String(pm.response.json().projectId)).to.eql(pm.collectionVariables.get('taskProjectId'));
+        pm.expect(pm.response.json()).to.deep.eql(JSON.parse(pm.collectionVariables.get('taskUpdateSnapshot')));
+      });

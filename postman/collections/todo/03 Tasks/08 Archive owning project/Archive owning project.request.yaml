@@ -1,0 +1,11 @@
+$kind: http-request
+order: 3000
+method: DELETE
+url: '{{baseUrl}}/projects/{{taskProjectId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Archive owning project', () => {
+        pm.response.to.have.status(204);
+      });

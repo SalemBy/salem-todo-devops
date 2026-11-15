@@ -1,0 +1,19 @@
+$kind: http-request
+order: 2000
+method: PUT
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks/{{taskId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"projectId":{{otherProjectId}},"title":"Updated task","description":"Updated with Postman","status":"IN_PROGRESS"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Extra projectId cannot reassign a task', () => {
+        pm.response.to.have.status(200);
+        pm.expect(String(pm.response.json().projectId)).to.eql(pm.collectionVariables.get('taskProjectId'));
+        pm.expect(pm.response.json().createdAt).to.eql(pm.collectionVariables.get('taskCreatedAt'));
+        pm.collectionVariables.set('taskUpdateSnapshot', JSON.stringify(pm.response.json()));
+      });

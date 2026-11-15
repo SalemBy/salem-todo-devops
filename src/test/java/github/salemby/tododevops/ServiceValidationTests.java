@@ -1,11 +1,11 @@
 package github.salemby.tododevops;
 
-import github.salemby.tododevops.dto.request.*;
-import github.salemby.tododevops.enums.TaskStatus;
-import github.salemby.tododevops.repository.ProjectRepository;
-import github.salemby.tododevops.repository.TaskRepository;
-import github.salemby.tododevops.service.ProjectService;
-import github.salemby.tododevops.service.TaskService;
+import github.salemby.tododevops.workmanagement.application.dto.request.*;
+import github.salemby.tododevops.workmanagement.domain.TaskStatus;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskRepository;
+import github.salemby.tododevops.workmanagement.application.ProjectService;
+import github.salemby.tododevops.workmanagement.application.TaskService;
 import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -33,7 +33,7 @@ class ServiceValidationTests {
     void rejectsBlankTaskTitlesBeforePersisting(String title) {
         long count = tasks.count();
         assertThrows(ConstraintViolationException.class,
-            () -> taskService.create(new CreateTaskRequest(title, null)));
+            () -> taskService.create(1L, new CreateTaskRequest(title, null)));
         assertEquals(count, tasks.count());
     }
 
@@ -61,10 +61,11 @@ class ServiceValidationTests {
     @NullAndEmptySource
     @ValueSource(strings = {" ", "\t\r\n", "\u00a0", "\u2007", "\u202f", "\u200b"})
     void rejectsBlankUpdatesWithoutChangingRows(String text) {
-        var task = taskService.create(new CreateTaskRequest("Original task", null));
+
         var project = projectService.create(new CreateProjectRequest("Original project", "ORIGINAL", null));
+        var task = taskService.create(project.id(), new CreateTaskRequest("Original task", null));
         assertThrows(ConstraintViolationException.class,
-            () -> taskService.update(task.id(), new UpdateTaskRequest(text, null, TaskStatus.PENDING)));
+            () -> taskService.update(project.id(), task.id(), new UpdateTaskRequest(text, null, TaskStatus.PENDING)));
         assertThrows(ConstraintViolationException.class,
             () -> projectService.update(project.id(), new UpdateProjectRequest(text, null)));
         assertEquals("Original task", tasks.findById(task.id()).orElseThrow().getTitle());
@@ -73,7 +74,7 @@ class ServiceValidationTests {
 
     @Test
     void rejectsNullRequests() {
-        assertThrows(ConstraintViolationException.class, () -> taskService.create(null));
+        assertThrows(ConstraintViolationException.class, () -> taskService.create(1L, null));
         assertThrows(ConstraintViolationException.class, () -> projectService.create(null));
     }
 }

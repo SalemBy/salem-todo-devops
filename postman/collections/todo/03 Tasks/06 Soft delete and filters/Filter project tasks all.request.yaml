@@ -1,0 +1,17 @@
+$kind: http-request
+order: 7000
+method: GET
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks?active=all'
+queryParams:
+  - key: active
+    value: 'all'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Project filter honors active=all', () => {
+        pm.response.to.have.status(200);
+        const tasks = pm.response.json();
+        pm.expect(tasks.length).to.eql(1);
+        tasks.forEach(t => pm.expect(String(t.projectId)).to.eql(pm.collectionVariables.get('taskProjectId')));
+      });

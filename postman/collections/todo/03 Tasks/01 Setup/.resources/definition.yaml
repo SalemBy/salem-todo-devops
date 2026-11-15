@@ -1,0 +1,4 @@
+$kind: collection
+order: 1000
+description: |-
+  Create an owner and a second project to prove backlog isolation. Capture taskProjectId and otherProjectId. Run this before task requests.

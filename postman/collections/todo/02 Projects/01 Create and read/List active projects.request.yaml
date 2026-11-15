@@ -1,0 +1,15 @@
+$kind: http-request
+order: 3000
+method: GET
+url: '{{baseUrl}}/projects'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Default list contains active projects', () => {
+        pm.response.to.have.status(200);
+        const projects = pm.response.json();
+        pm.expect(projects).to.be.an('array');
+        projects.forEach(project => pm.expect(project.active).to.eql(true));
+        pm.expect(projects.some(project => String(project.id) === pm.collectionVariables.get('projectId'))).to.eql(true);
+      });
