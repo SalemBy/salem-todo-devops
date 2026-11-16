@@ -60,7 +60,9 @@ public class ProjectService {
 
     @Transactional
     public ProjectResponse update(Long id, @NotNull @Valid UpdateProjectRequest request) {
-        Project project = projectRepository.findByIdAndActiveTrue(id)
+        // Serialize with archive and task writes; inspect activity only after acquiring the lock.
+        Project project = projectRepository.findLockedById(id)
+            .filter(Project::isActive)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
         project.setName(request.name());
         project.setDescription(request.description());

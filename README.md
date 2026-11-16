@@ -140,6 +140,14 @@ and updates the modification time on the first transition. Repeated DELETE is
 successful without changing the modification time again. Archived projects
 remain readable and their keys stay reserved. No restore operation is provided.
 
+Project detail updates and archival acquire the same project row lock. If archival
+wins, a competing detail update returns 404 without changing the archived record.
+If the update wins, its details are retained and archival then leaves the project
+inactive. Task creation competing with archival returns 409 when archival wins.
+Writes to the same project wait for each other; different projects can be written
+independently. PostgreSQL concurrency regressions exercise both update/archive
+orderings and verify retained task history.
+
 Flyway migration V3 creates `projects` with a database uniqueness constraint.
 It does not modify existing task rows or create project/task relationships.
 The project HTTP contract runs against PostgreSQL; migration tests

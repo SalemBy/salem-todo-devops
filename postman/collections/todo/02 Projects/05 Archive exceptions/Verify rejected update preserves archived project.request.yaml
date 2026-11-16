@@ -1,0 +1,18 @@
+$kind: http-request
+order: 5000
+method: GET
+url: '{{baseUrl}}/projects/{{projectId}}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      if (!pm.collectionVariables.get('archivedProjectSnapshot')) throw new Error('Run Read archived project first');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Rejected update preserves archived state, details and timestamps', () => {
+        pm.response.to.have.status(200);
+        const project = pm.response.json();
+        pm.expect(project.active).to.eql(false);
+        pm.expect(project).to.deep.eql(JSON.parse(pm.collectionVariables.get('archivedProjectSnapshot')));
+      });
