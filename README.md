@@ -142,7 +142,7 @@ remain readable and their keys stay reserved. No restore operation is provided.
 
 Flyway migration V3 creates `projects` with a database uniqueness constraint.
 It does not modify existing task rows or create project/task relationships.
-The same project HTTP contract runs against H2 and PostgreSQL; PostgreSQL tests
+The project HTTP contract runs against PostgreSQL; migration tests
 also verify upgrading a V2 database with existing active and inactive tasks.
 
 The `02 Projects` folder in `postman/collections/todo` runs a create/read/list/
@@ -202,10 +202,9 @@ returned to clients. Relevant protocol headers such as `Allow` are preserved.
 .\mvnw.cmd test
 ```
 
-Tests use an in-memory H2 database and a random HTTP port, leaving the local
-PostgreSQL database unchanged. Flyway creates the schema, and Hibernate validates it.
-The default build verifies H2 behavior. PostgreSQL integration tests are opt-in
-locally and mandatory in CI.
+The default build runs database-independent architecture, service-validation proxy,
+validation-startup and database-error translation tests. HTTP and persistence
+checks require the postgres-it profile locally and are mandatory in CI.
 
 ### PostgreSQL integration tests
 
@@ -221,16 +220,15 @@ $env:TEST_DB_PASSWORD = $testCredential.GetNetworkCredential().Password
 .\mvnw.cmd -B --no-transfer-progress -Ppostgres-it verify
 ```
 
-This runs the same task HTTP and error contract against H2 and PostgreSQL, then
-tests a PostgreSQL V1-to-V2 migration with an existing task. The migration test
-uses a randomly named schema and removes only that schema afterward. It checks
-data preservation and PostgreSQL not-null/check constraints. The HTTP suite
-expects an otherwise empty test database and cleans up records it creates.
-Missing PostgreSQL configuration or unavailable PostgreSQL fails the opt-in build;
-integration tests are not silently skipped. Maven Failsafe writes PostgreSQL
-reports to `target/failsafe-reports`; H2 reports remain in `target/surefire-reports`.
+This runs the fast suite plus PostgreSQL HTTP and migration checks. Flyway applies
+the production migrations and Hibernate validates the schema. Migration tests
+use randomly named schemas and remove only those schemas afterward. HTTP tests
+expect an empty disposable database and clean up their fixtures. Missing settings
+or unavailable PostgreSQL fail the build rather than silently skipping checks.
+Failsafe reports are in `target/failsafe-reports`; fast-test reports are in
+`target/surefire-reports`. See [test strategy and review](docs/test-suite-review.md).
 
-To test and package the application in one command:
+To run the fast tests and package the application (without HTTP/database verification):
 
 ```powershell
 .\mvnw.cmd -B --no-transfer-progress verify

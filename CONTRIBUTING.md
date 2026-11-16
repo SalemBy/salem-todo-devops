@@ -18,10 +18,11 @@
    ```
 
    On Linux or macOS, run `./mvnw -B --no-transfer-progress verify`.
-   Java 17 or newer is required. Tests use H2 and do not need production credentials.
-   Before submitting database changes, also run `verify -Ppostgres-it` against a
+   Java 17 or newer is required. The default build runs database-independent tests.
+   Before submitting backend changes, also run `verify -Ppostgres-it` against a
    disposable PostgreSQL database using the `TEST_DB_*` settings described in
-   README. CI requires this PostgreSQL suite as well as the H2 tests.
+   README. CI requires this PostgreSQL suite. See docs/test-suite-review.md for
+   the behavior-to-test mapping and rationale.
 5. Commit and push your branch, then open a pull request targeting `master`.
    Complete the PR template. Put `Closes #12` in the description to close issue
    12 when the PR merges. Use `Refs #12` for partial work that must leave it open.

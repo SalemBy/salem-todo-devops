@@ -109,3 +109,14 @@ All future requests belong in this collection, grouped by feature and with clear
 Exceptions folders. Keep setup, mutation and verification steps ordered. The
 `.postman/resources.yaml` workspace binding and local CLI login are separate from
 the collection files; do not commit credentials.
+
+## Java and Postman responsibilities
+
+Java owns automated persistence, migration, concurrent uniqueness, validation wiring,
+error sanitization and ownership regressions. Postman owns runnable consumer examples
+and ordered project/task workflows, with essential error contracts. Their overlap
+on ownership, rejection without mutation and lifecycle behavior is intentional:
+Postman exercises a separately deployed application, while Java inspects stored data.
+The nine-case validation dataset is an optional targeted diagnostic for validation
+changes, not an additional mandatory copy of the Java matrix on every build.
+See [the test review](../docs/test-suite-review.md) for decisions and known gaps.
