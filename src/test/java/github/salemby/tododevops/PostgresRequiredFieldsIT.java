@@ -91,6 +91,65 @@ class PostgresRequiredFieldsIT {
         assertRejected("POST", "/projects", fields, "key", true);
     }
 
+    @ParameterizedTest(name = "NUL in {0}: {1}")
+    @MethodSource("nulFields")
+    void rejectsNulOnCreateAndUpdateWithoutMutation(boolean project, String field) throws Exception {
+        Task task = new Task(owner);
+        task.setTitle("Original task");
+        long taskId = tasks.saveAndFlush(task).getId();
+        String collection = project ? "/projects" : "/projects/" + owner.getId() + "/tasks";
+        String resource = project ? "/projects/" + owner.getId() : collection + "/" + taskId;
+        var before = read(resource);
+        var fields = new HashMap<String, Object>();
+        fields.put(project ? "name" : "title", "Visible text");
+        fields.put("description", "Original description");
+        if (project) fields.put("key", "NULTEST");
+        fields.put(field, "Visible" + (char) 0 + "text");
+        assertRejected("POST", collection, fields, field, project);
+        fields.remove("key");
+        if (!project) fields.put("status", "COMPLETED");
+        assertRejected("PUT", resource, fields, field, project);
+        assertEquals(before, read(resource), "Rejected update must preserve every field and timestamp");
+    }
+
+    static java.util.stream.Stream<Arguments> nulFields() {
+        return java.util.stream.Stream.of(Arguments.of(false, "title"), Arguments.of(false, "description"),
+            Arguments.of(true, "name"), Arguments.of(true, "description"));
+    }
+
+    @org.junit.jupiter.api.Test
+    void preservesUnicodeAndOptionalNullDescriptions() throws Exception {
+        String text = "Caf\u00e9 \u65e5\u672c\u8a9e \ud83d\ude80\nSecond line";
+        // Exercise JSON binding and persistence, not just a validator instance.
+        for (boolean isProject : java.util.List.of(true, false)) {
+            String collection = isProject ? "/projects" : "/projects/" + owner.getId() + "/tasks";
+            var fields = new HashMap<String, Object>();
+            fields.put(isProject ? "name" : "title", text);
+            fields.put("description", text);
+            if (isProject) fields.put("key", "UNICODE");
+            var created = client.send(TestHttp.request(URI.create("http://127.0.0.1:" + environment.getProperty("local.server.port") + collection))
+                .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(fields))).build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(201, created.statusCode(), created.body());
+            long id = json.readTree(created.body()).get("id").asLong();
+            (isProject ? projectIds : taskIds).add(id);
+            String resource = collection + "/" + id;
+            assertEquals(text, read(resource).get("description").stringValue());
+            fields.put("description", null);
+            if (!isProject) fields.put("status", "PENDING");
+            var updated = client.send(TestHttp.request(URI.create("http://127.0.0.1:" + environment.getProperty("local.server.port") + resource))
+                .header("Content-Type", "application/json").PUT(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(fields))).build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, updated.statusCode(), updated.body());
+            assertEquals(text, read(resource).get(isProject ? "name" : "title").stringValue());
+            assertTrue(read(resource).get("description").isNull());
+        }
+    }
+
+    private tools.jackson.databind.JsonNode read(String path) throws Exception {
+        var response = client.send(TestHttp.request(URI.create("http://127.0.0.1:" + environment.getProperty("local.server.port") + path)).GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode(), response.body());
+        return json.readTree(response.body());
+    }
+
     static java.util.stream.Stream<Arguments> blankValues() {
         return java.util.stream.Stream.of(
             Arguments.of("omitted", null, false),
