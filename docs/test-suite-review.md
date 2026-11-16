@@ -110,10 +110,11 @@ Complete backend verification:
 .\mvnw.cmd -B --no-transfer-progress -Ppostgres-it verify
 ```
 
-Set TEST_DB_URL, TEST_DB_USERNAME and TEST_DB_PASSWORD to an empty disposable
+Set TEST_DB_URL, TEST_DB_USERNAME and TEST_DB_PASSWORD to a disposable
 PostgreSQL 18 database, as documented in README. HTTP fixtures are removed after
-tests; migration fixtures use random schemas with finally cleanup. Tests must not
-share a database concurrently or use valuable application data. Missing configuration
+tests and use a random schema per cached context; migration fixtures use random
+schemas with finally cleanup. Tests sharing a context run sequentially. Independent
+Maven processes use different schemas. Never use valuable application data. Missing configuration
 or an unavailable database fails the required integration run; there are no
 assumptions or disabled tests that silently skip it.
 
@@ -127,3 +128,91 @@ nested Exceptions folders. Intentional overlap checks the deployed consumer
 experience; Java additionally inspects persisted state and migration behavior.
 No Postman requests or assertions were removed. Existing local changes to the
 workspace binding and collection description are excluded from this change.
+
+## Reliability follow-up (16 November 2026)
+
+These changes continue on issue #28's existing branch after the published PR
+baseline. They were initially kept local for review; publication was subsequently
+authorized after successful Postman verification.
+The earlier timing table records the initial simplification, not the following
+parameterized execution count.
+
+1. **Baseline:** a fresh `-Ppostgres-it clean verify` passed 36 executions in
+   39.202 seconds before the follow-up edits.
+2. **Bounded HTTP:** TestHttp reuses one Java HTTP client with a five-second
+   connection timeout and a fifteen-second request timeout. Every HTTP request
+   in the four integration suites uses it. No new test dependency was added.
+3. **Controlled unique-key conflict:** replace the simultaneous-client-start test
+   with an uncommitted PostgreSQL insert competing with an actual HTTP POST.
+   Observe `pg_blocking_pids` before committing the winning insert; then require
+   HTTP 409, the standardized error body and exactly one unchanged winning row.
+   JDBC deliberately controls the winning transaction. Ordinary HTTP 201 and
+   sequential duplicate rejection remain covered separately. Lock observation,
+   SQL queries, HTTP calls, worker completion and cleanup have bounded waits.
+4. **Schema isolation:** each cached Spring HTTP context creates a generated
+   `http_test_<uuid>` schema. Flyway, Hibernate and Hikari use that schema.
+   A disposable callback registered before application beans drops it after
+   those beans are destroyed, on normal shutdown or refresh failure. Per-case
+   fixture cleanup remains, and required-field cleanup is one ordered method.
+   Migration tests retain their independently generated schemas. Tests within a
+   context remain sequential; parallel methods in one context are not supported.
+5. **Assertions and diagnosis:** use Jackson 3 `stringValue()` for expected JSON
+   strings instead of deprecated `asText()`. Remove the exact response-field count
+   while still asserting required fields, values and initial timestamps. Backdate
+   lifecycle fixtures so timestamp-advancement assertions detect missing updates
+   without relying on clock granularity. Keep immutable-field assertions, with a
+   spoofed timestamp different from the fixture. Name individual create/update,
+   key-format and required-field validation cases. Rejected task updates now compare
+   complete before/after HTTP records, including status and timestamps. Equivalent
+   one-space and three-space required-field cases were consolidated.
+6. **Verification:** clean verification with compiler deprecation reporting enabled
+   passed **96 executions: 8 fast + 88 PostgreSQL**, with zero failures, errors or
+   skips and no compiler deprecation warnings, in **35.908 seconds**. This higher
+   count reports the existing input matrix as independent invocations; it is not
+   additional duplicated database coverage. Single local timings are not a stable
+   performance benchmark.
+
+The controlled-conflict mutation temporarily disabled only ProjectService's
+duplicate-key exception translation. The selected test reached the database lock,
+then failed with **expected 409, received 500**. The exact original production
+source was restored in a finally block; no production change remains.
+After restoration and the final immutable-timestamp fixture adjustment, a targeted
+rerun of the controlled conflict and project CRUD tests passed both executions
+in 22.154 seconds. This rerun is in addition to the complete 96-execution run.
+
+Isolation evidence: a `public.projects` sentinel using the same `TODO` key as an
+HTTP fixture remained byte-for-byte identical after the full suite. No
+`http_test_*` schemas remained after either the mutation failure or the successful
+full run. This also demonstrates that the suite need not use an empty public
+schema. A forcibly killed JVM cannot guarantee callback cleanup; continue using
+a disposable database. Concurrent independent Maven processes were not separately
+exercised in this follow-up.
+
+Raw local evidence (ignored): `issue28-reliability-baseline.log`,
+`issue28-conflict-mutation.log`, `issue28-reliability-final.log`,
+`issue28-reliability-repeat.log` and `issue28-sentinel-before/after.txt` in
+`.local-tools/`. Postman request files and production behavior are unchanged.
+Bugs #24–#27 remain separate.
+
+### Packaged-application Postman verification
+
+The restored packaged application was started on `http://127.0.0.1:18088`, using
+a new disposable PostgreSQL database (`issue28_postman_validation`) and production
+Flyway migrations. Both commands exited with code 0:
+
+```powershell
+postman collection run postman/collections/todo --env-var baseUrl=http://127.0.0.1:18088 --timeout-request 15000 --timeout 120000 --no-report-events
+postman collection run postman/collections/todo -i '04 Validation' -d postman/documents/required-fields-cases.json --env-var baseUrl=http://127.0.0.1:18088 --timeout-request 15000 --timeout 120000 --no-report-events
+```
+
+- Full collection: 68 requests, 68 assertions, zero failures (about 3 seconds).
+- Nine-case validation dataset: 36 requests, 36 assertions, zero failures
+  (about 1.2 seconds).
+- Evidence is against the actual packaged API and PostgreSQL, not a mock.
+- Local logs: `.local-tools/issue28-postman-full.log` and
+  `.local-tools/issue28-postman-dataset.log`. Run events were not published.
+- The test application and disposable database cluster are stopped after use.
+
+The subsequent GitHub Build and test check on PR #30 verifies the pushed Java
+suite separately. Postman CLI suggested a version/skills update; it did not block
+either run and no tooling update was required for this verification.

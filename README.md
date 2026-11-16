@@ -223,8 +223,13 @@ $env:TEST_DB_PASSWORD = $testCredential.GetNetworkCredential().Password
 This runs the fast suite plus PostgreSQL HTTP and migration checks. Flyway applies
 the production migrations and Hibernate validates the schema. Migration tests
 use randomly named schemas and remove only those schemas afterward. HTTP tests
-expect an empty disposable database and clean up their fixtures. Missing settings
-or unavailable PostgreSQL fail the build rather than silently skipping checks.
+also use a randomly named schema per cached Spring context, with production migrations.
+Fixtures are cleaned after each case and the schema is dropped when the context
+closes, including normal test failures. Other schemas are not used for HTTP fixtures.
+Tests sharing a context run sequentially; separate Maven processes get different
+schemas. A forcibly terminated JVM may leave a test schema behind, so continue using
+a disposable database. Missing settings or unavailable PostgreSQL fail the build
+rather than silently skipping checks.
 Failsafe reports are in `target/failsafe-reports`; fast-test reports are in
 `target/surefire-reports`. See [test strategy and review](docs/test-suite-review.md).
 

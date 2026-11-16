@@ -1,5 +1,9 @@
 package github.salemby.tododevops;
 
+import github.salemby.tododevops.support.TestHttp;
+import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import org.springframework.test.context.ContextConfiguration;
+
 import github.salemby.tododevops.workmanagement.domain.Task;
 import github.salemby.tododevops.workmanagement.domain.TaskStatus;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskRepository;
@@ -7,6 +11,9 @@ import github.salemby.tododevops.workmanagement.application.TaskService;
 import github.salemby.tododevops.workmanagement.application.dto.request.CreateTaskRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.TaskResponse;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
@@ -18,7 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,7 +32,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(classes = SalemTodoDevOpsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(PostgresTaskApiIT.FailureConfiguration.class)
 @org.springframework.test.context.ActiveProfiles("postgres-test")
-class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.domain.Project owner;
+@ContextConfiguration(initializers = IsolatedPostgresSchema.class)
+class PostgresTaskApiIT {
+    private github.salemby.tododevops.workmanagement.domain.Project owner;
     @Autowired github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository ownerProjects;
     @org.junit.jupiter.api.BeforeEach
     void createOwner() {
@@ -39,6 +47,7 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
     }
     @Autowired Environment environment;
     @Autowired TaskRepository tasks;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @TestConfiguration(proxyBeanMethods = false)
     static class FailureConfiguration {
@@ -71,9 +80,9 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
     void returnsConsistentApiErrors() throws Exception {
         var invalid = sendRequest("POST", "/projects/" + owner.getId() + "/tasks", "{\"projectId\":" + owner.getId() + ",\"title\":\"   \"}", "application/json");
         var problem = assertProblem(invalid, 400, "/projects/" + owner.getId() + "/tasks");
-        assertEquals("Request validation failed", problem.get("detail").asText());
-        assertEquals("title", problem.get("errors").get(0).get("field").asText());
-        assertEquals("Title is required", problem.get("errors").get(0).get("message").asText());
+        assertEquals("Request validation failed", problem.get("detail").stringValue());
+        assertEquals("title", problem.get("errors").get(0).get("field").stringValue());
+        assertEquals("Title is required", problem.get("errors").get(0).get("message").stringValue());
         assertFalse(invalid.body().contains("rejectedValue"));
 
         assertProblem(sendRequest("POST", "/projects/" + owner.getId() + "/tasks", "{invalid json}", "application/json"), 400, "/projects/" + owner.getId() + "/tasks");
@@ -84,7 +93,7 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
         assertFalse(enumError.body().contains("PRIVATE_VALUE"));
         assertProblem(sendRequest("DELETE", "/projects/" + owner.getId() + "/tasks/not-a-number", null, null), 400, "/projects/" + owner.getId() + "/tasks/not-a-number");
         var missing = assertProblem(deleteTask(Long.MAX_VALUE), 404, "/projects/" + owner.getId() + "/tasks/" + Long.MAX_VALUE);
-        assertEquals("Task not found", missing.get("detail").asText());
+        assertEquals("Task not found", missing.get("detail").stringValue());
         assertProblem(getTasks("?active=invalid"), 400, "/projects/" + owner.getId() + "/tasks");
         assertProblem(sendRequest("GET", "/unknown-route", null, null), 404, "/unknown-route");
         var methodError = sendRequest("PATCH", "/projects/" + owner.getId() + "/tasks", "{}", "application/json");
@@ -98,8 +107,8 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
         long count = tasks.count();
         var response = sendRequest("POST", "/test-only/service-validation/" + owner.getId(), "{\"projectId\":" + owner.getId() + ",\"title\":\" \"}", "application/json");
         var problem = assertProblem(response, 400, "/test-only/service-validation/" + owner.getId());
-        assertEquals("title", problem.get("errors").get(0).get("field").asText());
-        assertEquals("Title is required", problem.get("errors").get(0).get("message").asText());
+        assertEquals("title", problem.get("errors").get(0).get("field").stringValue());
+        assertEquals("Title is required", problem.get("errors").get(0).get("message").stringValue());
         assertEquals(count, tasks.count());
     }
 
@@ -107,7 +116,7 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
     void hidesUnexpectedFailureDetails() throws Exception {
         var response = sendRequest("GET", "/test-only/failure", null, null);
         var problem = assertProblem(response, 500, "/test-only/failure");
-        assertEquals("An unexpected error occurred", problem.get("detail").asText());
+        assertEquals("An unexpected error occurred", problem.get("detail").stringValue());
         assertFalse(response.body().contains("Sensitive"));
         assertFalse(response.body().contains("IllegalStateException"));
         assertFalse(response.body().contains("trace"));
@@ -119,39 +128,39 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
             .startsWith("application/problem+json"));
         var problem = new tools.jackson.databind.ObjectMapper().readTree(response.body());
         assertEquals(status, problem.get("status").asInt());
-        assertEquals("urn:projetotodo:problem:" + status, problem.path("type").asText(), response.body());
-        assertFalse(problem.get("title").asText().isBlank());
-        assertFalse(problem.get("detail").asText().isBlank());
-        assertEquals(path, problem.get("instance").asText());
+        assertEquals("urn:projetotodo:problem:" + status, problem.path("type").stringValue(), response.body());
+        assertFalse(problem.get("title").stringValue().isBlank());
+        assertFalse(problem.get("detail").stringValue().isBlank());
+        assertEquals(path, problem.get("instance").stringValue());
         assertTrue(problem.get("errors").isArray());
         return problem;
     }
 
     private HttpResponse<String> sendRequest(String method, String path, String body, String contentType) throws Exception {
-        var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
+        var builder = TestHttp.request(URI.create("http://127.0.0.1:"
             + environment.getProperty("local.server.port") + path));
         if (contentType != null) {
             builder.header("Content-Type", contentType);
         }
         var request = builder.method(method, body == null ? HttpRequest.BodyPublishers.noBody()
             : HttpRequest.BodyPublishers.ofString(body)).build();
-        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        return TestHttp.client().send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     @Test
     void servesHttp() throws Exception {
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
+        var request = TestHttp.request(URI.create("http://127.0.0.1:"
             + environment.getProperty("local.server.port") + "/")).GET().build();
-        var response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        var response = TestHttp.client().send(request, HttpResponse.BodyHandlers.ofString());
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("running"));
     }
 
     @Test
     void listsProjectTasksThroughHttp() throws Exception {
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
+        var request = TestHttp.request(URI.create("http://127.0.0.1:"
             + environment.getProperty("local.server.port") + "/projects/" + owner.getId() + "/tasks")).GET().build();
-        var client = HttpClient.newHttpClient();
+        var client = TestHttp.client();
         var emptyResponse = client.send(request, HttpResponse.BodyHandlers.ofString());
         assertEquals(200, emptyResponse.statusCode());
         assertEquals("[]", emptyResponse.body());
@@ -172,7 +181,7 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
             var ids = new java.util.HashSet<Long>();
             for (var item : json) {
                 ids.add(item.get("id").asLong());
-                assertEquals("PENDING", item.get("status").asText());
+                assertEquals("PENDING", item.get("status").stringValue());
                 assertFalse(item.get("createdAt").isNull());
             }
             assertEquals(java.util.Set.of(first.getId(), second.getId()), ids);
@@ -183,13 +192,13 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
 
     @Test
     void createsTaskThroughHttp() throws Exception {
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
+        var request = TestHttp.request(URI.create("http://127.0.0.1:"
             + environment.getProperty("local.server.port") + "/projects/" + owner.getId() + "/tasks"))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(
                 "{\"projectId\":" + owner.getId() + ",\"title\":\"Created through HTTP\",\"description\":\"Task details\"}"))
             .build();
-        var response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        var response = TestHttp.client().send(request, HttpResponse.BodyHandlers.ofString());
         assertEquals(201, response.statusCode());
         String location = response.headers().firstValue("Location").orElseThrow();
         assertTrue(location.contains("/projects/" + owner.getId() + "/tasks/"));
@@ -205,25 +214,22 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
         }
     }
 
-    @Test
-    void rejectsInvalidTasksThroughHttp() throws Exception {
+    @ParameterizedTest(name = "create task rejects {0}")
+    @MethodSource("invalidCreateBodies")
+    void rejectsInvalidTasksThroughHttp(String reason, String body) throws Exception {
         long count = tasks.count();
-        var client = HttpClient.newHttpClient();
-        for (String body : new String[] {
-            "{}",
-            "{\"title\":\"   \"}",
-            "{\"title\":\"" + "a".repeat(201) + "\"}",
-            "{\"title\":\"Valid\",\"description\":\"" + "a".repeat(2001) + "\"}",
-            "{invalid json}"
-        }) {
-            var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
-                + environment.getProperty("local.server.port") + "/projects/" + owner.getId() + "/tasks"))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body)).build();
-            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            assertEquals(400, response.statusCode());
-        }
+        assertEquals(400, sendRequest("POST", "/projects/" + owner.getId() + "/tasks",
+            body, "application/json").statusCode());
         assertEquals(count, tasks.count());
+    }
+
+    static java.util.stream.Stream<Arguments> invalidCreateBodies() {
+        return java.util.stream.Stream.of(
+            Arguments.of("missing title", "{}"),
+            Arguments.of("blank title", "{\"title\":\"   \"}"),
+            Arguments.of("title length", "{\"title\":\"" + "a".repeat(201) + "\"}"),
+            Arguments.of("description length", "{\"title\":\"Valid\",\"description\":\"" + "a".repeat(2001) + "\"}"),
+            Arguments.of("malformed JSON", "{invalid json}"));
     }
 
     @Test
@@ -232,7 +238,7 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
         task.setTitle("Original");
         task.setDescription("Original details");
         Task saved = tasks.saveAndFlush(task);
-        Task original = tasks.findById(saved.getId()).orElseThrow();
+        Task original = withHistoricalTimestamps(saved.getId());
         try {
             var response = putTask(saved.getId(),
                 "{\"title\":\"Updated\",\"description\":\"New details\",\"status\":\"COMPLETED\"}");
@@ -245,10 +251,10 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
             assertTrue(updated.getUpdatedAt().isAfter(original.getUpdatedAt()));
             var json = new tools.jackson.databind.ObjectMapper().readTree(response.body());
             assertEquals(saved.getId().longValue(), json.get("id").asLong());
-            assertEquals("Updated", json.get("title").asText());
-            assertEquals("COMPLETED", json.get("status").asText());
+            assertEquals("Updated", json.get("title").stringValue());
+            assertEquals("COMPLETED", json.get("status").stringValue());
             assertTrue(java.time.Duration.between(updated.getUpdatedAt(),
-                java.time.Instant.parse(json.get("updatedAt").asText())).abs().toNanos() < 1000);
+                java.time.Instant.parse(json.get("updatedAt").stringValue())).abs().toNanos() < 1000);
 
             assertEquals(200, putTask(saved.getId(),
                 "{\"title\":\"Updated\",\"status\":\"PENDING\"}").statusCode());
@@ -258,38 +264,51 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
         }
     }
 
-    @Test
-    void rejectsInvalidUpdatesAndMissingTasks() throws Exception {
+    @ParameterizedTest(name = "update task rejects {0}")
+    @MethodSource("invalidUpdateBodies")
+    void rejectsInvalidUpdatesWithoutChangingTask(String reason, String body) throws Exception {
         Task task = new Task(owner);
         task.setTitle("Original");
         Task saved = tasks.saveAndFlush(task);
         try {
-            for (String body : new String[] {
-                "{}", "null", "{invalid json}",
-                "{\"title\":\"   \",\"status\":\"PENDING\"}",
-                "{\"title\":\"" + "a".repeat(201) + "\",\"status\":\"PENDING\"}",
-                "{\"title\":\"Valid\",\"description\":\"" + "a".repeat(2001) + "\",\"status\":\"PENDING\"}",
-                "{\"title\":\"Valid\"}",
-                "{\"title\":\"Valid\",\"status\":\"UNKNOWN\"}"
-            }) {
-                assertEquals(400, putTask(saved.getId(), body).statusCode());
-            }
-            assertEquals("Original", tasks.findById(saved.getId()).orElseThrow().getTitle());
-            long count = tasks.count();
-            assertEquals(404, putTask(Long.MAX_VALUE,
-                "{\"title\":\"Valid\",\"status\":\"PENDING\"}").statusCode());
-            assertEquals(count, tasks.count());
+            var before = sendRequest("GET", "/projects/" + owner.getId() + "/tasks/" + saved.getId(), null, null);
+            assertEquals(200, before.statusCode());
+            assertEquals(400, putTask(saved.getId(), body).statusCode());
+            var after = sendRequest("GET", "/projects/" + owner.getId() + "/tasks/" + saved.getId(), null, null);
+            assertEquals(200, after.statusCode());
+            var json = new tools.jackson.databind.ObjectMapper();
+            assertEquals(json.readTree(before.body()), json.readTree(after.body()), "Rejected update must preserve every field");
         } finally {
             tasks.deleteById(saved.getId());
         }
     }
 
+    static java.util.stream.Stream<Arguments> invalidUpdateBodies() {
+        return java.util.stream.Stream.of(
+            Arguments.of("missing fields", "{}"),
+            Arguments.of("null body", "null"),
+            Arguments.of("malformed JSON", "{invalid json}"),
+            Arguments.of("blank title", "{\"title\":\"   \",\"status\":\"PENDING\"}"),
+            Arguments.of("title length", "{\"title\":\"" + "a".repeat(201) + "\",\"status\":\"PENDING\"}"),
+            Arguments.of("description length", "{\"title\":\"Valid\",\"description\":\"" + "a".repeat(2001) + "\",\"status\":\"PENDING\"}"),
+            Arguments.of("missing status", "{\"title\":\"Valid\"}"),
+            Arguments.of("unknown status", "{\"title\":\"Valid\",\"status\":\"UNKNOWN\"}"));
+    }
+
+    @Test
+    void rejectsUpdateOfMissingTaskWithoutInserting() throws Exception {
+        long count = tasks.count();
+        assertEquals(404, putTask(Long.MAX_VALUE,
+            "{\"title\":\"Valid\",\"status\":\"PENDING\"}").statusCode());
+        assertEquals(count, tasks.count());
+    }
+
     private HttpResponse<String> putTask(Long id, String body) throws Exception {
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
+        var request = TestHttp.request(URI.create("http://127.0.0.1:"
             + environment.getProperty("local.server.port") + "/projects/" + owner.getId() + "/tasks/" + id))
             .header("Content-Type", "application/json")
             .PUT(HttpRequest.BodyPublishers.ofString(body)).build();
-        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        return TestHttp.client().send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     @Test
@@ -299,7 +318,7 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
         Task second = new Task(owner);
         second.setTitle("Deactivate");
         var saved = tasks.saveAllAndFlush(java.util.List.of(first, second));
-        var original = tasks.findById(second.getId()).orElseThrow();
+        var original = withHistoricalTimestamps(second.getId());
         long count = tasks.count();
         try {
             assertTrue(original.isActive());
@@ -329,16 +348,24 @@ class PostgresTaskApiIT {    private github.salemby.tododevops.workmanagement.do
         }
     }
 
+    private Task withHistoricalTimestamps(long id) {
+        jdbc.update("""
+            UPDATE tasks SET created_at = TIMESTAMPTZ '2000-01-01 00:00:00Z',
+                             updated_at = TIMESTAMPTZ '2000-01-01 00:00:00Z' WHERE id = ?
+            """, id);
+        return tasks.findById(id).orElseThrow();
+    }
+
     private HttpResponse<String> deleteTask(Long id) throws Exception {
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
+        var request = TestHttp.request(URI.create("http://127.0.0.1:"
             + environment.getProperty("local.server.port") + "/projects/" + owner.getId() + "/tasks/" + id)).DELETE().build();
-        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        return TestHttp.client().send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> getTasks(String query) throws Exception {
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
+        var request = TestHttp.request(URI.create("http://127.0.0.1:"
             + environment.getProperty("local.server.port") + "/projects/" + owner.getId() + "/tasks" + query)).GET().build();
-        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        return TestHttp.client().send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private void assertTaskIds(String query, Long... expected) throws Exception {

@@ -1,8 +1,16 @@
 package github.salemby.tododevops;
 
+import github.salemby.tododevops.support.TestHttp;
+import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import org.springframework.test.context.ContextConfiguration;
+
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
@@ -14,11 +22,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Instant;
+import java.sql.Connection;
+import javax.sql.DataSource;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -26,11 +35,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(classes = SalemTodoDevOpsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @org.springframework.test.context.ActiveProfiles("postgres-test")
+@ContextConfiguration(initializers = IsolatedPostgresSchema.class)
 class PostgresProjectApiIT {
     @Autowired Environment environment;
     @Autowired ProjectRepository projects;
+    @Autowired DataSource dataSource;
     private final ObjectMapper json = new ObjectMapper();
-    private final HttpClient client = HttpClient.newHttpClient();
+    private final HttpClient client = TestHttp.client();
     private final Set<Long> createdIds = ConcurrentHashMap.newKeySet();
 
     @AfterEach
@@ -45,20 +56,20 @@ class PostgresProjectApiIT {
         var project = json.readTree(response.body());
         long id = project.get("id").asLong();
         assertTrue(response.headers().firstValue("Location").orElseThrow().endsWith("/projects/" + id));
-        assertEquals(7, project.size());
-        assertEquals("Todo platform", project.get("name").asText());
-        assertEquals("TODO", project.get("key").asText());
-        assertEquals("Original details", project.get("description").asText());
+        assertEquals("Todo platform", project.get("name").stringValue());
+        assertEquals("TODO", project.get("key").stringValue());
+        assertEquals("Original details", project.get("description").stringValue());
         assertTrue(project.get("active").asBoolean());
-        assertNotNull(Instant.parse(project.get("createdAt").asText()));
-        var original = projects.findById(id).orElseThrow();
+        var createdAt = Instant.parse(project.get("createdAt").stringValue());
+        assertEquals(createdAt, Instant.parse(project.get("updatedAt").stringValue()));
+        var original = withHistoricalTimestamps(id);
         var read = request("GET", "/projects/" + id, null);
         assertEquals(200, read.statusCode());
-        assertEquals("TODO", json.readTree(read.body()).get("key").asText());
+        assertEquals("TODO", json.readTree(read.body()).get("key").stringValue());
 
         var updatedResponse = request("PUT", "/projects/" + id,
             "{\"name\":\"Updated\",\"description\":\"New details\",\"key\":\"HACK\","
-                + "\"active\":false,\"id\":999,\"createdAt\":\"2000-01-01T00:00:00Z\"}");
+                + "\"active\":false,\"id\":999,\"createdAt\":\"1990-01-01T00:00:00Z\"}");
         assertEquals(200, updatedResponse.statusCode(), updatedResponse.body());
         var updated = projects.findById(id).orElseThrow();
         assertEquals("Updated", updated.getName());
@@ -69,9 +80,9 @@ class PostgresProjectApiIT {
         assertTrue(updated.getUpdatedAt().isAfter(original.getUpdatedAt()));
         var updatedJson = json.readTree(updatedResponse.body());
         assertEquals(id, updatedJson.get("id").asLong());
-        assertEquals("TODO", updatedJson.get("key").asText());
+        assertEquals("TODO", updatedJson.get("key").stringValue());
         assertTrue(java.time.Duration.between(updated.getUpdatedAt(),
-            Instant.parse(updatedJson.get("updatedAt").asText())).abs().toNanos() < 1000);
+            Instant.parse(updatedJson.get("updatedAt").stringValue())).abs().toNanos() < 1000);
 
         assertEquals(200, request("PUT", "/projects/" + id, "{\"name\":\"No description\"}").statusCode());
         assertNull(projects.findById(id).orElseThrow().getDescription());
@@ -87,7 +98,7 @@ class PostgresProjectApiIT {
         assertIds("?active=all");
         long activeId = id(create("Active", "ACT", null));
         long archivedId = id(create("Archive", "ARCH", "Preserve details"));
-        var original = projects.findById(archivedId).orElseThrow();
+        var original = withHistoricalTimestamps(archivedId);
         long count = projects.count();
         var response = request("DELETE", "/projects/" + archivedId, null);
         assertEquals(204, response.statusCode());
@@ -129,36 +140,63 @@ class PostgresProjectApiIT {
             json.writeValueAsString(Map.of("name", "c".repeat(200), "description", "d".repeat(2000)))).statusCode());
     }
 
-    @Test
-    void rejectsInvalidCreateRequestsWithoutPersisting() throws Exception {
+    @ParameterizedTest(name = "create rejects {0}")
+    @MethodSource("invalidCreateBodies")
+    void rejectsInvalidCreateRequestsWithoutPersisting(String reason, String body) throws Exception {
         long count = projects.count();
-        var bodies = List.of("{}", "null", "{invalid json}",
-            "{\"name\":null,\"key\":\"OK\"}", "{\"name\":\" \",\"key\":\"OK\"}",
-            json.writeValueAsString(Map.of("name", "a".repeat(201), "key", "OK")),
-            "{\"name\":\"Valid\"}", "{\"name\":\"Valid\",\"key\":null}",
-            json.writeValueAsString(Map.of("name", "Valid", "key", "OK", "description", "a".repeat(2001))));
-        for (String body : bodies) {
-            assertProblem(request("POST", "/projects", body), 400);
-        }
-        for (String key : List.of("", " ", "A", "ABCDEFGHIJK", "lower", "Ab", "1A", "A-B", "ÄB")) {
-            assertProblem(create("Valid", key, null), 400);
-        }
+        // Track even an unexpectedly accepted input so later cases remain independent.
+        var response = request("POST", "/projects", body);
+        trackCreated(response);
+        assertProblem(response, 400);
         assertEquals(count, projects.count());
     }
 
-    @Test
-    void rejectsInvalidUpdateRequestsWithoutChangingProject() throws Exception {
+    static java.util.stream.Stream<Arguments> invalidCreateBodies() {
+        var json = new ObjectMapper();
+        return java.util.stream.Stream.of(
+            Arguments.of("missing fields", "{}"),
+            Arguments.of("null body", "null"),
+            Arguments.of("malformed JSON", "{invalid json}"),
+            Arguments.of("null name", "{\"name\":null,\"key\":\"OK\"}"),
+            Arguments.of("blank name", "{\"name\":\" \",\"key\":\"OK\"}"),
+            Arguments.of("name length", json.writeValueAsString(Map.of("name", "a".repeat(201), "key", "OK"))),
+            Arguments.of("missing key", "{\"name\":\"Valid\"}"),
+            Arguments.of("null key", "{\"name\":\"Valid\",\"key\":null}"),
+            Arguments.of("description length", json.writeValueAsString(
+                Map.of("name", "Valid", "key", "OK", "description", "a".repeat(2001)))));
+    }
+
+    @ParameterizedTest(name = "rejects invalid key [{0}]")
+    @ValueSource(strings = {"", " ", "A", "ABCDEFGHIJK", "lower", "Ab", "1A", "A-B", "ÄB"})
+    void rejectsInvalidKeysWithoutPersisting(String key) throws Exception {
+        long count = projects.count();
+        assertProblem(create("Valid", key, null), 400);
+        assertEquals(count, projects.count());
+    }
+
+    @ParameterizedTest(name = "update rejects {0}")
+    @MethodSource("invalidUpdateBodies")
+    void rejectsInvalidUpdateRequestsWithoutChangingProject(String reason, String body) throws Exception {
         long id = id(create("Keep original", "KEEP", "Keep details"));
         var original = projects.findById(id).orElseThrow();
-        for (String body : List.of("{}", "null", "{invalid json}", "{\"name\":null}", "{\"name\":\" \"}",
-                json.writeValueAsString(Map.of("name", "a".repeat(201))),
-                json.writeValueAsString(Map.of("name", "Valid", "description", "a".repeat(2001))))) {
-            assertProblem(request("PUT", "/projects/" + id, body), 400);
-        }
+        assertProblem(request("PUT", "/projects/" + id, body), 400);
         var after = projects.findById(id).orElseThrow();
         assertEquals(original.getName(), after.getName());
         assertEquals(original.getDescription(), after.getDescription());
         assertEquals(original.getUpdatedAt(), after.getUpdatedAt());
+    }
+
+    static java.util.stream.Stream<Arguments> invalidUpdateBodies() {
+        var json = new ObjectMapper();
+        return java.util.stream.Stream.of(
+            Arguments.of("missing name", "{}"),
+            Arguments.of("null body", "null"),
+            Arguments.of("malformed JSON", "{invalid json}"),
+            Arguments.of("null name", "{\"name\":null}"),
+            Arguments.of("blank name", "{\"name\":\" \"}"),
+            Arguments.of("name length", json.writeValueAsString(Map.of("name", "a".repeat(201)))),
+            Arguments.of("description length", json.writeValueAsString(
+                Map.of("name", "Valid", "description", "a".repeat(2001)))));
     }
 
     @Test
@@ -171,30 +209,71 @@ class PostgresProjectApiIT {
     }
 
     @Test
-    void duplicateCreationReturnsConflictIncludingConcurrentRequests() throws Exception {
+    void duplicateCreationPreservesOriginalProject() throws Exception {
         long id = id(create("Original", "UNIQUE", null));
         assertProblem(create("Duplicate", "UNIQUE", null), 409);
         assertEquals("Original", projects.findById(id).orElseThrow().getName());
-        var pool = Executors.newFixedThreadPool(2);
-        var ready = new CountDownLatch(2);
-        var start = new CountDownLatch(1);
-        try {
-            var jobs = java.util.stream.IntStream.range(0, 2).mapToObj(i -> pool.submit(() -> {
-                ready.countDown();
-                if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Start timed out");
-                return create("Concurrent " + i, "RACE", null);
-            })).toList();
-            assertTrue(ready.await(10, TimeUnit.SECONDS));
-            start.countDown();
-            var responses = List.of(jobs.get(0).get(15, TimeUnit.SECONDS), jobs.get(1).get(15, TimeUnit.SECONDS));
-            assertEquals(List.of(201, 409), responses.stream().map(HttpResponse::statusCode).sorted().toList());
-            assertProblem(responses.stream().filter(r -> r.statusCode() == 409).findFirst().orElseThrow(), 409);
-            assertEquals(1, projects.findAll().stream().filter(p -> p.getKey().equals("RACE")).count());
+    }
+
+    @Test
+    void concurrentDuplicateWaitsForWinningTransactionThenReturnsConflict() throws Exception {
+        var pool = Executors.newSingleThreadExecutor();
+        try (var winner = dataSource.getConnection()) {
+            winner.setAutoCommit(false);
+            try {
+                try (var statement = winner.createStatement(); var row = statement.executeQuery("""
+                        INSERT INTO projects(name, project_key, created_at, updated_at)
+                        VALUES ('Winning project', 'RACE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        RETURNING id
+                        """)) {
+                    assertTrue(row.next());
+                    createdIds.add(row.getLong(1));
+                }
+                var losingRequest = pool.submit(() -> create("Losing project", "RACE", null));
+                awaitBlockedInsert(winner);
+                assertFalse(losingRequest.isDone(), "The HTTP insert must wait for the uncommitted winner");
+                winner.commit();
+                assertProblem(losingRequest.get(15, TimeUnit.SECONDS), 409);
+                var persisted = projects.findAll().stream().filter(p -> p.getKey().equals("RACE")).toList();
+                assertEquals(1, persisted.size());
+                assertEquals("Winning project", persisted.get(0).getName());
+            } finally {
+                winner.rollback();
+            }
         } finally {
-            start.countDown();
             pool.shutdownNow();
-            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS), "HTTP worker did not terminate");
         }
+    }
+
+    private void awaitBlockedInsert(Connection winner) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(8);
+        try (var statement = winner.createStatement()) {
+            statement.setQueryTimeout(2);
+            while (System.nanoTime() < deadline) {
+                try (var rows = statement.executeQuery("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM pg_stat_activity
+                            WHERE datname = current_database()
+                              AND pg_backend_pid() = ANY(pg_blocking_pids(pid))
+                        )
+                        """)) {
+                    assertTrue(rows.next());
+                    if (rows.getBoolean(1)) return;
+                }
+                Thread.sleep(25);
+            }
+        }
+        fail("HTTP insert never reached the unique-key lock held by the winning transaction");
+    }
+
+    private github.salemby.tododevops.workmanagement.domain.Project withHistoricalTimestamps(long id) {
+        // A known older fixture proves advancement without depending on wall-clock granularity.
+        new org.springframework.jdbc.core.JdbcTemplate(dataSource).update("""
+            UPDATE projects SET created_at = TIMESTAMPTZ '2000-01-01 00:00:00Z',
+                                updated_at = TIMESTAMPTZ '2000-01-01 00:00:00Z' WHERE id = ?
+            """, id);
+        return projects.findById(id).orElseThrow();
     }
 
     private HttpResponse<String> create(String name, String key, String description) throws Exception {
@@ -203,8 +282,12 @@ class PostgresProjectApiIT {
         fields.put("key", key);
         fields.put("description", description);
         var response = request("POST", "/projects", json.writeValueAsString(fields));
-        if (response.statusCode() == 201) createdIds.add(json.readTree(response.body()).get("id").asLong());
+        trackCreated(response);
         return response;
+    }
+
+    private void trackCreated(HttpResponse<String> response) {
+        if (response.statusCode() == 201) createdIds.add(json.readTree(response.body()).get("id").asLong());
     }
 
     private long id(HttpResponse<String> response) {
@@ -228,15 +311,15 @@ class PostgresProjectApiIT {
         assertTrue(response.headers().firstValue("Content-Type").orElseThrow().startsWith("application/problem+json"));
         var body = json.readTree(response.body());
         assertEquals(status, body.get("status").asInt());
-        assertEquals("urn:projetotodo:problem:" + status, body.get("type").asText());
+        assertEquals("urn:projetotodo:problem:" + status, body.get("type").stringValue());
         assertTrue(body.get("errors").isArray());
         assertFalse(response.body().contains("SQLException"));
         assertFalse(response.body().contains("uk_projects_key"));
     }
 
     private HttpResponse<String> request(String method, String path, String body) throws Exception {
-        var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
-            + environment.getProperty("local.server.port") + path)).timeout(java.time.Duration.ofSeconds(15));
+        var builder = TestHttp.request(URI.create("http://127.0.0.1:"
+            + environment.getProperty("local.server.port") + path));
         if (body != null) builder.header("Content-Type", "application/json");
         return client.send(builder.method(method, body == null ? HttpRequest.BodyPublishers.noBody()
             : HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());

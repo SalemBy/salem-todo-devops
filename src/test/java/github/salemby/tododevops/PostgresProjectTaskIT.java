@@ -1,5 +1,9 @@
 package github.salemby.tododevops;
 
+import github.salemby.tododevops.support.TestHttp;
+import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import org.springframework.test.context.ContextConfiguration;
+
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(classes = SalemTodoDevOpsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @org.springframework.test.context.ActiveProfiles("postgres-test")
+@ContextConfiguration(initializers = IsolatedPostgresSchema.class)
 class PostgresProjectTaskIT {
     @Autowired Environment environment;
     @Autowired TaskRepository tasks;
@@ -20,9 +25,9 @@ class PostgresProjectTaskIT {
     final ObjectMapper json = new ObjectMapper();
     final List<Long> owners = new ArrayList<>();
     JsonNode call(String method, String path, String body, int status) throws Exception {
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + environment.getProperty("local.server.port") + path))
+        var request = TestHttp.request(URI.create("http://127.0.0.1:" + environment.getProperty("local.server.port") + path))
             .header("Content-Type", "application/json").method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body)).build();
-        var response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        var response = TestHttp.client().send(request, HttpResponse.BodyHandlers.ofString());
         assertEquals(status, response.statusCode(), method + " " + path + ": " + response.body());
         return status == 204 ? null : json.readTree(response.body());
     }
@@ -41,13 +46,10 @@ class PostgresProjectTaskIT {
         var first=task(a); var second=task(b); var archived=task(a);
         long id=first.get("id").asLong(), inactive=archived.get("id").asLong();
         call("DELETE", "/projects/"+a+"/tasks/"+inactive,null,204);
-        for(String route : List.of("/projects/"+a+"/tasks")) {
-            String sep=route.contains("?")?"&":"?";
-            for(String filter : List.of("true","false","all")) {
-                var rows=call("GET",route+sep+"active="+filter,null,200);
-                assertEquals(filter.equals("all")?2:1,rows.size());
-                for(var row:rows) assertEquals(a,row.get("projectId").asLong());
-            }
+        for (String filter : List.of("true", "false", "all")) {
+            var rows = call("GET", "/projects/" + a + "/tasks?active=" + filter, null, 200);
+            assertEquals(filter.equals("all") ? 2 : 1, rows.size());
+            for (var row : rows) assertEquals(a, row.get("projectId").asLong());
         }
         assertEquals(0,call("GET","/projects/"+empty+"/tasks",null,200).size());
         assertEquals(second.get("id"),call("GET","/projects/"+b+"/tasks",null,200).get(0).get("id"));

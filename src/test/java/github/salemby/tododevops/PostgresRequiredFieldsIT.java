@@ -1,11 +1,17 @@
 package github.salemby.tododevops;
 
+import github.salemby.tododevops.support.TestHttp;
+import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import org.springframework.test.context.ContextConfiguration;
+
 import github.salemby.tododevops.workmanagement.domain.Project;
 import github.salemby.tododevops.workmanagement.domain.Task;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskRepository;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
@@ -19,16 +25,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(classes = SalemTodoDevOpsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @org.springframework.test.context.ActiveProfiles("postgres-test")
-class PostgresRequiredFieldsIT {    private github.salemby.tododevops.workmanagement.domain.Project owner;
+@ContextConfiguration(initializers = IsolatedPostgresSchema.class)
+class PostgresRequiredFieldsIT {
+    private github.salemby.tododevops.workmanagement.domain.Project owner;
     @Autowired github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository ownerProjects;
     @org.junit.jupiter.api.BeforeEach
     void createOwner() {
         owner = ownerProjects.saveAndFlush(new github.salemby.tododevops.workmanagement.domain.Project("Task owner", "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(), null));
-    }
-    @org.junit.jupiter.api.AfterEach
-    void cleanupOwner() {
-        tasks.deleteAll(tasks.findAllByProjectId(owner.getId()));
-        ownerProjects.deleteById(owner.getId());
     }
     @Autowired Environment environment;
     @Autowired TaskRepository tasks;
@@ -36,72 +39,75 @@ class PostgresRequiredFieldsIT {    private github.salemby.tododevops.workmanage
     private final Set<Long> taskIds = new HashSet<>();
     private final Set<Long> projectIds = new HashSet<>();
     private final ObjectMapper json = new ObjectMapper();
-    private final HttpClient client = HttpClient.newHttpClient();
+    private final HttpClient client = TestHttp.client();
 
     @AfterEach
     void cleanup() {
+        tasks.deleteAll(tasks.findAllByProjectId(owner.getId()));
         tasks.deleteAllById(taskIds);
         projects.deleteAllById(projectIds);
+        ownerProjects.deleteById(owner.getId());
     }
 
-    @Test
-    void rejectsEveryBlankTaskTitleOnCreateAndUpdate() throws Exception {
+    @ParameterizedTest(name = "task title: {0}")
+    @MethodSource("blankValues")
+    void rejectsBlankTaskTitleOnCreateAndUpdate(String reason, String title, boolean present) throws Exception {
         Task task = new Task(owner);
         task.setTitle("Original");
         long id = tasks.saveAndFlush(task).getId();
         taskIds.add(id);
         var before = tasks.findById(id).orElseThrow();
-        for (String title : blankValues()) {
-            var fields = new HashMap<String, Object>();
-            fields.put("title", title); fields.put("projectId", owner.getId());
-            assertRejected("POST", "/projects/" + owner.getId() + "/tasks", fields, "title", false);
-            fields.put("status", "PENDING");
-            assertRejected("PUT", "/projects/" + owner.getId() + "/tasks/" + id, fields, "title", false);
-        }
-        assertRejected("POST", "/projects/" + owner.getId() + "/tasks", Map.of("projectId", owner.getId()), "title", false);
-        assertRejected("PUT", "/projects/" + owner.getId() + "/tasks/" + id, Map.of("status", "PENDING"), "title", false);
+        var fields = new HashMap<String, Object>();
+        if (present) fields.put("title", title);
+        assertRejected("POST", "/projects/" + owner.getId() + "/tasks", fields, "title", false);
+        fields.put("status", "PENDING");
+        assertRejected("PUT", "/projects/" + owner.getId() + "/tasks/" + id, fields, "title", false);
         assertEquals("Original", tasks.findById(id).orElseThrow().getTitle());
         assertEquals(before.getUpdatedAt(), tasks.findById(id).orElseThrow().getUpdatedAt());
     }
 
-    @Test
-    void rejectsEveryBlankProjectNameOnCreateAndUpdate() throws Exception {
+    @ParameterizedTest(name = "project name: {0}")
+    @MethodSource("blankValues")
+    void rejectsBlankProjectNameOnCreateAndUpdate(String reason, String name, boolean present) throws Exception {
         long id = projects.saveAndFlush(new Project("Original", "BASE", null)).getId();
         projectIds.add(id);
         var before = projects.findById(id).orElseThrow();
-        for (String name : blankValues()) {
-            var fields = new HashMap<String, Object>();
-            fields.put("name", name);
-            fields.put("key", "VALID");
-            assertRejected("POST", "/projects", fields, "name", true);
-            fields.remove("key");
-            assertRejected("PUT", "/projects/" + id, fields, "name", true);
-        }
-        assertRejected("POST", "/projects", Map.of("key", "VALID"), "name", true);
-        assertRejected("PUT", "/projects/" + id, Map.of(), "name", true);
+        var fields = new HashMap<String, Object>();
+        if (present) fields.put("name", name);
+        fields.put("key", "VALID");
+        assertRejected("POST", "/projects", fields, "name", true);
+        fields.remove("key");
+        assertRejected("PUT", "/projects/" + id, fields, "name", true);
         assertEquals("Original", projects.findById(id).orElseThrow().getName());
         assertEquals(before.getUpdatedAt(), projects.findById(id).orElseThrow().getUpdatedAt());
     }
 
-    @Test
-    void rejectsEveryBlankProjectKeyIndependentlyOfName() throws Exception {
-        for (String key : blankValues()) {
-            var fields = new HashMap<String, Object>();
-            fields.put("name", "Valid project name");
-            fields.put("key", key);
-            assertRejected("POST", "/projects", fields, "key", true);
-        }
-        assertRejected("POST", "/projects", Map.of("name", "Valid project name"), "key", true);
+    @ParameterizedTest(name = "project key: {0}")
+    @MethodSource("blankValues")
+    void rejectsBlankProjectKeyIndependentlyOfName(String reason, String key, boolean present) throws Exception {
+        var fields = new HashMap<String, Object>();
+        fields.put("name", "Valid project name");
+        if (present) fields.put("key", key);
+        assertRejected("POST", "/projects", fields, "key", true);
     }
 
-    private List<String> blankValues() {
-        return Arrays.asList(null, "", " ", "   ", "\t\r\n", "\u00a0", "\u2007", "\u202f", "\u200b");
+    static java.util.stream.Stream<Arguments> blankValues() {
+        return java.util.stream.Stream.of(
+            Arguments.of("omitted", null, false),
+            Arguments.of("null", null, true),
+            Arguments.of("empty", "", true),
+            Arguments.of("space", " ", true),
+            Arguments.of("tabs and newlines", "\t\r\n", true),
+            Arguments.of("non-breaking space", "\u00a0", true),
+            Arguments.of("figure space", "\u2007", true),
+            Arguments.of("narrow non-breaking space", "\u202f", true),
+            Arguments.of("zero-width space", "\u200b", true));
     }
 
     private void assertRejected(String method, String path, Map<String, ?> fields,
             String field, boolean project) throws Exception {
         long count = project ? projects.count() : tasks.count();
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:"
+        var request = TestHttp.request(URI.create("http://127.0.0.1:"
             + environment.getProperty("local.server.port") + path))
             .header("Content-Type", "application/json")
             .method(method, HttpRequest.BodyPublishers.ofString(json.writeValueAsString(fields))).build();
@@ -114,7 +120,7 @@ class PostgresRequiredFieldsIT {    private github.salemby.tododevops.workmanage
         assertEquals(400, response.statusCode(), "Expected rejection of " + json.writeValueAsString(fields)
             + " but received " + response.body());
         var problem = json.readTree(response.body());
-        assertTrue(problem.get("errors").valueStream().anyMatch(e -> field.equals(e.path("field").asText())), response.body());
+        assertTrue(problem.get("errors").valueStream().anyMatch(e -> field.equals(e.path("field").stringValue())), response.body());
         assertEquals(count, project ? projects.count() : tasks.count());
     }
 }
