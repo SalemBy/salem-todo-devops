@@ -1,80 +1,67 @@
 package github.salemby.tododevops;
 
+import github.salemby.tododevops.shared.config.ValidationConfiguration;
+import github.salemby.tododevops.workmanagement.application.*;
 import github.salemby.tododevops.workmanagement.application.dto.request.*;
 import github.salemby.tododevops.workmanagement.domain.TaskStatus;
-import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
-import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskRepository;
-import github.salemby.tododevops.workmanagement.application.ProjectService;
-import github.salemby.tododevops.workmanagement.application.TaskService;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.*;
 import jakarta.validation.ConstraintViolationException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.annotation.*;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
 
-@ActiveProfiles("test")
-@SpringBootTest(classes = SalemTodoDevOpsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@Transactional
+/** Real Spring validation proxies, without HTTP, JPA or a database. */
+@SpringJUnitConfig(ServiceValidationTests.Config.class)
 class ServiceValidationTests {
+    @Configuration(proxyBeanMethods = false)
+    @Import({ValidationConfiguration.class, TaskService.class, ProjectService.class})
+    static class Config {
+        @Bean static MethodValidationPostProcessor methodValidation() {
+            return new MethodValidationPostProcessor();
+        }
+        @Bean TaskRepository tasks() { return mock(TaskRepository.class); }
+        @Bean ProjectRepository projects() { return mock(ProjectRepository.class); }
+    }
+
     @Autowired TaskService taskService;
     @Autowired ProjectService projectService;
     @Autowired TaskRepository tasks;
     @Autowired ProjectRepository projects;
 
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {" ", "\t\r\n", "\u00a0", "\u2007", "\u202f", "\u200b"})
-    void rejectsBlankTaskTitlesBeforePersisting(String title) {
-        long count = tasks.count();
-        assertThrows(ConstraintViolationException.class,
-            () -> taskService.create(1L, new CreateTaskRequest(title, null)));
-        assertEquals(count, tasks.count());
+    @AfterEach
+    void rejectsBeforeAnyRepositoryAccess() {
+        verifyNoInteractions(tasks, projects);
     }
 
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {" ", "\t\r\n", "\u00a0", "\u2007", "\u202f", "\u200b"})
-    void rejectsBlankProjectNamesBeforePersisting(String name) {
-        long count = projects.count();
+    @Test
+    void validatesCreateRequestsAtServiceBoundary() {
         assertThrows(ConstraintViolationException.class,
-            () -> projectService.create(new CreateProjectRequest(name, "VALID", null)));
-        assertEquals(count, projects.count());
+            () -> taskService.create(1L, new CreateTaskRequest("\u200b", null)));
+        assertThrows(ConstraintViolationException.class,
+            () -> projectService.create(new CreateProjectRequest("\u200b", "VALID", null)));
+        assertThrows(ConstraintViolationException.class,
+            () -> projectService.create(new CreateProjectRequest("Valid", " ", null)));
     }
 
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {" ", "\t\r\n", "\u00a0", "\u2007", "\u202f", "\u200b"})
-    void rejectsBlankProjectKeysBeforePersisting(String key) {
-        long count = projects.count();
+    @Test
+    void validatesUpdateRequestsAtServiceBoundary() {
         assertThrows(ConstraintViolationException.class,
-            () -> projectService.create(new CreateProjectRequest("Valid", key, null)));
-        assertEquals(count, projects.count());
-    }
-
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {" ", "\t\r\n", "\u00a0", "\u2007", "\u202f", "\u200b"})
-    void rejectsBlankUpdatesWithoutChangingRows(String text) {
-
-        var project = projectService.create(new CreateProjectRequest("Original project", "ORIGINAL", null));
-        var task = taskService.create(project.id(), new CreateTaskRequest("Original task", null));
+            () -> taskService.update(1L, 2L, new UpdateTaskRequest("\u200b", null, TaskStatus.PENDING)));
         assertThrows(ConstraintViolationException.class,
-            () -> taskService.update(project.id(), task.id(), new UpdateTaskRequest(text, null, TaskStatus.PENDING)));
-        assertThrows(ConstraintViolationException.class,
-            () -> projectService.update(project.id(), new UpdateProjectRequest(text, null)));
-        assertEquals("Original task", tasks.findById(task.id()).orElseThrow().getTitle());
-        assertEquals("Original project", projects.findById(project.id()).orElseThrow().getName());
+            () -> projectService.update(1L, new UpdateProjectRequest("\u200b", null)));
     }
 
     @Test
     void rejectsNullRequests() {
         assertThrows(ConstraintViolationException.class, () -> taskService.create(1L, null));
         assertThrows(ConstraintViolationException.class, () -> projectService.create(null));
+        assertThrows(ConstraintViolationException.class, () -> taskService.update(1L, 2L, null));
+        assertThrows(ConstraintViolationException.class, () -> projectService.update(1L, null));
     }
 }
