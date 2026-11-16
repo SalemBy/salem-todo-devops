@@ -303,6 +303,12 @@ All task writes in an archived project return 409, including updates to inactive
 In an active project, updating an inactive task returns 404. Archival preserves task
 state and timestamps. No operation can move a task between projects.
 
+Task updates and soft deletion acquire the owning project's row lock before
+loading task state. If deletion wins, the competing update returns 404 and leaves
+the task inactive with its original details. If the update wins, deletion retains
+the updated details and leaves the task inactive. PostgreSQL regressions coordinate
+both orderings through observed lock waits and check the persisted task state.
+
 Project-scoped routes establish the ownership boundary; they do not implement
 user authorization. Accounts, invitations, membership checks and permissions
 remain future work. Until those checks exist, knowing a project ID is sufficient
