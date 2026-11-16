@@ -17,4 +17,5 @@ scripts:
         pm.expect(project.name).to.eql('Updated Postman project');
         pm.expect(project.key).to.eql(pm.collectionVariables.get('projectKey'));
         pm.collectionVariables.set('archivedUpdatedAt', project.updatedAt);
+        pm.collectionVariables.set('archivedProjectSnapshot', JSON.stringify(project));
       });
