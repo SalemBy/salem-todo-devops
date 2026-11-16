@@ -99,6 +99,51 @@ class PostgresProjectLifecycleIT {
         assertEquals(2, tasks.findAllByProjectId(projectId).size());
     }
 
+    @Test
+    void taskDeleteWinningAgainstUpdatePreservesInactiveTask() throws Exception {
+        var before = activeTask();
+        String taskPath = path() + "/tasks/" + before.get("id").asLong();
+        var responses = contend("DELETE", taskPath, null, "PUT", taskPath,
+            "{\"title\":\"Concurrent task update\",\"description\":\"Changed\",\"status\":\"COMPLETED\"}");
+        assertEquals(204, responses.first().statusCode(), responses.first().body());
+        var after = read(taskPath);
+        assertFalse(after.get("active").asBoolean());
+        assertFalse(tasks.findById(before.get("id").asLong()).orElseThrow().isActive());
+        assertProblem(responses.second(), 404);
+        for (String field : java.util.List.of("id", "projectId", "title", "description", "status", "createdAt")) {
+            assertEquals(before.get(field), after.get(field), "Rejected update changed " + field);
+        }
+        assertEquals(204, request("DELETE", taskPath, null).statusCode());
+        assertEquals(after, read(taskPath), "Repeated delete must preserve all fields and timestamps");
+        assertEquals(2, tasks.findAllByProjectId(projectId).size());
+    }
+
+    @Test
+    void taskUpdateWinningAgainstDeleteRetainsDetailsButEndsInactive() throws Exception {
+        var before = activeTask();
+        String taskPath = path() + "/tasks/" + before.get("id").asLong();
+        var responses = contend("PUT", taskPath,
+            "{\"title\":\"Concurrent task update\",\"description\":\"Changed\",\"status\":\"COMPLETED\"}",
+            "DELETE", taskPath, null);
+        assertEquals(200, responses.first().statusCode(), responses.first().body());
+        assertTrue(json.readTree(responses.first().body()).get("active").asBoolean());
+        assertEquals(204, responses.second().statusCode(), responses.second().body());
+        var after = read(taskPath);
+        assertFalse(after.get("active").asBoolean());
+        assertFalse(tasks.findById(before.get("id").asLong()).orElseThrow().isActive());
+        assertEquals("Concurrent task update", after.get("title").stringValue());
+        assertEquals("Changed", after.get("description").stringValue());
+        assertEquals("COMPLETED", after.get("status").stringValue());
+        assertEquals(before.get("projectId"), after.get("projectId"));
+        assertEquals(before.get("createdAt"), after.get("createdAt"));
+        assertEquals(2, tasks.findAllByProjectId(projectId).size());
+    }
+
+    private JsonNode activeTask() {
+        for (var task : backlog) if (task.get("active").asBoolean()) return task;
+        throw new AssertionError("Fixture must contain an active task");
+    }
+
     private JsonNode assertArchivedHistory() throws Exception {
         var archived = read(path());
         assertFalse(archived.get("active").asBoolean());
