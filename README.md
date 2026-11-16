@@ -164,6 +164,12 @@ postman collection run postman/collections/todo -i "02 Projects"
 
 ## API errors
 
+Task titles, project names and optional descriptions reject embedded NUL (U+0000)
+on create and update with HTTP 400 and field validation errors. Rejected creates
+insert no records; rejected updates preserve the existing record and timestamps.
+Other supported Unicode and null descriptions remain valid. Unexpected server
+errors retain the generic error response.
+
 Controller and routing errors use `Content-Type: application/problem+json`.
 All error responses include `type`, `title`, `status`, `detail`, `instance`
 (request path without query parameters), and `errors` (an array, empty when
