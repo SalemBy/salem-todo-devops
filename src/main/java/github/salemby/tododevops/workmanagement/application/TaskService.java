@@ -1,6 +1,8 @@
 package github.salemby.tododevops.workmanagement.application;
 
 import org.springframework.data.domain.Sort;
+import github.salemby.tododevops.workmanagement.application.dto.request.TaskFilters;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskSpecifications;
 import org.springframework.data.domain.PageRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.PageResponse;
 import github.salemby.tododevops.workmanagement.application.dto.request.CreateTaskRequest;
@@ -35,18 +37,19 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<TaskResponse> findAllByProject(Long projectId, String active, int page, int size) {
+    public PageResponse<TaskResponse> findAllByProject(Long projectId, String active, int page, int size, TaskFilters filters) {
         if (page < 0 || size < 1 || size > 100 || (long) page * size > Integer.MAX_VALUE)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page must be nonnegative, size 1-100, and offset at most 2147483647");
         requireProject(projectId, false);
         var pageable = PageRequest.of(page, size, Sort.by("id"));
-        var tasks = switch (active) {
-            case "true" -> taskRepository.findAllByProjectIdAndActive(projectId, true, pageable);
-            case "false" -> taskRepository.findAllByProjectIdAndActive(projectId, false, pageable);
-            case "all" -> taskRepository.findAllByProjectId(projectId, pageable);
+        Boolean activeFilter = switch (active) {
+            case "true" -> true;
+            case "false" -> false;
+            case "all" -> null;
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Active must be true, false, or all");
         };
+        var tasks = taskRepository.findAll(TaskSpecifications.matching(projectId, activeFilter, filters), pageable);
         // Batch labels after paging, avoiding pagination over a collection join.
         if (tasks.hasContent()) taskRepository.findAllByProjectIdAndIdIn(projectId,
             tasks.getContent().stream().map(Task::getId).toList());

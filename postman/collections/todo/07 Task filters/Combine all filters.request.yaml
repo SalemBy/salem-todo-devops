@@ -1,0 +1,9 @@
+$kind: http-request
+order: 5000
+method: GET
+url: '{{baseUrl}}/projects/{{filterProjectId}}/tasks?status=PENDING&type=BUG&priority=HIGH&labelId={{filterLabelId}}&dueFrom=2026-06-15&dueTo=2026-06-15&size=1'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Filters return exactly the matching task',()=>{pm.response.to.have.status(200);const page=pm.response.json();pm.expect(page.totalElements).to.eql(1);pm.expect(page.totalPages).to.eql(1);pm.expect(page.items.length).to.eql(1);pm.expect(String(page.items[0].id)).to.eql(pm.collectionVariables.get('filterTaskId'));pm.expect(page.items[0].labels.length).to.eql(1);});

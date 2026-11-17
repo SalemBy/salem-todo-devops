@@ -1,0 +1,9 @@
+$kind: http-request
+order: 2000
+method: GET
+url: '{{baseUrl}}/projects/{{filterProjectId}}/tasks?labelId=1.5'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Invalid filter returns ProblemDetail',()=>{pm.response.to.have.status(400);pm.expect(pm.response.json().type).to.eql('urn:projetotodo:problem:400');});

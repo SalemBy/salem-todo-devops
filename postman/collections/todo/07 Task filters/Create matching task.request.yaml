@@ -1,0 +1,14 @@
+$kind: http-request
+order: 3000
+method: POST
+url: '{{baseUrl}}/projects/{{filterProjectId}}/tasks'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Matching task","type":"BUG","priority":"HIGH","dueDate":"2026-06-15","labelIds":[{{filterLabelId}}]}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Task created',()=>{pm.response.to.have.status(201);pm.collectionVariables.set('filterTaskId',String(pm.response.json().id));});

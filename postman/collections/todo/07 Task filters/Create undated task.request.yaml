@@ -1,0 +1,14 @@
+$kind: http-request
+order: 4000
+method: POST
+url: '{{baseUrl}}/projects/{{filterProjectId}}/tasks'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Undated task"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Undated task created',()=>pm.response.to.have.status(201));

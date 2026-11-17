@@ -1,5 +1,8 @@
 # Salem Todo DevOps
 
+Task list filters: see [the stage 2 contract](docs/task-filter-contract.md) for
+combined status, type, priority, label, and inclusive due-date filtering.
+
 Spring Boot REST backend for a to-do application. Uses Java 17, Maven Wrapper
 3.9.9, Spring MVC, Spring Data JPA, Flyway, and PostgreSQL.
 
