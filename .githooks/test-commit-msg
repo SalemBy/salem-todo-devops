@@ -1,0 +1,43 @@
+#!/bin/sh
+set -eu
+root=$(git rev-parse --show-toplevel)
+fixture=$(mktemp)
+trap 'rm -f "$fixture"' EXIT HUP INT TERM
+valid() {
+    printf '%s\n' 'feat: paginate task lists' '' 'Lists now return bounded pages.' '' \
+        'Refs #7' '' 'Implementation:' '- Pages in PostgreSQL.' '' \
+        'Validation:' '- HTTP pagination tests passed.'
+}
+check() {
+    expected=$1
+    label=$2
+    result=0
+    sh "$root/.githooks/commit-msg" "$fixture" >/dev/null 2>&1 || result=$?
+    if [ "$result" -ne "$expected" ]; then
+        echo "FAIL: $label (exit $result)" >&2
+        exit 1
+    fi
+    echo "PASS: $label"
+}
+valid > "$fixture"
+check 0 'complete message'
+valid | sed 's/Refs #7/No issue: repository maintenance/' > "$fixture"
+check 0 'explained work without an issue'
+valid | sed 's/Refs #7/Closes #7/' > "$fixture"
+check 0 'completed issue'
+printf '%s\n' 'feat: subject only' > "$fixture"
+check 1 'subject-only message rejected'
+valid | sed '/Refs #7/d' > "$fixture"
+check 1 'missing issue rejected'
+valid | sed '/Pages in PostgreSQL/d' > "$fixture"
+check 1 'empty implementation rejected'
+valid | sed '/HTTP pagination tests passed/d' > "$fixture"
+check 1 'empty validation rejected'
+valid | sed 's/Lists now return bounded pages./<write a summary>/' > "$fixture"
+check 1 'placeholder rejected'
+valid | sed '/Lists now return bounded pages/d' > "$fixture"
+check 1 'missing summary rejected'
+valid | sed 's/$/\r/' > "$fixture"
+check 0 'Windows CRLF message'
+cp "$root/.gitmessage" "$fixture"
+check 1 'unedited template rejected'

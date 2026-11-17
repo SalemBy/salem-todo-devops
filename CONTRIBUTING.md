@@ -1,5 +1,54 @@
 # Contributing
 
+## Commit messages
+
+Use `.gitmessage` for every commit: a conventional subject, a paragraph describing
+the problem and resulting behavior, an issue reference, and populated
+`Implementation:` and `Validation:` sections. Scale the detail to the change;
+even small changes should explain their purpose and verification. Include
+compatibility changes, preserved guarantees, and remaining scope when relevant.
+
+Use `Refs #N` for partial work and `Closes #N` only for complete issue delivery.
+For work without an issue, use `No issue: reason`. Validation must describe checks
+actually run and their results. If none ran, state why. Do not imply lint proves
+runtime behavior or local tests prove CI passed.
+
+Enable the tracked template and validator once per clone (from the project root):
+
+```shell
+git config --local commit.template .gitmessage
+git config --local core.hooksPath .githooks
+```
+
+If you already use a custom hooks directory, integrate `.githooks/commit-msg`
+into that setup instead of replacing it. The hook works with Git for Windows
+and Unix Git. It checks structure for normal commits and amendments, including
+messages supplied with `-m` or `-F`. On Unix, ensure the hook is executable.
+When using `-F`, write the message as UTF-8 without a byte-order mark.
+
+The hook rejects incomplete messages; it cannot judge the accuracy or quality
+of prose. Hooks are local and can be bypassed, and GitHub-created commits do not
+run this hook. Review remote merge/squash messages against the same template.
+Do not use `--no-verify` to bypass this convention. Existing history is unchanged.
+
+Example:
+
+```text
+feat: paginate project task lists
+
+Project task lists now return bounded pages with totals. This replaces the
+previous array response; callers must read items from the response envelope.
+
+Refs #7
+
+Implementation:
+- Pages tasks in the database and loads labels in a batch for the selected page.
+- Updates the response contract, documentation, and Postman assertions together.
+
+Validation:
+- Record the actual commands, results, and limits of verification here.
+```
+
 ## Issue to merge
 
 1. Open an issue using the feature request or bug report form. Define the expected

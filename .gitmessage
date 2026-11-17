@@ -1,0 +1,18 @@
+<type>: <describe the resulting behavior>
+
+<Explain the problem and resulting behavior for someone who has not seen the
+conversation. Mention compatibility changes and preserved guarantees as needed.>
+
+Refs #<issue-number>
+
+Implementation:
+- <Describe what changed and why.>
+
+Validation:
+- <Record checks actually run, their results, and relevant limitations.>
+
+# Use Closes #N only when the complete issue is delivered; otherwise use Refs #N.
+# Without an issue, replace the reference with: No issue: <reason>
+# Include exact test counts only when verified. Distinguish lint, mocked tests,
+# real database/HTTP tests, and CI. Say explicitly when checks were not run.
+# Remove all placeholders. Add scope exclusions or follow-up work when useful.
