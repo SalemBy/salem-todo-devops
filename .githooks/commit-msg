@@ -1,0 +1,30 @@
+#!/bin/sh
+# Git for Windows supplies sh and awk; no additional runtime is required.
+exec awk '
+function reject(message) { print "Commit message: " message > "/dev/stderr"; bad = 1 }
+/^#/ { next }
+{ sub(/\r$/, "") }
+NR == 1 {
+    if ($0 !~ /^(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\([^)]+\))?!?: .+/)
+        reject("use a conventional subject, e.g. feat: paginate project task lists")
+    next
+}
+/^[[:space:]]*$/ { next }
+/<[^>]+>/ { reject("replace template placeholders") }
+/^(Refs|Closes) #[0-9]+([ ,].*)?$/ { issue = 1; next }
+/^No issue: .+/ { issue = 1; next }
+/^Implementation:$/ { section = "implementation"; implementation = 1; next }
+/^Validation:$/ { section = "validation"; validation = 1; next }
+{
+    if (section == "implementation") implementationBody = 1
+    else if (section == "validation") validationBody = 1
+    else summary = 1
+}
+END {
+    if (!summary) reject("add a behavior/problem summary before the sections")
+    if (!issue) reject("add Refs #N, Closes #N, or No issue: reason")
+    if (!implementation || !implementationBody) reject("add Implementation: with meaningful content")
+    if (!validation || !validationBody) reject("add Validation: with checks/results or explain why not run")
+    if (bad) print "See CONTRIBUTING.md and .gitmessage for the required pattern." > "/dev/stderr"
+    exit bad
+}' "$1"
