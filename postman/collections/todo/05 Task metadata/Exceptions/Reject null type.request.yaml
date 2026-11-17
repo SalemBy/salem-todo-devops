@@ -1,0 +1,17 @@
+$kind: http-request
+order: 1000
+method: PUT
+url: '{{baseUrl}}/projects/{{metadataProjectId}}/tasks/{{metadataTaskId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Invalid","status":"PENDING","type":null}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Reject null type', () => {
+        pm.response.to.have.status(400);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+      });

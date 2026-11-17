@@ -34,6 +34,7 @@ class PostgresProjectLifecycleIT {
     @Autowired DataSource dataSource;
     @Autowired ProjectRepository projects;
     @Autowired TaskRepository tasks;
+    @Autowired github.salemby.tododevops.workmanagement.infrastructure.persistence.LabelRepository labels;
     private final ObjectMapper json = new ObjectMapper();
     private long projectId;
     private JsonNode original;
@@ -61,6 +62,7 @@ class PostgresProjectLifecycleIT {
     void cleanup() {
         if (projectId != 0) {
             tasks.deleteAll(tasks.findAllByProjectId(projectId));
+            labels.deleteAll(labels.findAllByProjectIdOrderById(projectId));
             projects.deleteById(projectId);
         }
     }
@@ -142,6 +144,47 @@ class PostgresProjectLifecycleIT {
     private JsonNode activeTask() {
         for (var task : backlog) if (task.get("active").asBoolean()) return task;
         throw new AssertionError("Fixture must contain an active task");
+    }
+
+    @Test
+    void concurrentLabelNamesAreUniqueIgnoringCase() throws Exception {
+        var responses = contend("POST", path() + "/labels", "{\"name\":\"Backend\"}",
+            "POST", path() + "/labels", "{\"name\":\"BACKEND\"}");
+        assertEquals(201, responses.first().statusCode(), responses.first().body());
+        assertProblem(responses.second(), 409);
+        var persisted = labels.findAllByProjectIdOrderById(projectId);
+        assertEquals(1, persisted.size());
+        assertEquals("Backend", persisted.get(0).getName());
+    }
+
+    @Test
+    void projectArchiveWinningAgainstLabelCreationRejectsInsertion() throws Exception {
+        var responses = contend("DELETE", path(), null, "POST", path() + "/labels", "{\"name\":\"Blocked\"}");
+        assertEquals(204, responses.first().statusCode());
+        assertProblem(responses.second(), 409);
+        assertTrue(labels.findAllByProjectIdOrderById(projectId).isEmpty());
+        assertArchivedHistory();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void labelArchiveAndAttachmentAreSerialized(boolean archiveFirst) throws Exception {
+        var created = request("POST", path() + "/labels", "{\"name\":\"Race label\"}");
+        assertEquals(201, created.statusCode());
+        long labelId = json.readTree(created.body()).get("id").asLong();
+        String labelPath = path() + "/labels/" + labelId;
+        String taskPath = path() + "/tasks/" + activeTask().get("id").asLong();
+        String association = taskPath + "/labels/" + labelId;
+        var responses = archiveFirst
+            ? contend("DELETE", labelPath, null, "PUT", association, null)
+            : contend("PUT", association, null, "DELETE", labelPath, null);
+        assertEquals(204, responses.first().statusCode());
+        if (archiveFirst) assertProblem(responses.second(), 409);
+        else assertEquals(204, responses.second().statusCode());
+        assertFalse(read(labelPath).get("active").asBoolean());
+        var assigned = read(taskPath + "/labels");
+        assertEquals(archiveFirst ? 0 : 1, assigned.size());
+        if (!archiveFirst) assertFalse(assigned.get(0).get("active").asBoolean());
     }
 
     private JsonNode assertArchivedHistory() throws Exception {

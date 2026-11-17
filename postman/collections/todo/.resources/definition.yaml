@@ -27,5 +27,12 @@ variables:
   inactiveTaskSnapshot: ""
   activeTaskId: ""
   activeTaskSnapshot: ""
+  labelKey: ""
+  labelProjectId: ""
+  otherLabelKey: ""
+  otherLabelProjectId: ""
+  labelId: ""
+  otherLabelId: ""
+  labelTaskId: ""
 auth:
   type: noauth

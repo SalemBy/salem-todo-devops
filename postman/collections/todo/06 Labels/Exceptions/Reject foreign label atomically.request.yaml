@@ -1,0 +1,16 @@
+$kind: http-request
+order: 2000
+method: PUT
+url: '{{baseUrl}}/projects/{{labelProjectId}}/tasks/{{labelTaskId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Must roll back","status":"IN_PROGRESS","labelIds":[{{labelId}},{{otherLabelId}}]}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Reject foreign label atomically', () => {
+        pm.response.to.have.status(404);
+      });

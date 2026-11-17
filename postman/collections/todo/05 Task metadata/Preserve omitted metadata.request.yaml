@@ -1,0 +1,19 @@
+$kind: http-request
+order: 3000
+method: PUT
+url: '{{baseUrl}}/projects/{{metadataProjectId}}/tasks/{{metadataTaskId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Upgrade dependencies","status":"IN_PROGRESS"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Preserve omitted metadata', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().type).to.eql('CHORE');
+        pm.expect(pm.response.json().priority).to.eql('HIGH');
+        pm.expect(pm.response.json().dueDate).to.eql('2024-02-29');
+      });

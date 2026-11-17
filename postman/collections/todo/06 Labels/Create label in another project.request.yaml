@@ -1,0 +1,17 @@
+$kind: http-request
+order: 4000
+method: POST
+url: '{{baseUrl}}/projects/{{otherLabelProjectId}}/labels'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Backend"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Create label in another project', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('otherLabelId', String(pm.response.json().id));
+      });

@@ -41,6 +41,29 @@ public class Task {
     private TaskStatus status = TaskStatus.PENDING;
 
     @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TaskType type = TaskType.TASK;
+
+    @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TaskPriority priority = TaskPriority.MEDIUM;
+
+    @Setter
+    private java.time.LocalDate dueDate;
+
+    @ManyToMany
+    @JoinTable(name = "task_labels", joinColumns = @JoinColumn(name = "task_id"),
+        inverseJoinColumns = @JoinColumn(name = "label_id"))
+    private java.util.Set<Label> labels = new java.util.HashSet<>();
+
+    public void replaceLabels(java.util.Collection<Label> replacement) {
+        labels.clear();
+        labels.addAll(replacement);
+    }
+
+    @Setter
     @Column(nullable = false)
     private boolean active = true;
 

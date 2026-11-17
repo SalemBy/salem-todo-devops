@@ -331,3 +331,83 @@ This development version requires an empty pre-association tasks table. This API
 change does not require another migration or reset any database.
 
 See [architecture](docs/architecture.md) for the workmanagement module, dependency rules and transaction boundaries.
+
+## Task metadata — issue #6, stage 1
+
+This stage extends the
+existing project-scoped task endpoints.
+
+| Field | Accepted values | On create when omitted | On update when omitted | Explicit null |
+| --- | --- | --- | --- | --- |
+| `type` | `TASK`, `BUG`, `FEATURE`, `ENHANCEMENT`, `CHORE` | `TASK` | Preserve current value | Reject with 400 |
+| `priority` | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` | `MEDIUM` | Preserve current value | Reject with 400 |
+| `dueDate` | Calendar date string `yyyy-MM-dd` | No due date | Preserve current value | Clear due date |
+
+`TASK` represents general work; `BUG` corrects unintended behavior; `FEATURE`
+adds a capability; `ENHANCEMENT` improves an existing capability; `CHORE` covers maintenance such as dependency upgrades and build configuration. Classification
+is selected by the caller. Type and priority remain independent of workflow
+status and the active flag; changing them does not complete or reactivate a task.
+
+Enum values must be exact uppercase strings. Unknown values, numeric enum values,
+invalid dates, timestamps and non-string dates return the standard 400 problem
+response. Dates must be valid calendar dates in years 0001–9999; past dates are
+allowed. A due date has no time or timezone component.
+
+For compatibility, omission preserves only these new fields on PUT. Existing
+title/status requirements and description replacement semantics remain in force.
+Implementation must distinguish omitted fields from explicit JSON null, rather
+than silently applying defaults during updates.
+
+All task responses, including lists and inactive history, include `type`,
+`priority` and `dueDate` (null when absent). Migration V5 backfills
+existing tasks as TASK/MEDIUM with no due date, preserving their original data
+and timestamps. Invalid writes must leave all stored values unchanged. Existing
+ownership, soft-deletion and archived-project write guards continue to apply.
+
+Example creation body:
+
+```json
+{
+  "title": "Improve task validation messages",
+  "type": "ENHANCEMENT",
+  "priority": "MEDIUM",
+  "dueDate": "2026-12-01"
+}
+```
+
+Stage 1 verification covers defaults and migration of existing rows; all enum
+values; omission versus null; invalid enum/date representations; leap days and
+past dates; response persistence; and rejected-write non-mutation.
+
+## Project labels — issue #6, stage 2 contract
+
+Labels belong to one immutable project. Names are required, reject NUL, and have
+a 50-character maximum. Leading/trailing Java Unicode whitespace is stripped
+before persistence. PostgreSQL `lower(name)` defines case-insensitive uniqueness
+within each project, including archived labels; archived names stay reserved.
+
+| Method | Endpoint | Behavior |
+| --- | --- | --- |
+| POST | `/projects/{projectId}/labels` | Create from `{ "name": "Backend" }`; 201 with Location |
+| GET | `/projects/{projectId}/labels?active=true` | List active labels; also accepts false/all |
+| GET | `/projects/{projectId}/labels/{labelId}` | Read active or archived label |
+| PUT | `/projects/{projectId}/labels/{labelId}` | Rename active label; 200 |
+| DELETE | `/projects/{projectId}/labels/{labelId}` | Archive label; repeat is idempotent; 204 |
+| GET | `/projects/{projectId}/tasks/{taskId}/labels` | Read associated labels, including archived history |
+| PUT | `/projects/{projectId}/tasks/{taskId}/labels/{labelId}` | Attach label idempotently; 204 |
+| DELETE | `/projects/{projectId}/tasks/{taskId}/labels/{labelId}` | Remove association idempotently; 204 |
+
+Task create/update bodies may include `labelIds`, an array of distinct positive
+integer IDs from the same project. Omission creates no associations on POST and
+preserves existing associations on PUT; `[]` clears them; null, fractional IDs,
+duplicates and malformed arrays return 400. Task responses include `labels`,
+ordered by ID, each containing id, projectId, name, active and timestamps.
+
+Archiving a label retains its task associations and timestamps on repeated archive.
+Archived labels cannot be newly assigned (409), but an update may retain an existing
+archived association or remove it. Missing/cross-project resources return 404;
+duplicate names return 409; renaming an archived label returns 404. Archived projects
+reject all writes with 409, and inactive tasks reject association writes with 404.
+Project row locks serialize label, task and archive writes. Invalid replacements
+roll back the complete task update, including other fields. Label names on task
+responses reflect their current name; associations are retained history, not name snapshots.

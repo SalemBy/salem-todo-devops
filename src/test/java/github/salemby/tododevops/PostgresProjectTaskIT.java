@@ -137,6 +137,45 @@ class PostgresProjectTaskIT {
         assertEquals(0, call("GET", "/projects/"+b+"/tasks?active=all", null, 200).size());
     }
 
+    @Test void taskMetadataDefaultsUpdatesAndValidation() throws Exception {
+        long p = project();
+        String collection = "/projects/" + p + "/tasks";
+        var created = call("POST", collection, "{\"title\":\"Metadata\"}", 201);
+        assertEquals("TASK", created.get("type").stringValue());
+        assertEquals("MEDIUM", created.get("priority").stringValue());
+        assertTrue(created.get("dueDate").isNull());
+        String path = collection + "/" + created.get("id").asLong();
+        for (String type : List.of("TASK", "BUG", "FEATURE", "ENHANCEMENT", "CHORE")) {
+            for (String priority : List.of("LOW", "MEDIUM", "HIGH", "CRITICAL")) {
+                call("PUT", path, "{\"title\":\"Metadata\",\"status\":\"PENDING\",\"type\":\"" + type
+                    + "\",\"priority\":\"" + priority + "\",\"dueDate\":\"2024-02-29\"}", 200);
+                var stored = call("GET", path, null, 200);
+                assertEquals(type, stored.get("type").stringValue());
+                assertEquals(priority, stored.get("priority").stringValue());
+                assertEquals("2024-02-29", stored.get("dueDate").stringValue());
+            }
+        }
+        call("PUT", path, "{\"title\":\"Legacy update\",\"status\":\"COMPLETED\"}", 200);
+        var preserved = call("GET", path, null, 200);
+        assertEquals("CHORE", preserved.get("type").stringValue());
+        assertEquals("CRITICAL", preserved.get("priority").stringValue());
+        assertEquals("2024-02-29", preserved.get("dueDate").stringValue());
+        for (String invalid : List.of("\"type\":null", "\"type\":0", "\"type\":\"chore\"", "\"type\":\"UNKNOWN\"",
+                "\"priority\":null", "\"priority\":1", "\"priority\":\"URGENT\"", "\"dueDate\":\"2023-02-29\"",
+                "\"dueDate\":\"2026-1-01\"", "\"dueDate\":\"0000-01-01\"", "\"dueDate\":\"2026-01-01T00:00:00Z\"", "\"dueDate\":123")) {
+            long count = tasks.count();
+            call("POST", collection, "{\"title\":\"Invalid\"," + invalid + "}", 400);
+            call("PUT", path, "{\"title\":\"Invalid\",\"status\":\"PENDING\"," + invalid + "}", 400);
+            assertEquals(count, tasks.count());
+            assertEquals(preserved, call("GET", path, null, 200));
+        }
+        call("PUT", path, "{\"title\":\"Clear date\",\"status\":\"PENDING\",\"dueDate\":null}", 200);
+        assertTrue(call("GET", path, null, 200).get("dueDate").isNull());
+        assertEquals("CHORE", call("GET", collection, null, 200).get(0).get("type").stringValue());
+        call("DELETE", path, null, 204);
+        assertEquals("CHORE", call("GET", path, null, 200).get("type").stringValue());
+    }
+
     @Test void removesGlobalTaskRoutes() throws Exception {
         long a = project();
         for (String route : List.of("/tasks", "/tasks?projectId="+a, "/tasks?active=all", "/tasks/1")) {

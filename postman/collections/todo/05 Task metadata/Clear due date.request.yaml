@@ -1,0 +1,18 @@
+$kind: http-request
+order: 4000
+method: PUT
+url: '{{baseUrl}}/projects/{{metadataProjectId}}/tasks/{{metadataTaskId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Upgrade dependencies","status":"IN_PROGRESS","dueDate":null}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Clear due date', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().dueDate).to.eql(null);
+        pm.expect(pm.response.json().type).to.eql('CHORE');
+      });

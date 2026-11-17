@@ -1,0 +1,12 @@
+$kind: http-request
+order: 4500
+method: GET
+url: '{{baseUrl}}/projects/{{labelProjectId}}/labels'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Exclude archived labels by default', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json()).to.eql([]);
+      });

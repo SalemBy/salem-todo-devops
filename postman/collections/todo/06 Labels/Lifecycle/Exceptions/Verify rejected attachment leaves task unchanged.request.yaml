@@ -1,0 +1,12 @@
+$kind: http-request
+order: 4000
+method: GET
+url: '{{baseUrl}}/projects/{{labelProjectId}}/tasks/{{labelTaskId}}/labels'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Verify rejected attachment leaves task unchanged', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json()).to.eql([]);
+      });
