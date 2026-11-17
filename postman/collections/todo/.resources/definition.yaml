@@ -1,15 +1,15 @@
 $kind: collection
 name: Salem Todo DevOps
 description: |-
-  Start with 01 Status, then run 02 Projects, 03 Tasks or 04 Validation from the top.
-  Each feature creates its own records and captures IDs automatically.
-  Run a complete feature folder; numbered subfolders show the required execution order.
-  Exceptions folders intentionally send invalid requests and assert 400, 404 or 409.
-  Expected errors are successful tests when their status and response match the rules.
-  Tasks require a project. Project keys and task ownership are immutable.
-  Archival retains records; archived project tasks are readable but cannot be written.
-  Use a disposable database: scenarios create records and archive only their own records.
-  For Validation, load postman/documents/required-fields-cases.json in Collection Runner.
+  Start with 01 Status, then run 02 Projects, 03 Tasks or 04 Validation from the top.  
+  Each feature creates its own records and captures IDs automatically.  
+  Run a complete feature folder; numbered subfolders show the required execution order.  
+  Exceptions folders intentionally send invalid requests and assert 400, 404 or 409.  
+  Expected errors are successful tests when their status and response match the rules.  
+  Tasks require a project. Project keys and task ownership are immutable.  
+  Archival retains records; archived project tasks are readable but cannot be written.  
+  Use a disposable database: scenarios create records and archive only their own records.  
+  For Validation, load postman/documents/required-fields-cases.json in Collection Runner.  
   See postman/README.md for desktop and CLI instructions.
 variables:
   baseUrl: http://127.0.0.1:8080

@@ -245,7 +245,7 @@ schemas. A forcibly terminated JVM may leave a test schema behind, so continue u
 a disposable database. Missing settings or unavailable PostgreSQL fail the build
 rather than silently skipping checks.
 Failsafe reports are in `target/failsafe-reports`; fast-test reports are in
-`target/surefire-reports`. See [test strategy and review](docs/test-suite-review.md).
+`target/surefire-reports`.
 
 To run the fast tests and package the application (without HTTP/database verification):
 
@@ -308,6 +308,12 @@ nonpositive project IDs return 400. A query parameter cannot select another proj
 All task writes in an archived project return 409, including updates to inactive tasks.
 In an active project, updating an inactive task returns 404. Archival preserves task
 state and timestamps. No operation can move a task between projects.
+
+Project IDs in task URLs must use integer notation. Decimal forms (including
+`42.0`) and scientific notation return 400 without creating a task, even when
+the integer portion identifies a real project. Ownership comes only from the URL;
+an obsolete JSON `projectId` field is ignored and cannot select another project.
+This supersedes the former global-task API's JSON numeric-coercion behavior (#26).
 
 Task updates and soft deletion acquire the owning project's row lock before
 loading task state. If deletion wins, the competing update returns 404 and leaves

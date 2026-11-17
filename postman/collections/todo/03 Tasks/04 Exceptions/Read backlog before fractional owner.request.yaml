@@ -1,0 +1,12 @@
+$kind: http-request
+order: 12500
+method: GET
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks?active=all'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Existing integer owner has a readable backlog', () => {
+        pm.response.to.have.status(200);
+        pm.collectionVariables.set('beforeFractionalOwner', JSON.stringify(pm.response.json()));
+      });

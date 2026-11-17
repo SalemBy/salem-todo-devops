@@ -1,0 +1,13 @@
+$kind: http-request
+order: 13500
+method: GET
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks?active=all'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Fractional owner request leaves the entire backlog unchanged', () => {
+        pm.response.to.have.status(200);
+        const sortById = rows => rows.sort((a, b) => a.id - b.id);
+        pm.expect(sortById(pm.response.json())).to.deep.eql(sortById(JSON.parse(pm.collectionVariables.get('beforeFractionalOwner'))));
+      });
