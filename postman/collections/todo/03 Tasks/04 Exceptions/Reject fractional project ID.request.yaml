@@ -8,6 +8,10 @@ body:
   type: json
   content: '{"title":"Fractional owner"}'
 scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      if (!pm.collectionVariables.get('beforeFractionalOwner')) throw new Error('Read the integer owner backlog first');
   - type: afterResponse
     language: text/javascript
     code: |-
@@ -15,4 +19,5 @@ scripts:
         pm.response.to.have.status(400);
         pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
         pm.expect(pm.response.json().status).to.eql(400);
+        pm.expect(pm.response.json().type).to.eql('urn:projetotodo:problem:400');
       });

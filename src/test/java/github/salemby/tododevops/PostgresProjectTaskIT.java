@@ -91,6 +91,38 @@ class PostgresProjectTaskIT {
         assertEquals(count, tasks.count());
     }
 
+    @Test void rejectsFractionalExistingOwnerWithoutCreatingOrChangingTasks() throws Exception {
+        long owner = project();
+        task(owner);
+        String path = "/projects/" + owner + "/tasks";
+        var before = call("GET", path + "?active=all", null, 200);
+        long count = tasks.count();
+        // The integer portion exists: a missing owner must not conceal truncation.
+        for (String representation : List.of(owner + ".75", owner + ".0", owner + "e0")) {
+            String invalidPath = "/projects/" + representation + "/tasks";
+            var response = TestHttp.client().send(TestHttp.request(URI.create("http://127.0.0.1:"
+                    + environment.getProperty("local.server.port") + invalidPath))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"title\":\"Must not be inserted\"}")).build(),
+                HttpResponse.BodyHandlers.ofString());
+            assertEquals(400, response.statusCode(), response.body());
+            assertTrue(response.headers().firstValue("Content-Type").orElseThrow().startsWith("application/problem+json"));
+            var problem = json.readTree(response.body());
+            assertEquals(400, problem.get("status").asInt());
+            assertEquals("urn:projetotodo:problem:400", problem.get("type").stringValue());
+            assertEquals(invalidPath, problem.get("instance").stringValue());
+            assertTrue(problem.get("errors").isArray());
+            assertEquals(count, tasks.count());
+            assertEquals(before, call("GET", path + "?active=all", null, 200));
+        }
+        // Ownership comes only from the integer route, even with an obsolete JSON projectId.
+        long other = project();
+        var valid = call("POST", path, "{\"title\":\"Valid integer owner\",\"projectId\":" + other + ".75}", 201);
+        assertEquals(owner, valid.get("projectId").asLong());
+        assertEquals(0, tasks.findAllByProjectId(other).size());
+        assertEquals(count + 1, tasks.count());
+    }
+
     @Test void requiresProjectForEveryTaskOperation() throws Exception {
         long a = project(), b = project();
         var created = call("POST", "/projects/"+a+"/tasks", "{\"title\":\"Scoped\",\"projectId\":"+b+"}", 201);
