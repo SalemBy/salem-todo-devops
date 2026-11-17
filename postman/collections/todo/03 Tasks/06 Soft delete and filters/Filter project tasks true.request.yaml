@@ -11,7 +11,7 @@ scripts:
     code: |-
       pm.test('Project filter honors active=true', () => {
         pm.response.to.have.status(200);
-        const tasks = pm.response.json();
+        const tasks = pm.response.json().items;
         pm.expect(tasks.length).to.eql(0);
         tasks.forEach(t => pm.expect(String(t.projectId)).to.eql(pm.collectionVariables.get('taskProjectId')));
       });

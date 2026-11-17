@@ -55,7 +55,7 @@ class PostgresProjectLifecycleIT {
         assertEquals(204, request("DELETE", path() + "/tasks/" + json.readTree(inactive.body()).get("id").asLong(), null).statusCode());
         // Read persisted precision: PostgreSQL rounds creation timestamps to microseconds.
         original = read(path());
-        backlog = read(path() + "/tasks?active=all");
+        backlog = read(path() + "/tasks?active=all").get("items");
     }
 
     @AfterEach
@@ -194,7 +194,7 @@ class PostgresProjectLifecycleIT {
         assertEquals(original.get("key"), archived.get("key"));
         assertEquals(original.get("createdAt"), archived.get("createdAt"));
         // Compare by task ID rather than depending on unspecified backlog ordering.
-        var retained = read(path() + "/tasks?active=all");
+        var retained = read(path() + "/tasks?active=all").get("items");
         assertEquals(backlog.size(), retained.size());
         for (var before : backlog) {
             var after = read(path() + "/tasks/" + before.get("id").asLong());

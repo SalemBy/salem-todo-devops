@@ -8,7 +8,7 @@ scripts:
     code: |-
       pm.test('Backlog includes only this project', () => {
         pm.response.to.have.status(200);
-        const tasks = pm.response.json();
+        const tasks = pm.response.json().items;
         pm.expect(tasks.some(t => String(t.id) === pm.collectionVariables.get('taskId'))).to.eql(true);
         tasks.forEach(t => pm.expect(String(t.projectId)).to.eql(pm.collectionVariables.get('taskProjectId')));
       });

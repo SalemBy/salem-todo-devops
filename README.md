@@ -76,8 +76,7 @@ create and update. Project key validation also rejects blank values. Validation
 is enforced at HTTP and Spring-managed service entry points using DTO constraints.
 Project input fields are `name` and `key`; task input uses `title`.
 
-`GET /projects/{projectId}/tasks` returns HTTP 200 with a JSON array of active tasks, or `[]`
-when none match. Use `?active=true` for active tasks (the default),
+`GET /projects/{projectId}/tasks` returns HTTP 200 with a paginated envelope of active tasks (see pagination below). Use `?active=true` for active tasks (the default),
 `?active=false` for inactive tasks, or `?active=all` for every task in that project.
 Other filter values return HTTP 400. Task responses include an `active` boolean.
 New tasks are active; migration V2 also marks existing tasks active.
@@ -301,7 +300,7 @@ an extra projectId in JSON cannot override it. Responses still include projectId
 The old /tasks routes, including /tasks?projectId=..., return 404.
 
 Lists are filtered in the database and accept active=true (default), false or all,
-within that project only. Known empty projects return []; unknown projects or
+within that project only. Known empty projects return empty `items` in a pagination envelope; unknown projects or
 tasks belonging to a different project return 404. Malformed, fractional or
 nonpositive project IDs return 400. A query parameter cannot select another project.
 
@@ -411,3 +410,17 @@ reject all writes with 409, and inactive tasks reject association writes with 40
 Project row locks serialize label, task and archive writes. Invalid replacements
 roll back the complete task update, including other fields. Label names on task
 responses reflect their current name; associations are retained history, not name snapshots.
+
+## Task pagination (issue #7, stage 1)
+
+GET /projects/{projectId}/tasks accepts zero-based page (default 0) and size
+(default 20, range 1-100). The response is now an object containing items, page,
+size, totalElements and totalPages. This breaks the former array contract.
+Items are ordered by ascending task ID; totals respect project and active filters.
+Empty and out-of-range pages return empty items with actual totals (zero totalPages
+for no matches). Negative pages, invalid sizes, noninteger parameters and offsets
+above 2147483647 return standard 400 ProblemDetail. Unknown projects remain 404.
+Archived projects remain readable. Concurrent writes can shift offset pages.
+Database pagination precedes batched label loading. Project and label list APIs
+are unchanged; global task routes remain unavailable. Search, additional filters
+and configurable sorting remain later stages of #7.

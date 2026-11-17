@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks?page=0&size=1'
+order: 1500
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Bounded page with totals', () => {
+        pm.response.to.have.status(200);
+        const page = pm.response.json();
+        pm.expect(page.page).to.eql(0);
+        pm.expect(page.size).to.eql(1);
+        pm.expect(page.items.length).to.be.at.most(1);
+        pm.expect(page.totalElements).to.be.at.least(1);
+        pm.expect(page.totalPages).to.eql(page.totalElements);
+      });
