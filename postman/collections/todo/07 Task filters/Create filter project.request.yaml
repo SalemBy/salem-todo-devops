@@ -1,0 +1,18 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Filters","key":"{{filterKey}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('filterKey','F'+pm.variables.replaceIn('{{$randomUUID}}').replace(/-/g,'').slice(0,8).toUpperCase());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Project created',()=>{pm.response.to.have.status(201);pm.collectionVariables.set('filterProjectId',String(pm.response.json().id));});

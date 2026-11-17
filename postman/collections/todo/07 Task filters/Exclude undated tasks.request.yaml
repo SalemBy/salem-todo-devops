@@ -1,0 +1,9 @@
+$kind: http-request
+order: 6000
+method: GET
+url: '{{baseUrl}}/projects/{{filterProjectId}}/tasks?dueTo=2026-06-15'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Date bound excludes undated task',()=>{pm.response.to.have.status(200);pm.expect(pm.response.json().totalElements).to.eql(1);});

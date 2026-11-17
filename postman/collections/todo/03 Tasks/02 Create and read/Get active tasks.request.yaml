@@ -1,9 +1,6 @@
 $kind: http-request
-url: "{{baseUrl}}/projects/{{taskProjectId}}/tasks?page=0&size=10"
+url: "{{baseUrl}}/projects/{{taskProjectId}}/tasks"
 method: GET
-queryParams:
-  page: "0"
-  size: "10"
 order: 3000
 scripts:
   - type: afterResponse
