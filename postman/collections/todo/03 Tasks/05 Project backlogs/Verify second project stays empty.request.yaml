@@ -11,5 +11,5 @@ scripts:
     code: |-
       pm.test('Task was not moved to the second project', () => {
         pm.response.to.have.status(200);
-        pm.expect(pm.response.json()).to.eql([]);
+        pm.expect(pm.response.json().items).to.eql([]);
       });

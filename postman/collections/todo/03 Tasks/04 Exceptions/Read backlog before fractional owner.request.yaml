@@ -8,5 +8,5 @@ scripts:
     code: |-
       pm.test('Existing integer owner has a readable backlog', () => {
         pm.response.to.have.status(200);
-        pm.collectionVariables.set('beforeFractionalOwner', JSON.stringify(pm.response.json()));
+        pm.collectionVariables.set('beforeFractionalOwner', JSON.stringify(pm.response.json().items));
       });

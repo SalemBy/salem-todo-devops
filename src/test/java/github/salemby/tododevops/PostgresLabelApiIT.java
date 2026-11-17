@@ -46,6 +46,9 @@ class PostgresLabelApiIT {
         var task = call("POST", base + "/tasks", "{\"title\":\"Labeled\",\"labelIds\":[" + id + "]}", 201);
         String taskPath = base + "/tasks/" + task.get("id").asLong();
         assertEquals(id, task.get("labels").get(0).get("id").asLong());
+        var page = call("GET", base + "/tasks?size=1", null, 200);
+        assertEquals(1, page.get("totalElements").asLong());
+        assertEquals(call("GET", taskPath, null, 200), page.get("items").get(0));
         call("PUT", taskPath + "/labels/" + id, null, 204);
         assertEquals(1, call("GET", taskPath + "/labels", null, 200).size());
         call("PUT", labelPath, "{\"name\":\"API\"}", 200);

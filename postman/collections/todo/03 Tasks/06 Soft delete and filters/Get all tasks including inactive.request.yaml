@@ -11,7 +11,7 @@ scripts:
     code: |-
       pm.test('Project all filter includes the inactive task', () => {
         pm.response.to.have.status(200);
-        const tasks = pm.response.json();
+        const tasks = pm.response.json().items;
         pm.expect(tasks).to.be.an('array');
         const task = tasks.find(t => String(t.id) === pm.collectionVariables.get('taskId'));
         pm.expect(task).to.be.an('object');

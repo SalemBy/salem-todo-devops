@@ -1,5 +1,6 @@
 package github.salemby.tododevops.workmanagement.api;
 
+import github.salemby.tododevops.workmanagement.application.dto.response.PageResponse;
 import github.salemby.tododevops.workmanagement.application.dto.request.CreateTaskRequest;
 import github.salemby.tododevops.workmanagement.application.dto.request.UpdateTaskRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.TaskResponse;
@@ -28,8 +29,9 @@ public class TaskController {
         return ResponseEntity.created(location).body(task);
     }
     @GetMapping
-    public ResponseEntity<List<TaskResponse>> findAll(@RequestParam(defaultValue = "true") String active, @PathVariable Long projectId) {
-        return ResponseEntity.ok(taskService.findAllByProject(projectId, active));
+    public ResponseEntity<PageResponse<TaskResponse>> findAll(@RequestParam(defaultValue = "true") String active, @PathVariable Long projectId,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(taskService.findAllByProject(projectId, active, page, size));
     }
 
     @GetMapping("/{id}")

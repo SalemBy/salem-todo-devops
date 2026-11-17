@@ -1,5 +1,8 @@
 package github.salemby.tododevops.workmanagement.application;
 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.PageRequest;
+import github.salemby.tododevops.workmanagement.application.dto.response.PageResponse;
 import github.salemby.tododevops.workmanagement.application.dto.request.CreateTaskRequest;
 import github.salemby.tododevops.workmanagement.application.dto.request.UpdateTaskRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.TaskResponse;
@@ -32,16 +35,24 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> findAllByProject(Long projectId, String active) {
+    public PageResponse<TaskResponse> findAllByProject(Long projectId, String active, int page, int size) {
+        if (page < 0 || size < 1 || size > 100 || (long) page * size > Integer.MAX_VALUE)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page must be nonnegative, size 1-100, and offset at most 2147483647");
         requireProject(projectId, false);
-        List<Task> tasks = switch (active) {
-            case "true" -> taskRepository.findAllByProjectIdAndActive(projectId, true);
-            case "false" -> taskRepository.findAllByProjectIdAndActive(projectId, false);
-            case "all" -> taskRepository.findAllByProjectId(projectId);
+        var pageable = PageRequest.of(page, size, Sort.by("id"));
+        var tasks = switch (active) {
+            case "true" -> taskRepository.findAllByProjectIdAndActive(projectId, true, pageable);
+            case "false" -> taskRepository.findAllByProjectIdAndActive(projectId, false, pageable);
+            case "all" -> taskRepository.findAllByProjectId(projectId, pageable);
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Active must be true, false, or all");
         };
-        return tasks.stream().map(this::toResponse).toList();
+        // Batch labels after paging, avoiding pagination over a collection join.
+        if (tasks.hasContent()) taskRepository.findAllByProjectIdAndIdIn(projectId,
+            tasks.getContent().stream().map(Task::getId).toList());
+        return new PageResponse<>(
+            tasks.getContent().stream().map(this::toResponse).toList(), page, size,
+            tasks.getTotalElements(), tasks.getTotalPages());
     }
 
     @Transactional

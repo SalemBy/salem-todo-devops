@@ -47,12 +47,12 @@ class PostgresProjectTaskIT {
         long id=first.get("id").asLong(), inactive=archived.get("id").asLong();
         call("DELETE", "/projects/"+a+"/tasks/"+inactive,null,204);
         for (String filter : List.of("true", "false", "all")) {
-            var rows = call("GET", "/projects/" + a + "/tasks?active=" + filter, null, 200);
+            var rows = call("GET", "/projects/" + a + "/tasks?active=" + filter, null, 200).get("items");
             assertEquals(filter.equals("all") ? 2 : 1, rows.size());
             for (var row : rows) assertEquals(a, row.get("projectId").asLong());
         }
-        assertEquals(0,call("GET","/projects/"+empty+"/tasks",null,200).size());
-        assertEquals(second.get("id"),call("GET","/projects/"+b+"/tasks",null,200).get(0).get("id"));
+        assertEquals(0,call("GET","/projects/"+empty+"/tasks",null,200).get("items").size());
+        assertEquals(second.get("id"),call("GET","/projects/"+b+"/tasks",null,200).get("items").get(0).get("id"));
         // Extra projectId cannot reassign the task, even if supplied by a caller.
         call("PUT","/projects/"+a+"/tasks/"+id,"{\"projectId\":"+b+",\"title\":\"Updated\",\"status\":\"IN_PROGRESS\"}",200);
         assertEquals(a,call("GET","/projects/"+a+"/tasks/"+id,null,200).get("projectId").asLong());
@@ -67,7 +67,7 @@ class PostgresProjectTaskIT {
         call("DELETE","/projects/"+a+"/tasks/"+inactive,null,409);
         call("PUT","/projects/"+a+"/tasks/"+inactive,"{\"title\":\"Blocked\",\"status\":\"COMPLETED\"}",409);
         assertEquals(before,call("GET","/projects/"+a+"/tasks/"+id,null,200));
-        assertEquals(2,call("GET","/projects/"+a+"/tasks?active=all",null,200).size());
+        assertEquals(2,call("GET","/projects/"+a+"/tasks?active=all",null,200).get("items").size());
     }
     @Test void rejectsInvalidAndMissingProjectsWithoutCreatingTasks() throws Exception {
         long count = tasks.count();
@@ -134,7 +134,7 @@ class PostgresProjectTaskIT {
         call("PUT", other, "{\"title\":\"Wrong owner\",\"status\":\"COMPLETED\"}", 404);
         call("DELETE", other, null, 404);
         assertEquals(before, call("GET", own, null, 200));
-        assertEquals(0, call("GET", "/projects/"+b+"/tasks?active=all", null, 200).size());
+        assertEquals(0, call("GET", "/projects/"+b+"/tasks?active=all", null, 200).get("items").size());
     }
 
     @Test void taskMetadataDefaultsUpdatesAndValidation() throws Exception {
@@ -171,9 +171,36 @@ class PostgresProjectTaskIT {
         }
         call("PUT", path, "{\"title\":\"Clear date\",\"status\":\"PENDING\",\"dueDate\":null}", 200);
         assertTrue(call("GET", path, null, 200).get("dueDate").isNull());
-        assertEquals("CHORE", call("GET", collection, null, 200).get(0).get("type").stringValue());
+        assertEquals("CHORE", call("GET", collection, null, 200).get("items").get(0).get("type").stringValue());
         call("DELETE", path, null, 204);
         assertEquals("CHORE", call("GET", path, null, 200).get("type").stringValue());
+    }
+
+    @Test void paginatesWithStableOrderingAndValidatesBoundaries() throws Exception {
+        long p = project();
+        String path = "/projects/" + p + "/tasks";
+        var ids = new ArrayList<Long>();
+        for (int i = 0; i < 23; i++) ids.add(task(p).get("id").asLong());
+        var first = call("GET", path, null, 200);
+        assertEquals(20, first.get("items").size());
+        assertEquals(0, first.get("page").asInt());
+        assertEquals(20, first.get("size").asInt());
+        assertEquals(23, first.get("totalElements").asLong());
+        assertEquals(2, first.get("totalPages").asInt());
+        for (int i = 0; i < 20; i++) assertEquals(ids.get(i).longValue(), first.get("items").get(i).get("id").asLong());
+        var last = call("GET", path + "?page=1", null, 200);
+        assertEquals(3, last.get("items").size());
+        assertEquals(ids.get(20).longValue(), last.get("items").get(0).get("id").asLong());
+        var beyond = call("GET", path + "?page=2", null, 200);
+        assertEquals(0, beyond.get("items").size());
+        assertEquals(23, beyond.get("totalElements").asLong());
+        assertEquals(23, call("GET", path + "?size=100", null, 200).get("items").size());
+        assertEquals(1, call("GET", path + "?size=1", null, 200).get("items").size());
+        for (String query : List.of("page=-1", "page=1.5", "page=abc", "size=0", "size=-1", "size=101", "size=1.5", "page=2147483647&size=100")) {
+            var problem = call("GET", path + "?" + query, null, 400);
+            assertEquals(400, problem.get("status").asInt());
+            assertTrue(problem.get("errors").isArray());
+        }
     }
 
     @Test void removesGlobalTaskRoutes() throws Exception {

@@ -8,7 +8,7 @@ scripts:
     code: |-
       pm.test('Read archived project backlog', () => {
         pm.response.to.have.status(200);
-        const tasks = pm.response.json();
+        const tasks = pm.response.json().items;
         pm.expect(tasks.length).to.eql(2);
         tasks.forEach(t => pm.expect(String(t.projectId)).to.eql(pm.collectionVariables.get('taskProjectId')));
         pm.expect(tasks.find(t => String(t.id) === pm.collectionVariables.get('activeTaskId'))).to.deep.eql(JSON.parse(pm.collectionVariables.get('activeTaskSnapshot')));

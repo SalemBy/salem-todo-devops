@@ -1,0 +1,13 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/projects/{{taskProjectId}}/tasks?size=101'
+order: 5100
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Invalid pagination returns ProblemDetail', () => {
+        pm.response.to.have.status(400);
+        pm.expect(pm.response.json().status).to.eql(400);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+      });

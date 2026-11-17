@@ -163,7 +163,7 @@ class PostgresTaskApiIT {
         var client = TestHttp.client();
         var emptyResponse = client.send(request, HttpResponse.BodyHandlers.ofString());
         assertEquals(200, emptyResponse.statusCode());
-        assertEquals("[]", emptyResponse.body());
+        assertEquals(0, new tools.jackson.databind.ObjectMapper().readTree(emptyResponse.body()).get("totalElements").asInt());
 
         Task first = new Task(owner);
         first.setTitle("First listed task");
@@ -175,7 +175,7 @@ class PostgresTaskApiIT {
             assertEquals(200, response.statusCode());
             assertTrue(response.headers().firstValue("Content-Type").orElseThrow()
                 .startsWith("application/json"));
-            var json = new tools.jackson.databind.ObjectMapper().readTree(response.body());
+            var json = new tools.jackson.databind.ObjectMapper().readTree(response.body()).get("items");
             assertTrue(json.isArray());
             assertEquals(2, json.size());
             var ids = new java.util.HashSet<Long>();
@@ -371,7 +371,7 @@ class PostgresTaskApiIT {
     private void assertTaskIds(String query, Long... expected) throws Exception {
         var response = getTasks(query);
         assertEquals(200, response.statusCode());
-        var json = new tools.jackson.databind.ObjectMapper().readTree(response.body());
+        var json = new tools.jackson.databind.ObjectMapper().readTree(response.body()).get("items");
         assertTrue(json.isArray());
         var ids = new java.util.HashSet<Long>();
         for (var item : json) {
