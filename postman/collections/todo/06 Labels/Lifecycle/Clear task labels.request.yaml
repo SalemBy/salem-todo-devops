@@ -1,0 +1,17 @@
+$kind: http-request
+order: 5000
+method: PUT
+url: '{{baseUrl}}/projects/{{labelProjectId}}/tasks/{{labelTaskId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Label workflow","status":"PENDING","labelIds":[]}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Clear task labels', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().labels).to.eql([]);
+      });

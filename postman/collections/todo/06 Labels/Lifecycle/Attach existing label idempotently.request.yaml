@@ -1,0 +1,11 @@
+$kind: http-request
+order: 1000
+method: PUT
+url: '{{baseUrl}}/projects/{{labelProjectId}}/tasks/{{labelTaskId}}/labels/{{labelId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Attach existing label idempotently', () => {
+        pm.response.to.have.status(204);
+      });

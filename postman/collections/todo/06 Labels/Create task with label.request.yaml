@@ -1,0 +1,18 @@
+$kind: http-request
+order: 5000
+method: POST
+url: '{{baseUrl}}/projects/{{labelProjectId}}/tasks'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Label workflow","labelIds":[{{labelId}}]}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Create task with label', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('labelTaskId', String(pm.response.json().id));
+        pm.expect(pm.response.json().labels.map(l => l.id)).to.eql([Number(pm.collectionVariables.get('labelId'))]);
+      });

@@ -1,0 +1,11 @@
+$kind: http-request
+order: 6000
+method: DELETE
+url: '{{baseUrl}}/projects/{{labelProjectId}}/tasks/{{labelTaskId}}/labels/{{labelId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Detach absent label idempotently', () => {
+        pm.response.to.have.status(204);
+      });

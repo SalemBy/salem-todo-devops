@@ -1,0 +1,19 @@
+$kind: http-request
+order: 3000
+method: POST
+url: '{{baseUrl}}/projects/{{labelProjectId}}/labels'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"  Backend  "}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Create project label', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('labelId', String(pm.response.json().id));
+        pm.expect(pm.response.json().name).to.eql('Backend');
+        pm.expect(pm.response.json().projectId).to.eql(Number(pm.collectionVariables.get('labelProjectId')));
+      });

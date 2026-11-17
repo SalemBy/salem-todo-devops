@@ -1,0 +1,20 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Metadata checks","key":"{{metadataKey}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: pm.collectionVariables.set('metadataKey', 'M' + pm.variables.replaceIn('{{$randomUUID}}').replace(/-/g, '').slice(0, 8).toUpperCase());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Metadata project created', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('metadataProjectId', String(pm.response.json().id));
+      });

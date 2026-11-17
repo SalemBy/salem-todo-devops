@@ -1,0 +1,14 @@
+$kind: http-request
+order: 4000
+method: GET
+url: '{{baseUrl}}/projects/{{labelProjectId}}/tasks/{{labelTaskId}}/labels'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Retain archived label on task', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json()).to.have.lengthOf(1);
+        pm.expect(pm.response.json()[0].active).to.eql(false);
+        pm.expect(pm.response.json()[0].name).to.eql('API');
+      });

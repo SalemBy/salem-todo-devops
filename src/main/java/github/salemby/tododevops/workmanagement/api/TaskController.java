@@ -42,6 +42,23 @@ public class TaskController {
         return ResponseEntity.ok(taskService.update(projectId, id, request));
     }
 
+    @GetMapping("/{id}/labels")
+    public List<github.salemby.tododevops.workmanagement.application.dto.response.LabelResponse> labels(@PathVariable Long projectId, @PathVariable Long id) {
+        return taskService.findLabels(projectId, id);
+    }
+
+    @PutMapping("/{id}/labels/{labelId}")
+    public ResponseEntity<Void> attachLabel(@PathVariable Long projectId, @PathVariable Long id, @PathVariable Long labelId) {
+        taskService.changeLabel(projectId, id, labelId, true);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/labels/{labelId}")
+    public ResponseEntity<Void> detachLabel(@PathVariable Long projectId, @PathVariable Long id, @PathVariable Long labelId) {
+        taskService.changeLabel(projectId, id, labelId, false);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long projectId, @PathVariable Long id) {
         taskService.delete(projectId, id);

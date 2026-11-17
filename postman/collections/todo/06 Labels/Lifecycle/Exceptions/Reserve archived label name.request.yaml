@@ -1,0 +1,16 @@
+$kind: http-request
+order: 2000
+method: POST
+url: '{{baseUrl}}/projects/{{labelProjectId}}/labels'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"api"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Reserve archived label name', () => {
+        pm.response.to.have.status(409);
+      });

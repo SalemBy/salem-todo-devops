@@ -1,0 +1,7 @@
+ALTER TABLE tasks
+    ADD COLUMN type VARCHAR(20) NOT NULL DEFAULT 'TASK',
+    ADD COLUMN priority VARCHAR(20) NOT NULL DEFAULT 'MEDIUM',
+    ADD COLUMN due_date DATE,
+    ADD CONSTRAINT ck_tasks_type CHECK (type IN ('TASK', 'BUG', 'FEATURE', 'ENHANCEMENT', 'CHORE')),
+    ADD CONSTRAINT ck_tasks_priority CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    ADD CONSTRAINT ck_tasks_due_date CHECK (due_date BETWEEN DATE '0001-01-01' AND DATE '9999-12-31');

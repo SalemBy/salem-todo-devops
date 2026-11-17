@@ -27,6 +27,7 @@ class ServiceValidationTests {
         }
         @Bean TaskRepository tasks() { return mock(TaskRepository.class); }
         @Bean ProjectRepository projects() { return mock(ProjectRepository.class); }
+        @Bean LabelRepository labels() { return mock(LabelRepository.class); }
     }
 
     @Autowired TaskService taskService;

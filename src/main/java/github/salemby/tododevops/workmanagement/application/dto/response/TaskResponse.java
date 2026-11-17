@@ -4,5 +4,8 @@ import github.salemby.tododevops.workmanagement.domain.TaskStatus;
 import java.time.Instant;
 
 public record TaskResponse(Long id, Long projectId, String title, String description,
-                           TaskStatus status, Instant createdAt, Instant updatedAt, boolean active) {
+                           TaskStatus status, Instant createdAt, Instant updatedAt, boolean active,
+                           github.salemby.tododevops.workmanagement.domain.TaskType type,
+                           github.salemby.tododevops.workmanagement.domain.TaskPriority priority,
+                           java.time.LocalDate dueDate, java.util.List<LabelResponse> labels) {
 }

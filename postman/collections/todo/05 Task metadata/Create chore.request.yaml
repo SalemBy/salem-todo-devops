@@ -1,0 +1,19 @@
+$kind: http-request
+order: 2000
+method: POST
+url: '{{baseUrl}}/projects/{{metadataProjectId}}/tasks'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Upgrade dependencies","type":"CHORE","priority":"HIGH","dueDate":"2024-02-29"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Create chore', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('metadataTaskId', String(pm.response.json().id));
+        pm.expect(pm.response.json().type).to.eql('CHORE');
+        pm.expect(pm.response.json().dueDate).to.eql('2024-02-29');
+      });

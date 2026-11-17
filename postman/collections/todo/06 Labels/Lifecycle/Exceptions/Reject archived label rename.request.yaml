@@ -1,0 +1,16 @@
+$kind: http-request
+order: 3000
+method: PUT
+url: '{{baseUrl}}/projects/{{labelProjectId}}/labels/{{labelId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Changed"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Reject archived label rename', () => {
+        pm.response.to.have.status(404);
+      });

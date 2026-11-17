@@ -4,6 +4,9 @@ import github.salemby.tododevops.workmanagement.application.dto.request.CreateTa
 import github.salemby.tododevops.workmanagement.application.dto.request.UpdateTaskRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.TaskResponse;
 import github.salemby.tododevops.workmanagement.domain.Task;
+import github.salemby.tododevops.workmanagement.domain.Label;
+import github.salemby.tododevops.workmanagement.application.dto.response.LabelResponse;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.LabelRepository;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -19,11 +22,13 @@ import java.util.List;
 @Validated
 public class TaskService {
     private final TaskRepository taskRepository;
+    private final LabelRepository labels;
     private final github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository projects;
 
-    public TaskService(TaskRepository taskRepository, github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository projects) {
+    public TaskService(TaskRepository taskRepository, github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository projects, LabelRepository labels) {
         this.taskRepository = taskRepository;
         this.projects = projects;
+        this.labels = labels;
     }
 
     @Transactional(readOnly = true)
@@ -44,6 +49,7 @@ public class TaskService {
         Task task = new Task(requireProject(projectId, true));
         task.setTitle(request.title());
         task.setDescription(request.description());
+        applyMetadata(task, request);
         Task saved = taskRepository.save(task);
         return toResponse(saved);
     }
@@ -56,6 +62,7 @@ public class TaskService {
         task.setTitle(request.title());
         task.setDescription(request.description());
         task.setStatus(request.status());
+        applyMetadata(task, request);
         Task saved = taskRepository.saveAndFlush(task);
         return toResponse(saved);
     }
@@ -84,9 +91,51 @@ public class TaskService {
         return project;
     }
 
+    private void applyMetadata(Task task, github.salemby.tododevops.workmanagement.application.dto.request.TaskMetadataRequest request) {
+        if (request.type() != null) task.setType(request.type());
+        if (request.priority() != null) task.setPriority(request.priority());
+        if (request.dueDatePresent()) task.setDueDate(request.dueDate());
+        replaceLabels(task, request.labelIds());
+    }
+
+    private void replaceLabels(Task task, java.util.List<Long> ids) {
+        if (ids == null) return;
+        var selected = labels.findAllByProjectIdAndIdIn(task.getProject().getId(), ids);
+        if (selected.size() != ids.size()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Label not found");
+        var existing = task.getLabels().stream().map(Label::getId).collect(java.util.stream.Collectors.toSet());
+        for (Label label : selected) {
+            if (!label.isActive() && !existing.contains(label.getId()))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Label is archived");
+        }
+        task.replaceLabels(selected);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LabelResponse> findLabels(Long projectId, Long id) {
+        return findById(projectId, id).labels();
+    }
+
+    @Transactional
+    public void changeLabel(Long projectId, Long id, Long labelId, boolean attach) {
+        requireProject(projectId, true);
+        Task task = taskRepository.findByIdAndProjectIdAndActiveTrue(id, projectId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+        Label label = labels.findByIdAndProjectId(labelId, projectId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Label not found"));
+        if (attach) {
+            if (!label.isActive() && !task.getLabels().contains(label))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Label is archived");
+            task.getLabels().add(label);
+        } else {
+            task.getLabels().remove(label);
+        }
+    }
+
     private TaskResponse toResponse(Task task) {
         return new TaskResponse(task.getId(), task.getProject().getId(), task.getTitle(), task.getDescription(),
-            task.getStatus(), task.getCreatedAt(), task.getUpdatedAt(), task.isActive());
+            task.getStatus(), task.getCreatedAt(), task.getUpdatedAt(), task.isActive(),
+            task.getType(), task.getPriority(), task.getDueDate(),
+            task.getLabels().stream().sorted(java.util.Comparator.comparing(Label::getId)).map(LabelResponse::from).toList());
     }
 
 }

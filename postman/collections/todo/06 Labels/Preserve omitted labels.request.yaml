@@ -1,0 +1,17 @@
+$kind: http-request
+order: 6000
+method: PUT
+url: '{{baseUrl}}/projects/{{labelProjectId}}/tasks/{{labelTaskId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Label workflow","status":"PENDING"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Preserve omitted labels', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().labels.map(l => l.id)).to.eql([Number(pm.collectionVariables.get('labelId'))]);
+      });
