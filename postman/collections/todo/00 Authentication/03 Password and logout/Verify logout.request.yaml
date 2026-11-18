@@ -1,0 +1,15 @@
+$kind: http-request
+order: 7000
+method: GET
+url: '{{baseUrl}}/auth/me'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Verify logout', () => {
+        pm.response.to.have.status(401);
+        const problem = pm.response.json();
+        pm.expect(problem.status).to.eql(401);
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:401');
+        pm.expect(problem.errors).to.be.an('array');
+      });

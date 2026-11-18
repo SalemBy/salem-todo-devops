@@ -1,0 +1,26 @@
+$kind: http-request
+order: 1000
+method: GET
+url: '{{baseUrl}}/auth/csrf'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      const authVars = pm.environment.get('manualAuth') === 'true' ? pm.environment : pm.variables;
+      if (pm.environment.get('manualAuth') !== 'true' || !authVars.get('authEmail')) {
+        authVars.set('authEmail', pm.variables.replaceIn('{{$randomUUID}}') + '@example.com');
+        authVars.set('authPassword', pm.variables.replaceIn('{{$randomUUID}}'));
+      }
+      authVars.unset('csrfToken');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      const authVars = pm.environment.get('manualAuth') === 'true' ? pm.environment : pm.variables;
+      pm.test('Get CSRF token', () => {
+        pm.response.to.have.status(200);
+        const csrf = pm.response.json();
+        pm.expect(csrf.token).to.be.a('string').and.not.empty;
+        authVars.set('csrfToken', csrf.token);
+        authVars.set('csrfHeader', csrf.headerName);
+        pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store');
+      });

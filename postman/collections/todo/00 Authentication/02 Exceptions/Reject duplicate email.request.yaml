@@ -1,0 +1,21 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/auth/register'
+headers:
+  X-CSRF-TOKEN: '{{csrfToken}}'
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{authEmail}}","displayName":"Duplicate","password":"{{authPassword}}"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Reject duplicate email', () => {
+        pm.response.to.have.status(409);
+        const problem = pm.response.json();
+        pm.expect(problem.status).to.eql(409);
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:409');
+        pm.expect(problem.errors).to.be.an('array');
+      });

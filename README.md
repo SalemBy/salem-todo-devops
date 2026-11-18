@@ -1,5 +1,43 @@
 # Salem Todo DevOps
 
+## Accounts and session authentication (issue #8)
+
+The identity module now provides account creation, input validation,
+password hashing, and account persistence through Flyway V7. Existing migrations
+and project/task/label data are preserved. Email is stripped and lowercased with
+Locale.ROOT, limited to valid ASCII email syntax and 254 characters; normalized
+emails remain unique even for disabled accounts. Display names use existing
+visible-text/NUL validation and a 100 UTF-16 code-unit limit. Passwords accept
+15-128 Unicode code points without trimming and reject NUL. Registration DTO
+string representations redact their contents; response DTOs contain no credentials.
+
+Spring Security PBKDF2-SHA256 uses 600,000 iterations and a random 16-byte salt,
+with a versioned encoding ID. Spring Security now protects business endpoints.
+There are no seeded accounts or default passwords. Registration is disabled by
+default; set `AUTH_REGISTRATION_ENABLED=true` for controlled onboarding. For local
+HTTP only, explicitly set `SESSION_COOKIE_SECURE=false` in your existing `.env`
+or process environment. Deployed HTTPS environments must keep Secure cookies.
+
+Call `GET /auth/csrf`, retain the session cookie, and send the returned token in
+its indicated header on every write, including registration and login. Register
+with `POST /auth/register`, log in with `POST /auth/login`, then fetch a fresh CSRF
+token. Both requests accept JSON email/password; registration also requires
+displayName. Read the current account with `GET /auth/me`. `POST /auth/logout`
+invalidates the current session. `POST /auth/password` accepts currentPassword
+and newPassword, revokes all existing logins, and requires logging in again.
+
+Sessions use an HttpOnly, SameSite=Lax, host-only cookie, expire after 30 minutes
+idle or 12 hours absolute, and do not survive server restart. This version runs
+on one server with in-memory sessions. No browser redirects, Basic auth, JWTs,
+remember-me, or cross-origin credentialed CORS are enabled. The public routes are
+`GET /`, `GET /auth/csrf`, `POST /auth/register`, and `POST /auth/login`.
+Missing/revoked authentication returns 401 before CSRF checks on protected routes;
+invalid CSRF returns 403. Authenticated users still share business data until #9
+adds project membership permissions; this is not tenant isolation.
+
+See the [authentication contract](docs/authentication-contract.md),
+[implementation plan](docs/authentication-plan.md), and [Postman guide](postman/README.md).
+
 Task list filters: see [the stage 2 contract](docs/task-filter-contract.md) for
 combined status, type, priority, label, and inclusive due-date filtering.
 

@@ -9,7 +9,37 @@ the desktop app. Expand **Salem Todo DevOps** and follow the numbered folders.
 1. Start the API against a disposable development or test database.
 2. Set the collection variable `baseUrl` (default: `http://127.0.0.1:8080`).
 3. Send **01 Status → Application status**. Expect HTTP 200 and `status: running`.
-4. Use Collection Runner to run an entire feature folder in order.
+4. Enable `AUTH_REGISTRATION_ENABLED=true` and, for local HTTP only,
+   `SESSION_COOKIE_SECURE=false` on the test server.
+5. In Collection Runner, select **00 Authentication** followed by the desired
+   feature folders in the same run. Leave the cookie jar enabled. Authentication
+   generates temporary test credentials and CSRF values in run-local variables;
+   do not export cookies, run logs containing credentials, or tokens to Git.
+
+The authentication folder covers registration, login, current account, password
+change, logout, duplicate email, invalid input, and CSRF errors. It finishes with
+a fresh login and CSRF token so later business requests inherit the required
+header. Run this setup again after expiration or server restart.
+
+Every write obtains a fresh CSRF token automatically using the cookie jar before
+sending the request. This also refreshes the token after login, logout, and server
+restart. Explicit token requests remain available for learning and inspection.
+An expired login still requires signing in again.
+
+In manual mode, **Get CSRF token** preserves your existing authEmail/authPassword.
+To register a different account, set both values in the selected environment or
+clear both before sending this setup request. Re-registering the same email returns
+409. Use **Login** when the account already exists. Generated credentials are for
+disposable testing, and password-change scenarios change that test account's password.
+
+To use the desktop **Send** button one request at a time, select a private local
+Postman environment and set its text variable `manualAuth` to `true`. Send **Get
+CSRF token**, then **Register account**, using the same host and cookie jar.
+This mode keeps generated test credentials and CSRF values in that environment
+between sends. Keep the values local and clear them after testing. A 403 with
+`Request forbidden` means the token or its matching session cookie was rejected.
+A 403 with `Registration is disabled` means the server requires the onboarding
+setting in step 4. Restart the local server after changing its configuration.
 
 Setup requests create records and capture their IDs automatically. Leave generated
 ID, key and snapshot variables empty initially; their descriptions explain their
@@ -55,18 +85,18 @@ not only the HTTP status color in Postman.
 ## Run from the CLI
 
 ```powershell
-# Full collection: 68 requests and 68 assertions
+# Full collection, including authentication setup
 postman collection run postman/collections/todo
 
 # Independent project or task scenario
-postman collection run postman/collections/todo -i "02 Projects"
-postman collection run postman/collections/todo -i "03 Tasks"
+postman collection run postman/collections/todo -i "00 Authentication" -i "02 Projects"
+postman collection run postman/collections/todo -i "00 Authentication" -i "03 Tasks"
 
 # Override the address for an isolated test instance
 postman collection run postman/collections/todo --env-var baseUrl=http://127.0.0.1:18080
 
 # Nine required-field cases: 36 requests and 36 assertions
-postman collection run postman/collections/todo -i "04 Validation" -d postman/documents/required-fields-cases.json
+postman collection run postman/collections/todo -i "00 Authentication" -i "04 Validation" -d postman/documents/required-fields-cases.json
 ```
 
 For the same dataset in the desktop app, select **04 Validation** in Collection

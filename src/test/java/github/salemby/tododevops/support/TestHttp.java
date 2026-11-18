@@ -4,11 +4,19 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.time.Duration;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.http.HttpResponse;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import tools.jackson.databind.ObjectMapper;
 
 /** One connection pool and bounded requests for local HTTP integration tests. */
 public final class TestHttp {
     private static final HttpClient CLIENT = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(5)).build();
+    private record Session(String cookie, String token, String header) {}
+    private static final ConcurrentHashMap<String, Session> SESSIONS = new ConcurrentHashMap<>();
 
     private TestHttp() {}
 
@@ -17,6 +25,33 @@ public final class TestHttp {
     }
 
     public static HttpRequest.Builder request(URI uri) {
-        return HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(15));
+        String base = uri.getScheme() + "://" + uri.getAuthority();
+        var session = SESSIONS.computeIfAbsent(base, TestHttp::login);
+        return HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(15))
+            .header("Cookie", session.cookie()).header(session.header(), session.token());
+    }
+
+    /** Creates a disposable account through production HTTP security, once per isolated server. */
+    private static Session login(String base) {
+        try {
+            var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+            var client = HttpClient.newBuilder().cookieHandler(cookies).connectTimeout(Duration.ofSeconds(5)).build();
+            var json = new ObjectMapper();
+            var csrf = client.send(HttpRequest.newBuilder(URI.create(base + "/auth/csrf")).GET().build(), HttpResponse.BodyHandlers.ofString());
+            var token = json.readTree(csrf.body());
+            String email = UUID.randomUUID() + "@example.com", password = UUID.randomUUID().toString();
+            for (String path : new String[]{"/auth/register", "/auth/login"}) {
+                var body = json.writeValueAsString(java.util.Map.of("email", email, "password", password, "displayName", "HTTP test"));
+                var result = client.send(HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(15))
+                    .header("Content-Type", "application/json").header(token.get("headerName").asText(), token.get("token").asText())
+                    .POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+                if (result.statusCode() != (path.endsWith("register") ? 201 : 200))
+                    throw new IllegalStateException("Test authentication failed: " + result.statusCode() + " " + result.body());
+            }
+            token = json.readTree(client.send(HttpRequest.newBuilder(URI.create(base + "/auth/csrf")).GET().build(), HttpResponse.BodyHandlers.ofString()).body());
+            String cookie = cookies.getCookieStore().getCookies().stream().filter(c -> c.getName().equals("JSESSIONID"))
+                .map(c -> c.getName() + "=" + c.getValue()).findFirst().orElseThrow();
+            return new Session(cookie, token.get("token").asText(), token.get("headerName").asText());
+        } catch (Exception ex) { throw new IllegalStateException("Cannot authenticate isolated HTTP tests", ex); }
     }
 }

@@ -1,0 +1,15 @@
+$kind: http-request
+order: 6000
+method: POST
+url: '{{baseUrl}}/auth/logout'
+headers:
+  X-CSRF-TOKEN: '{{csrfToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      const authVars = pm.environment.get('manualAuth') === 'true' ? pm.environment : pm.variables;
+      pm.test('Logout', () => {
+        pm.response.to.have.status(204);
+        authVars.unset('csrfToken');
+      });

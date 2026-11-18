@@ -1,0 +1,21 @@
+$kind: http-request
+order: 4000
+method: POST
+url: '{{baseUrl}}/auth/register'
+headers:
+  X-CSRF-TOKEN: '{{csrfToken}}'
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"invalid","displayName":"","password":"short"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Reject invalid registration', () => {
+        pm.response.to.have.status(400);
+        const problem = pm.response.json();
+        pm.expect(problem.status).to.eql(400);
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:400');
+        pm.expect(problem.errors).to.be.an('array');
+      });

@@ -1,0 +1,18 @@
+$kind: http-request
+order: 2000
+method: POST
+url: '{{baseUrl}}/auth/register'
+headers:
+  Content-Type: application/json
+  X-CSRF-TOKEN: '{{csrfToken}}'
+body:
+  type: json
+  content: '{"email":"{{authEmail}}","displayName":"Postman test","password":"{{authPassword}}"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Register account', () => {
+        pm.response.to.have.status(201);
+        pm.expect(pm.response.json()).not.to.have.property('passwordHash');
+      });
