@@ -12,7 +12,7 @@ class PostgresAssociationMigrationIT {
     void requiresEmptyOldTasksAndEnforcesOwnership(boolean existingTasks) throws Exception {
         String url=System.getenv("TEST_DB_URL"), user=System.getenv("TEST_DB_USERNAME"), password=System.getenv("TEST_DB_PASSWORD");
         String schema="association_"+UUID.randomUUID().toString().replace("-", "");
-        var flyway=Flyway.configure().dataSource(url,user,password).schemas(schema).cleanDisabled(false).load();
+        var flyway=Flyway.configure().dataSource(url,user,password).schemas(schema).target("4").cleanDisabled(false).load();
         try {
             Flyway.configure().dataSource(url,user,password).schemas(schema).target("3").load().migrate();
             try(var c=DriverManager.getConnection(url,user,password)) {

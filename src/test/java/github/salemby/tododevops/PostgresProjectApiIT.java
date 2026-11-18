@@ -92,6 +92,80 @@ class PostgresProjectApiIT {
     }
 
     @Test
+    void creatorBecomesOwnerAndIsRecordedAsCreator() throws Exception {
+        var me = request("GET", "/auth/me", null);
+        assertEquals(200, me.statusCode(), me.body());
+        long accountId = json.readTree(me.body()).get("id").asLong();
+
+        var created = create("Owned project", "OWNED", null);
+        long id = id(created);
+        var project = json.readTree(created.body());
+        assertEquals(accountId, project.get("createdByAccountId").asLong());
+        assertEquals("OWNER", project.get("role").stringValue());
+
+        var read = json.readTree(request("GET", "/projects/" + id, null).body());
+        assertEquals(accountId, read.get("createdByAccountId").asLong());
+        assertEquals("OWNER", read.get("role").stringValue());
+        JsonNode listed = null;
+        for (JsonNode item : json.readTree(request("GET", "/projects?active=all", null).body())) {
+            if (item.get("id").asLong() == id) listed = item;
+        }
+        assertNotNull(listed);
+        assertEquals("OWNER", listed.get("role").stringValue());
+
+        var memberships = new org.springframework.jdbc.core.JdbcTemplate(dataSource).queryForList(
+            "SELECT account_id, role FROM project_memberships WHERE project_id = ?", id);
+        assertEquals(List.of(Map.of("account_id", accountId, "role", "OWNER")), memberships);
+
+        // Clients cannot change the creator or their own role through a project update.
+        var updated = request("PUT", "/projects/" + id,
+            "{\"name\":\"Renamed\",\"createdByAccountId\":999,\"role\":\"VIEWER\"}");
+        assertEquals(200, updated.statusCode(), updated.body());
+        assertEquals(accountId, json.readTree(updated.body()).get("createdByAccountId").asLong());
+        assertEquals("OWNER", json.readTree(updated.body()).get("role").stringValue());
+        assertEquals(accountId, projects.findById(id).orElseThrow().getCreatedByAccountId());
+    }
+
+    @Test
+    void failedOwnerMembershipRollsBackProjectCreation() throws Exception {
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        // Fails only this test's project, so concurrent fixtures are unaffected.
+        jdbc.execute("""
+            CREATE FUNCTION reject_rollback_membership() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM projects WHERE id = NEW.project_id AND project_key = 'ROLLBACK') THEN
+                    RAISE EXCEPTION 'Simulated membership failure';
+                END IF;
+                RETURN NEW;
+            END $$""");
+        jdbc.execute("""
+            CREATE TRIGGER reject_rollback_membership BEFORE INSERT ON project_memberships
+            FOR EACH ROW EXECUTE FUNCTION reject_rollback_membership()""");
+        try {
+            assertProblem(create("Rollback", "ROLLBACK", null), 500);
+            assertEquals(0, jdbc.queryForObject(
+                "SELECT count(*) FROM projects WHERE project_key = 'ROLLBACK'", Integer.class),
+                "A project must never exist without its owner");
+        } finally {
+            jdbc.execute("DROP TRIGGER reject_rollback_membership ON project_memberships");
+            jdbc.execute("DROP FUNCTION reject_rollback_membership()");
+        }
+    }
+
+    @Test
+    void ignoresCreatorAndRoleSuppliedOnCreate() throws Exception {
+        long accountId = json.readTree(request("GET", "/auth/me", null).body()).get("id").asLong();
+        var created = request("POST", "/projects",
+            "{\"name\":\"Spoofed\",\"key\":\"SPOOF\",\"createdByAccountId\":999,\"role\":\"VIEWER\"}");
+        trackCreated(created);
+        long id = id(created);
+        assertEquals(accountId, json.readTree(created.body()).get("createdByAccountId").asLong());
+        assertEquals("OWNER", json.readTree(created.body()).get("role").stringValue());
+        assertEquals(1, new org.springframework.jdbc.core.JdbcTemplate(dataSource).queryForObject(
+            "SELECT count(*) FROM project_memberships WHERE project_id = ?", Integer.class, id));
+    }
+
+    @Test
     void archivesWithoutDeletingAndFiltersLists() throws Exception {
         assertIds("");
         assertIds("?active=false");
@@ -222,8 +296,13 @@ class PostgresProjectApiIT {
             winner.setAutoCommit(false);
             try {
                 try (var statement = winner.createStatement(); var row = statement.executeQuery("""
-                        INSERT INTO projects(name, project_key, created_at, updated_at)
-                        VALUES ('Winning project', 'RACE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        WITH creator AS (
+                            INSERT INTO accounts(email, display_name, password_hash, created_at, updated_at)
+                            VALUES (gen_random_uuid() || '@example.com', 'Race fixture', 'test-fixture-hash',
+                                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                            RETURNING id)
+                        INSERT INTO projects(name, project_key, created_at, updated_at, created_by_account_id)
+                        SELECT 'Winning project', 'RACE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, id FROM creator
                         RETURNING id
                         """)) {
                     assertTrue(row.next());

@@ -50,6 +50,7 @@ Individual requests depend on earlier steps in their feature.
 
 ```text
 Salem Todo DevOps
+├── 00 Authentication
 ├── 01 Status
 ├── 02 Projects
 │   ├── 01 Create and read
@@ -68,18 +69,31 @@ Salem Todo DevOps
 │   ├── 08 Archive owning project
 │   ├── 09 Archived project exceptions
 │   └── 10 Read retained history
-└── 04 Validation
+├── 04 Validation
+│   ├── 01 Setup
+│   └── 02 Exceptions
+├── 05 Task metadata
+├── 06 Labels
+├── 07 Task filters
+└── 08 Memberships
     ├── 01 Setup
-    └── 02 Exceptions
+    ├── 02 Manage members
+    ├── 03 Exceptions
+    └── 04 Access as member
 ```
+
+**Memberships** registers a second disposable account (registering does not change
+the current login), adds it to a project, and checks the owner-only and last-owner
+rules. Its last subfolder logs in as that account to verify 403 and 404 responses
+and leaving the project, then logs back in as the original account.
 
 **Projects**, **Tasks** and **Validation** each have their own setup and can run
 independently. The task scenario creates two projects to verify that ownership
 cannot move and that backlogs remain separate. The project scenario uses its own
 projectId; task scenarios use taskProjectId and otherProjectId.
 
-Exceptions folders intentionally produce error responses. A 400, 404 or 409 is
-a passing test when it matches the expected contract. Check the assertion results,
+Exceptions folders intentionally produce error responses. A 400, 403, 404, 409 or
+422 is a passing test when it matches the expected contract. Check the assertion results,
 not only the HTTP status color in Postman.
 
 ## Run from the CLI

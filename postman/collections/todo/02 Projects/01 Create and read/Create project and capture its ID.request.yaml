@@ -26,4 +26,10 @@ scripts:
         pm.collectionVariables.set('projectId', String(project.id));
         pm.collectionVariables.set('projectCreatedAt', project.createdAt);
       });
+      pm.test('Creator becomes the project owner', () => {
+        const project = pm.response.json();
+        pm.expect(project.role).to.eql('OWNER');
+        pm.expect(project.createdByAccountId).to.be.a('number');
+        pm.collectionVariables.set('projectCreatedByAccountId', String(project.createdByAccountId));
+      });
     language: text/javascript

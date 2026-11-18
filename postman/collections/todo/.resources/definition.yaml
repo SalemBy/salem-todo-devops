@@ -4,7 +4,8 @@ description: |-
   Run 00 Authentication first, then the desired feature folders in the same runner invocation.
   Each feature creates its own records and captures IDs automatically.  
   Run a complete feature folder; numbered subfolders show the required execution order.  
-  Exceptions folders intentionally send invalid requests and assert 400, 404 or 409.  
+  Exceptions folders intentionally send invalid requests and assert 400, 403, 404, 409 or 422.  
+  Projects are private to their members; 08 Memberships covers roles and member management.  
   Expected errors are successful tests when their status and response match the rules.  
   Tasks require a project. Project keys and task ownership are immutable.  
   Archival retains records; archived project tasks are readable but cannot be written.  
@@ -35,6 +36,11 @@ variables:
   otherLabelId: ""
   labelTaskId: ""
   csrfToken: ""
+  projectCreatedByAccountId: ""
+  membershipKey: ""
+  membershipProjectId: ""
+  membershipOwnerId: ""
+  membershipMemberId: ""
 auth:
   type: noauth
 scripts:

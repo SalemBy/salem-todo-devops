@@ -1,5 +1,6 @@
 package github.salemby.tododevops.workmanagement.api;
 
+import github.salemby.tododevops.shared.security.CurrentAccount;
 import github.salemby.tododevops.workmanagement.application.dto.request.CreateProjectRequest;
 import github.salemby.tododevops.workmanagement.application.dto.request.UpdateProjectRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.ProjectResponse;
@@ -21,31 +22,34 @@ public class ProjectController {
     }
 
     @PostMapping
-    public ResponseEntity<ProjectResponse> create(@Valid @RequestBody CreateProjectRequest request) {
-        ProjectResponse project = projectService.create(request);
+    public ResponseEntity<ProjectResponse> create(CurrentAccount account,
+            @Valid @RequestBody CreateProjectRequest request) {
+        ProjectResponse project = projectService.create(account, request);
         var location = ServletUriComponentsBuilder.fromCurrentRequest()
             .path("/{id}").buildAndExpand(project.id()).toUri();
         return ResponseEntity.created(location).body(project);
     }
 
     @GetMapping
-    public ResponseEntity<List<ProjectResponse>> findAll(@RequestParam(defaultValue = "true") String active) {
-        return ResponseEntity.ok(projectService.findAll(active));
+    public ResponseEntity<List<ProjectResponse>> findAll(CurrentAccount account,
+            @RequestParam(defaultValue = "true") String active) {
+        return ResponseEntity.ok(projectService.findAll(account, active));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProjectResponse> findById(@PathVariable Long id) {
-        return ResponseEntity.ok(projectService.findById(id));
+    public ResponseEntity<ProjectResponse> findById(CurrentAccount account, @PathVariable Long id) {
+        return ResponseEntity.ok(projectService.findById(account, id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProjectResponse> update(@PathVariable Long id, @Valid @RequestBody UpdateProjectRequest request) {
-        return ResponseEntity.ok(projectService.update(id, request));
+    public ResponseEntity<ProjectResponse> update(CurrentAccount account, @PathVariable Long id,
+            @Valid @RequestBody UpdateProjectRequest request) {
+        return ResponseEntity.ok(projectService.update(account, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        projectService.delete(id);
+    public ResponseEntity<Void> delete(CurrentAccount account, @PathVariable Long id) {
+        projectService.delete(account, id);
         return ResponseEntity.noContent().build();
     }
 }

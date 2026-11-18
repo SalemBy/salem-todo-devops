@@ -1,0 +1,15 @@
+$kind: http-request
+order: 2000
+method: GET
+url: '{{baseUrl}}/projects/{{membershipProjectId}}/members'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Owners are listed first', () => {
+        pm.response.to.have.status(200);
+        const page = pm.response.json();
+        pm.expect(page.totalElements).to.eql(2);
+        pm.expect(page.items.map(m => m.role)).to.eql(['OWNER', 'VIEWER']);
+        pm.expect(String(page.items[0].accountId)).to.eql(pm.collectionVariables.get('membershipOwnerId'));
+      });

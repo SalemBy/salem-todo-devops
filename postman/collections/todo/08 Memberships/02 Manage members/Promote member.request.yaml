@@ -1,0 +1,17 @@
+$kind: http-request
+order: 4000
+method: PUT
+url: '{{baseUrl}}/projects/{{membershipProjectId}}/members/{{membershipMemberId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"role":"MEMBER"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Role is changed', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().role).to.eql('MEMBER');
+      });

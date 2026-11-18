@@ -59,14 +59,39 @@ manual sends, collection runs, and environment setup.
 | Projects | `/projects` | Create, list, read, update, archive |
 | Tasks | `/projects/{projectId}/tasks` | Manage tasks, filter results, browse pages |
 | Labels | `/projects/{projectId}/labels` | Manage project labels and associate them with tasks |
+| Members | `/projects/{projectId}/members` | List members, add by email, change roles, remove members, leave |
 
 Create a project before adding tasks. Tasks support status, type, priority,
 due date, and labels. Archival preserves records for later reads.
 
+Projects are private to their members. The account that creates a project
+becomes its owner. Project responses include `createdByAccountId` and `role`,
+the caller's role in that project:
+
+| Role | Can do |
+| --- | --- |
+| `OWNER` | Everything, including updating and archiving the project |
+| `MEMBER` | Read the project; manage tasks and labels |
+| `VIEWER` | Read only |
+
+`GET /projects` lists only the caller's projects. For a project the caller does
+not belong to, every endpoint returns 404, the same as for a missing project, so
+the API never reveals that it exists. A member whose role does not allow an
+action receives 403.
+
+Owners add existing accounts by email, change roles, and remove members. Any
+member can leave a project by removing their own membership. A project always
+keeps at least one active owner, so removing, demoting, or leaving as the last
+owner returns 409. Adding an unknown or disabled email returns 422. The full
+rules are in `docs/project-membership-contract.md`.
+
 Business endpoints require login. Sessions expire after 30 minutes of inactivity
 or 12 hours total, and server restarts sign users out. Password changes revoke
-existing logins. Authenticated accounts currently share access to business data.
-Project membership permissions are planned.
+existing logins.
+
+Upgrading an existing database to schema V8 requires an empty `projects` table,
+because older projects have no recorded owner. Reset a development database
+before upgrading.
 
 Registration is disabled by default. Enable `AUTH_REGISTRATION_ENABLED` for
 controlled onboarding. Use `SESSION_COOKIE_SECURE=false` for local HTTP and

@@ -8,6 +8,8 @@ import github.salemby.tododevops.workmanagement.application.dto.response.PageRes
 import github.salemby.tododevops.workmanagement.application.dto.request.CreateTaskRequest;
 import github.salemby.tododevops.workmanagement.application.dto.request.UpdateTaskRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.TaskResponse;
+import github.salemby.tododevops.shared.security.CurrentAccount;
+import github.salemby.tododevops.workmanagement.domain.ProjectPermission;
 import github.salemby.tododevops.workmanagement.domain.Task;
 import github.salemby.tododevops.workmanagement.domain.Label;
 import github.salemby.tododevops.workmanagement.application.dto.response.LabelResponse;
@@ -28,20 +30,19 @@ import java.util.List;
 public class TaskService {
     private final TaskRepository taskRepository;
     private final LabelRepository labels;
-    private final github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository projects;
+    private final ProjectAccess access;
 
-    public TaskService(TaskRepository taskRepository, github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository projects, LabelRepository labels) {
+    public TaskService(TaskRepository taskRepository, ProjectAccess access, LabelRepository labels) {
         this.taskRepository = taskRepository;
-        this.projects = projects;
+        this.access = access;
         this.labels = labels;
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<TaskResponse> findAllByProject(Long projectId, String active, int page, int size, TaskFilters filters) {
-        if (page < 0 || size < 1 || size > 100 || (long) page * size > Integer.MAX_VALUE)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page must be nonnegative, size 1-100, and offset at most 2147483647");
-        requireProject(projectId, false);
-        var pageable = PageRequest.of(page, size, Sort.by("id"));
+    public PageResponse<TaskResponse> findAllByProject(@NotNull CurrentAccount account, Long projectId, String active,
+                                                       int page, int size, TaskFilters filters) {
+        Paging.require(page, size);
+        // Validate every parameter before the access check: 400 precedes 404 and 403.
         Boolean activeFilter = switch (active) {
             case "true" -> true;
             case "false" -> false;
@@ -49,6 +50,8 @@ public class TaskService {
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Active must be true, false, or all");
         };
+        access.read(projectId, account);
+        var pageable = PageRequest.of(page, size, Sort.by("id"));
         var tasks = taskRepository.findAll(TaskSpecifications.matching(projectId, activeFilter, filters), pageable);
         // Batch labels after paging, avoiding pagination over a collection join.
         if (tasks.hasContent()) taskRepository.findAllByProjectIdAndIdIn(projectId,
@@ -59,8 +62,8 @@ public class TaskService {
     }
 
     @Transactional
-    public TaskResponse create(Long projectId, @NotNull @Valid CreateTaskRequest request) {
-        Task task = new Task(requireProject(projectId, true));
+    public TaskResponse create(@NotNull CurrentAccount account, Long projectId, @NotNull @Valid CreateTaskRequest request) {
+        Task task = new Task(access.lockActive(projectId, account, ProjectPermission.TASK_WRITE));
         task.setTitle(request.title());
         task.setDescription(request.description());
         applyMetadata(task, request);
@@ -69,8 +72,9 @@ public class TaskService {
     }
 
     @Transactional
-    public TaskResponse update(Long projectId, Long id, @NotNull @Valid UpdateTaskRequest request) {
-        requireProject(projectId, true);
+    public TaskResponse update(@NotNull CurrentAccount account, Long projectId, Long id,
+                               @NotNull @Valid UpdateTaskRequest request) {
+        access.lockActive(projectId, account, ProjectPermission.TASK_WRITE);
         Task task = taskRepository.findByIdAndProjectIdAndActiveTrue(id, projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
         task.setTitle(request.title());
@@ -82,8 +86,8 @@ public class TaskService {
     }
 
     @Transactional
-    public void delete(Long projectId, Long id) {
-        requireProject(projectId, true);
+    public void delete(@NotNull CurrentAccount account, Long projectId, Long id) {
+        access.lockActive(projectId, account, ProjectPermission.TASK_WRITE);
         Task task = taskRepository.findByIdAndProjectId(id, projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
         task.archive();
@@ -91,18 +95,10 @@ public class TaskService {
 
 
     @Transactional(readOnly = true)
-    public TaskResponse findById(Long projectId, Long id) {
-        requireProject(projectId, false);
+    public TaskResponse findById(@NotNull CurrentAccount account, Long projectId, Long id) {
+        access.read(projectId, account);
         return toResponse(taskRepository.findByIdAndProjectId(id, projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found")));
-    }
-
-    private github.salemby.tododevops.workmanagement.domain.Project requireProject(Long id, boolean writing) {
-        if (id == null || id <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project ID must be positive");
-        var project = (writing ? projects.findLockedById(id) : projects.findById(id))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
-        if (writing && !project.isActive()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Project is archived");
-        return project;
     }
 
     private void applyMetadata(Task task, github.salemby.tododevops.workmanagement.application.dto.request.TaskMetadataRequest request) {
@@ -125,13 +121,13 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    public List<LabelResponse> findLabels(Long projectId, Long id) {
-        return findById(projectId, id).labels();
+    public List<LabelResponse> findLabels(@NotNull CurrentAccount account, Long projectId, Long id) {
+        return findById(account, projectId, id).labels();
     }
 
     @Transactional
-    public void changeLabel(Long projectId, Long id, Long labelId, boolean attach) {
-        requireProject(projectId, true);
+    public void changeLabel(@NotNull CurrentAccount account, Long projectId, Long id, Long labelId, boolean attach) {
+        access.lockActive(projectId, account, ProjectPermission.TASK_WRITE);
         Task task = taskRepository.findByIdAndProjectIdAndActiveTrue(id, projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
         Label label = labels.findByIdAndProjectId(labelId, projectId)

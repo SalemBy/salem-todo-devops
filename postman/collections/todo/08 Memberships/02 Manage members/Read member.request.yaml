@@ -1,0 +1,12 @@
+$kind: http-request
+order: 3000
+method: GET
+url: '{{baseUrl}}/projects/{{membershipProjectId}}/members/{{membershipMemberId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Member is readable', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().role).to.eql('VIEWER');
+      });

@@ -1,0 +1,8 @@
+$kind: collection
+name: 08 Memberships
+order: 8000
+description: |-
+  Project membership (issue #9). Run after 00 Authentication.
+  Setup registers a second disposable account; registering does not change the current login.
+  04 Access as member logs in as that account to check permissions, then logs back in
+  as the original account, so later folders keep working.

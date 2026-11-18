@@ -1,0 +1,18 @@
+$kind: http-request
+order: 3000
+method: POST
+url: '{{baseUrl}}/projects/{{membershipProjectId}}/members'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{memberEmail}}","role":"ADMIN"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Invalid role returns 400', () => {
+        pm.response.to.have.status(400);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+        pm.expect(pm.response.json().status).to.eql(400);
+      });

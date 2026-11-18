@@ -10,7 +10,7 @@ class PostgresAccountMigrationIT {
     @Test void upgradesV6PreservingBusinessDataAndEnforcesAccountConstraints() throws Exception {
         String url = System.getenv("TEST_DB_URL"), user = System.getenv("TEST_DB_USERNAME"), password = System.getenv("TEST_DB_PASSWORD");
         String schema = "accounts_" + UUID.randomUUID().toString().replace("-", "");
-        var flyway = Flyway.configure().dataSource(url, user, password).schemas(schema).cleanDisabled(false).load();
+        var flyway = Flyway.configure().dataSource(url, user, password).schemas(schema).target("7").cleanDisabled(false).load();
         try {
             Flyway.configure().dataSource(url, user, password).schemas(schema).target("6").load().migrate();
             try (var connection = DriverManager.getConnection(url, user, password)) {

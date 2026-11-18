@@ -9,13 +9,22 @@ state and credential version before CSRF, and protects business routes by defaul
 Session principals contain no credential material. Password changes lock the account
 and increment its credential version, revoking existing sessions. Membership-based
 authorization belongs to #9. The module follows api/application/domain/infrastructure boundaries.
+Identity resolves the session account into `shared.security.CurrentAccount`, which
+controllers receive as a parameter, so feature modules never read security classes.
+Work management stores account IDs as plain values and must not depend on identity's
+api, domain, or infrastructure packages. `ProjectAccess` is the single place that
+loads a project for a caller and enforces membership permissions; services never
+read projects for business endpoints any other way. Writes check membership after
+locking the project row; membership changes take the same lock, which keeps the
+last-owner rule safe under concurrent requests. Member management reads account
+names, emails, and status through identity's read-only `AccountDirectory` service.
 Projects and tasks are separate entities within this module; each task has one immutable project association.
 
 ## Responsibilities
 
 - `workmanagement.api`: HTTP controllers; exposes application DTOs, never entities.
 - `workmanagement.application`: transactional use cases and request/response DTOs; coordinates repositories and domain objects.
-- `workmanagement.domain`: Project, Task and TaskStatus; JPA mappings are kept here intentionally. No HTTP or Spring dependencies.
+- `workmanagement.domain`: Project, ProjectMembership, Task and their enums; JPA mappings are kept here intentionally. No HTTP or Spring dependencies.
 - `workmanagement.infrastructure.persistence`: Spring Data repositories, queried by application services.
 - `shared`: common validation, configuration, error handling and application status endpoint. It cannot depend on workmanagement.
 

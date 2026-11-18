@@ -1,9 +1,14 @@
 package github.salemby.tododevops.workmanagement.application;
 
+import github.salemby.tododevops.shared.security.CurrentAccount;
 import github.salemby.tododevops.workmanagement.application.dto.request.CreateProjectRequest;
 import github.salemby.tododevops.workmanagement.application.dto.request.UpdateProjectRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.ProjectResponse;
 import github.salemby.tododevops.workmanagement.domain.Project;
+import github.salemby.tododevops.workmanagement.domain.ProjectMembership;
+import github.salemby.tododevops.workmanagement.domain.ProjectPermission;
+import github.salemby.tododevops.workmanagement.domain.ProjectRole;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectMembershipRepository;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -22,16 +27,24 @@ import java.util.Locale;
 @Validated
 public class ProjectService {
     private final ProjectRepository projectRepository;
+    private final ProjectMembershipRepository membershipRepository;
+    private final ProjectAccess access;
 
-    public ProjectService(ProjectRepository projectRepository) {
+    public ProjectService(ProjectRepository projectRepository, ProjectMembershipRepository membershipRepository,
+                          ProjectAccess access) {
         this.projectRepository = projectRepository;
+        this.membershipRepository = membershipRepository;
+        this.access = access;
     }
 
+    /** Creates the project and the creator's OWNER membership in one transaction. */
     @Transactional
-    public ProjectResponse create(@NotNull @Valid CreateProjectRequest request) {
+    public ProjectResponse create(@NotNull CurrentAccount account, @NotNull @Valid CreateProjectRequest request) {
         try {
-            return toResponse(projectRepository.saveAndFlush(
-                new Project(request.name(), request.key(), request.description())));
+            Project project = projectRepository.saveAndFlush(
+                new Project(request.name(), request.key(), request.description(), account.id()));
+            membershipRepository.saveAndFlush(new ProjectMembership(project, account.id(), ProjectRole.OWNER));
+            return toResponse(project, ProjectRole.OWNER);
         } catch (DataIntegrityViolationException ex) {
             // Flush inside this transaction so concurrent duplicates also become 409.
             if (isDuplicateKey(ex)) {
@@ -41,48 +54,44 @@ public class ProjectService {
         }
     }
 
+    /** Only projects where the caller is a member, ordered by ID. */
     @Transactional(readOnly = true)
-    public List<ProjectResponse> findAll(String active) {
-        List<Project> projects = switch (active) {
-            case "true" -> projectRepository.findAllByActive(true);
-            case "false" -> projectRepository.findAllByActive(false);
-            case "all" -> projectRepository.findAll();
+    public List<ProjectResponse> findAll(@NotNull CurrentAccount account, String active) {
+        List<ProjectMembership> memberships = switch (active) {
+            case "true" -> membershipRepository.findAllWithProjectByAccountIdAndActive(account.id(), true);
+            case "false" -> membershipRepository.findAllWithProjectByAccountIdAndActive(account.id(), false);
+            case "all" -> membershipRepository.findAllWithProjectByAccountId(account.id());
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Active must be true, false, or all");
         };
-        return projects.stream().map(this::toResponse).toList();
+        return memberships.stream().map(m -> toResponse(m.getProject(), m.getRole())).toList();
     }
 
     @Transactional(readOnly = true)
-    public ProjectResponse findById(Long id) {
-        return toResponse(requireProject(id));
+    public ProjectResponse findById(@NotNull CurrentAccount account, Long id) {
+        var granted = access.read(id, account);
+        return toResponse(granted.project(), granted.role());
     }
 
     @Transactional
-    public ProjectResponse update(Long id, @NotNull @Valid UpdateProjectRequest request) {
+    public ProjectResponse update(@NotNull CurrentAccount account, Long id, @NotNull @Valid UpdateProjectRequest request) {
         // Serialize with archive and task writes; inspect activity only after acquiring the lock.
-        Project project = projectRepository.findLockedById(id)
-            .filter(Project::isActive)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+        var granted = access.lock(id, account, ProjectPermission.PROJECT_MANAGE);
+        Project project = granted.project();
+        if (!project.isActive()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found");
         project.setName(request.name());
         project.setDescription(request.description());
-        return toResponse(projectRepository.saveAndFlush(project));
+        return toResponse(projectRepository.saveAndFlush(project), granted.role());
     }
 
     @Transactional
-    public void delete(Long id) {
-        projectRepository.findLockedById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found")).archive();
+    public void delete(@NotNull CurrentAccount account, Long id) {
+        access.lock(id, account, ProjectPermission.PROJECT_MANAGE).project().archive();
     }
 
-    private Project requireProject(Long id) {
-        return projectRepository.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
-    }
-
-    private ProjectResponse toResponse(Project project) {
+    private ProjectResponse toResponse(Project project, ProjectRole role) {
         return new ProjectResponse(project.getId(), project.getName(), project.getKey(), project.getDescription(),
-            project.isActive(), project.getCreatedAt(), project.getUpdatedAt());
+            project.isActive(), project.getCreatedAt(), project.getUpdatedAt(), project.getCreatedByAccountId(), role);
     }
 
     private boolean isDuplicateKey(DataIntegrityViolationException exception) {

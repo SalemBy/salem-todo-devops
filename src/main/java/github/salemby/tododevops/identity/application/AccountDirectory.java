@@ -1,0 +1,44 @@
+package github.salemby.tododevops.identity.application;
+
+import github.salemby.tododevops.identity.application.dto.AccountSummary;
+import github.salemby.tododevops.identity.domain.Account;
+import github.salemby.tododevops.identity.infrastructure.persistence.AccountRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collection;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+/** Read-only account lookups for other modules. Never exposes credentials or entities. */
+@Service
+public class AccountDirectory {
+    private final AccountRepository accounts;
+
+    public AccountDirectory(AccountRepository accounts) {
+        this.accounts = accounts;
+    }
+
+    /** Finds an active account by email, normalized the same way as registration. */
+    @Transactional(readOnly = true)
+    public Optional<AccountSummary> findActiveByEmail(String email) {
+        if (email == null) return Optional.empty();
+        return accounts.findByEmail(email.strip().toLowerCase(Locale.ROOT))
+            .filter(Account::isActive).map(AccountDirectory::summary);
+    }
+
+    /** Summaries for the given IDs in one query, keyed by ID. Unknown IDs are absent. */
+    @Transactional(readOnly = true)
+    public Map<Long, AccountSummary> findByIds(Collection<Long> ids) {
+        if (ids.isEmpty()) return Map.of();
+        return accounts.findAllById(ids).stream().map(AccountDirectory::summary)
+            .collect(Collectors.toMap(AccountSummary::id, Function.identity()));
+    }
+
+    private static AccountSummary summary(Account account) {
+        return new AccountSummary(account.getId(), account.getEmail(), account.getDisplayName(), account.isActive());
+    }
+}

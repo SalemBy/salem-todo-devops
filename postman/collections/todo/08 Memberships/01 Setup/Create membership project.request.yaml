@@ -1,0 +1,24 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Membership checks","key":"{{membershipKey}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('membershipKey', 'M' + pm.variables.replaceIn('{{$randomUUID}}').replace(/-/g, '').slice(0, 8).toUpperCase());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Creator is the owner', () => {
+        pm.response.to.have.status(201);
+        const project = pm.response.json();
+        pm.expect(project.role).to.eql('OWNER');
+        pm.collectionVariables.set('membershipProjectId', String(project.id));
+        pm.collectionVariables.set('membershipOwnerId', String(project.createdByAccountId));
+      });

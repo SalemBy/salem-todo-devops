@@ -93,9 +93,9 @@ application/problem+json shape: type, title, status, detail, instance, and error
 Passwords, hashes, session IDs, and CSRF tokens must not appear in error details.
 Do not add registration tokens or shared bootstrap secrets to source control.
 
-This establishes identity only. Authenticated users retain current project/task
-access until issue #9 adds membership permissions. Do not claim tenant isolation
-or expose this intermediate behavior as project authorization.
+This establishes identity only. Project authorization is defined by issue #9
+in `docs/project-membership-contract.md`: projects are private to their members,
+and every project, task, and label endpoint checks the caller's role.
 
 ## Verification before delivery
 
