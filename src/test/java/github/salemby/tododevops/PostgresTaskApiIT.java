@@ -36,9 +36,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class PostgresTaskApiIT {
     private github.salemby.tododevops.workmanagement.domain.Project owner;
     @Autowired github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository ownerProjects;
+    @Autowired github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectMembershipRepository memberships;
     @org.junit.jupiter.api.BeforeEach
     void createOwner() {
-        owner = ownerProjects.saveAndFlush(new github.salemby.tododevops.workmanagement.domain.Project("Task owner", "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(), null));
+        // Owned by the HTTP test account, so its requests pass the membership check.
+        long accountId = github.salemby.tododevops.support.TestHttp.accountId(
+            java.net.URI.create("http://127.0.0.1:" + environment.getProperty("local.server.port")));
+        owner = github.salemby.tododevops.support.TestProjects.owned(ownerProjects, memberships, accountId,
+            "Task owner", github.salemby.tododevops.support.TestProjects.uniqueKey("T"));
     }
     @org.junit.jupiter.api.AfterEach
     void cleanupOwner() {
@@ -66,8 +71,8 @@ class PostgresTaskApiIT {
         }
 
         @PostMapping("/test-only/service-validation/{projectId}")
-        public TaskResponse createWithoutControllerValidation(@org.springframework.web.bind.annotation.PathVariable Long projectId, @RequestBody CreateTaskRequest request) {
-            return taskService.create(projectId, request);
+        public TaskResponse createWithoutControllerValidation(github.salemby.tododevops.shared.security.CurrentAccount account, @org.springframework.web.bind.annotation.PathVariable Long projectId, @RequestBody CreateTaskRequest request) {
+            return taskService.create(account, projectId, request);
         }
 
         @GetMapping("/test-only/failure")

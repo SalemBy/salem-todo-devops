@@ -1,0 +1,11 @@
+$kind: http-request
+order: 5000
+method: DELETE
+url: '{{baseUrl}}/projects/{{membershipProjectId}}/members/{{membershipMemberId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Member leaves', () => {
+        pm.response.to.have.status(204);
+      });

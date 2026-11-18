@@ -1,0 +1,12 @@
+$kind: http-request
+order: 7000
+method: GET
+url: '{{baseUrl}}/projects/{{membershipProjectId}}/members'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Rejected changes left members unchanged', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().items.map(m => m.role)).to.eql(['OWNER', 'MEMBER']);
+      });

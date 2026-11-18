@@ -29,9 +29,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class PostgresRequiredFieldsIT {
     private github.salemby.tododevops.workmanagement.domain.Project owner;
     @Autowired github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository ownerProjects;
+    @Autowired github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectMembershipRepository memberships;
     @org.junit.jupiter.api.BeforeEach
     void createOwner() {
-        owner = ownerProjects.saveAndFlush(new github.salemby.tododevops.workmanagement.domain.Project("Task owner", "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(), null));
+        // Owned by the HTTP test account, so its requests pass the membership check.
+        long accountId = github.salemby.tododevops.support.TestHttp.accountId(
+            java.net.URI.create("http://127.0.0.1:" + environment.getProperty("local.server.port")));
+        owner = github.salemby.tododevops.support.TestProjects.owned(ownerProjects, memberships, accountId,
+            "Task owner", github.salemby.tododevops.support.TestProjects.uniqueKey("T"));
     }
     @Autowired Environment environment;
     @Autowired TaskRepository tasks;
@@ -69,7 +74,8 @@ class PostgresRequiredFieldsIT {
     @ParameterizedTest(name = "project name: {0}")
     @MethodSource("blankValues")
     void rejectsBlankProjectNameOnCreateAndUpdate(String reason, String name, boolean present) throws Exception {
-        long id = projects.saveAndFlush(new Project("Original", "BASE", null)).getId();
+        long id = github.salemby.tododevops.support.TestProjects.owned(projects, memberships,
+            owner.getCreatedByAccountId(), "Original", "BASE").getId();
         projectIds.add(id);
         var before = projects.findById(id).orElseThrow();
         var fields = new HashMap<String, Object>();

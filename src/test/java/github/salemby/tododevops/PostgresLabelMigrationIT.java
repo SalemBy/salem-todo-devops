@@ -10,7 +10,7 @@ class PostgresLabelMigrationIT {
     @Test void preservesTaskMetadataAndEnforcesLabelConstraints() throws Exception {
         String url = System.getenv("TEST_DB_URL"), user = System.getenv("TEST_DB_USERNAME"), password = System.getenv("TEST_DB_PASSWORD");
         String schema = "labels_" + UUID.randomUUID().toString().replace("-", "");
-        var flyway = Flyway.configure().dataSource(url, user, password).schemas(schema).cleanDisabled(false).load();
+        var flyway = Flyway.configure().dataSource(url, user, password).schemas(schema).target("6").cleanDisabled(false).load();
         try {
             Flyway.configure().dataSource(url, user, password).schemas(schema).target("5").load().migrate();
             try (var connection = DriverManager.getConnection(url, user, password)) {

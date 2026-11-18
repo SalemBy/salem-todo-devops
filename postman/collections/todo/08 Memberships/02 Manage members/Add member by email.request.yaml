@@ -1,0 +1,23 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects/{{membershipProjectId}}/members'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"  {{memberEmail}}  ","role":"VIEWER"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Member is added with a normalized email', () => {
+        pm.response.to.have.status(201);
+        const member = pm.response.json();
+        pm.expect(String(member.accountId)).to.eql(pm.collectionVariables.get('membershipMemberId'));
+        pm.expect(member.email).to.eql(pm.variables.get('memberEmail').toLowerCase());
+        pm.expect(member.displayName).to.eql('Postman member');
+        pm.expect(member.role).to.eql('VIEWER');
+        pm.expect(member.joinedAt).to.be.a('string');
+        pm.expect(pm.response.headers.get('Location')).to.match(new RegExp('/members/' + member.accountId + '$'));
+      });

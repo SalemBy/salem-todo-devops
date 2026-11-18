@@ -15,8 +15,15 @@ import tools.jackson.databind.ObjectMapper;
 public final class TestHttp {
     private static final HttpClient CLIENT = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(5)).build();
-    private record Session(String cookie, String token, String header) {}
     private static final ConcurrentHashMap<String, Session> SESSIONS = new ConcurrentHashMap<>();
+
+    /** A logged-in disposable account on one isolated server. */
+    public record Session(String base, String cookie, String token, String header, long accountId, String email) {
+        public HttpRequest.Builder request(String path) {
+            return HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(15))
+                .header("Cookie", cookie).header(header, token);
+        }
+    }
 
     private TestHttp() {}
 
@@ -24,14 +31,32 @@ public final class TestHttp {
         return CLIENT;
     }
 
+    /** A request authenticated as the server's shared default test account. */
     public static HttpRequest.Builder request(URI uri) {
-        String base = uri.getScheme() + "://" + uri.getAuthority();
-        var session = SESSIONS.computeIfAbsent(base, TestHttp::login);
+        var session = defaultSession(uri);
         return HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(15))
             .header("Cookie", session.cookie()).header(session.header(), session.token());
     }
 
-    /** Creates a disposable account through production HTTP security, once per isolated server. */
+    /** The account ID behind {@link #request}, for fixtures that must belong to that account. */
+    public static long accountId(URI anyUriOnServer) {
+        return defaultSession(anyUriOnServer).accountId();
+    }
+
+    /** Registers and logs in a new, separate account, for tests that need several callers. */
+    public static Session newSession(URI anyUriOnServer) {
+        return login(base(anyUriOnServer));
+    }
+
+    private static Session defaultSession(URI uri) {
+        return SESSIONS.computeIfAbsent(base(uri), TestHttp::login);
+    }
+
+    private static String base(URI uri) {
+        return uri.getScheme() + "://" + uri.getAuthority();
+    }
+
+    /** Creates a disposable account through production HTTP security. */
     private static Session login(String base) {
         try {
             var cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
@@ -49,9 +74,10 @@ public final class TestHttp {
                     throw new IllegalStateException("Test authentication failed: " + result.statusCode() + " " + result.body());
             }
             token = json.readTree(client.send(HttpRequest.newBuilder(URI.create(base + "/auth/csrf")).GET().build(), HttpResponse.BodyHandlers.ofString()).body());
+            var me = json.readTree(client.send(HttpRequest.newBuilder(URI.create(base + "/auth/me")).GET().build(), HttpResponse.BodyHandlers.ofString()).body());
             String cookie = cookies.getCookieStore().getCookies().stream().filter(c -> c.getName().equals("JSESSIONID"))
                 .map(c -> c.getName() + "=" + c.getValue()).findFirst().orElseThrow();
-            return new Session(cookie, token.get("token").asText(), token.get("headerName").asText());
+            return new Session(base, cookie, token.get("token").asText(), token.get("headerName").asText(), me.get("id").asLong(), email);
         } catch (Exception ex) { throw new IllegalStateException("Cannot authenticate isolated HTTP tests", ex); }
     }
 }

@@ -9,6 +9,10 @@ class ArchitectureTests {
     @Test void enforcesWorkManagementBoundaries() {
         var classes = new ClassFileImporter().withImportOption(new ImportOption.DoNotIncludeTests())
             .importPackages("github.salemby.tododevops");
+        // Work management may use identity's application services and DTOs, never its internals.
+        noClasses().that().resideInAPackage("..workmanagement..")
+            .should().dependOnClassesThat().resideInAnyPackage("..identity.api..", "..identity.domain..",
+                "..identity.infrastructure..").check(classes);
         noClasses().that().resideInAPackage("..shared..")
             .should().dependOnClassesThat().resideInAnyPackage("..workmanagement..", "..identity..").check(classes);
         noClasses().that().resideInAPackage("..workmanagement.domain..")

@@ -10,5 +10,5 @@ response:
       value: http://127.0.0.1:8080/projects/42
   body:
     type: json
-    content: '{"id":42,"name":"Postman project","key":"DEMO","description":null,"active":true,"createdAt":"2026-01-01T12:00:00Z","updatedAt":"2026-01-01T12:00:00Z"}'
+    content: '{"id":42,"name":"Postman project","key":"DEMO","description":null,"active":true,"createdAt":"2026-01-01T12:00:00Z","updatedAt":"2026-01-01T12:00:00Z","createdByAccountId":7,"role":"OWNER"}'
 order: 1000

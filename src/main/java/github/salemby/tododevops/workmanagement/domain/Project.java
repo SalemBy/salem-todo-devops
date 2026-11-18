@@ -31,16 +31,21 @@ public class Project {
     @Column(nullable = false)
     private boolean active = true;
 
+    /** The account that created the project. Never changes, even if that account leaves. */
+    @Column(name = "created_by_account_id", nullable = false, updatable = false)
+    private Long createdByAccountId;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
     @Column(nullable = false)
     private Instant updatedAt;
 
-    public Project(String name, String key, String description) {
+    public Project(String name, String key, String description, Long createdByAccountId) {
         this.name = name;
         this.key = key;
         this.description = description;
+        this.createdByAccountId = java.util.Objects.requireNonNull(createdByAccountId);
     }
 
     public void archive() {
