@@ -1,7 +1,7 @@
 $kind: collection
 name: Salem Todo DevOps
 description: |-
-  Start with 01 Status, then run 02 Projects, 03 Tasks or 04 Validation from the top.  
+  Run 00 Authentication first, then the desired feature folders in the same runner invocation.
   Each feature creates its own records and captures IDs automatically.  
   Run a complete feature folder; numbered subfolders show the required execution order.  
   Exceptions folders intentionally send invalid requests and assert 400, 404 or 409.  
@@ -34,5 +34,24 @@ variables:
   labelId: ""
   otherLabelId: ""
   labelTaskId: ""
+  csrfToken: ""
 auth:
   type: noauth
+scripts:
+  - type: http:beforeRequest
+    code: |-
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(pm.request.method)) {
+        const baseUrl = pm.variables.replaceIn('{{baseUrl}}').replace(/\/$/, '');
+        const authVars = pm.environment.get('manualAuth') === 'true' ? pm.environment : pm.variables;
+        pm.sendRequest(baseUrl + '/auth/csrf', (error, response) => {
+          if (error || response.code !== 200) {
+            pm.execution.skipRequest();
+            throw new Error('Could not obtain a CSRF token. Check baseUrl and that the API is running.');
+          }
+          const csrf = response.json();
+          authVars.set('csrfToken', csrf.token);
+          authVars.set('csrfHeader', csrf.headerName);
+          pm.request.headers.upsert({ key: csrf.headerName, value: csrf.token });
+        });
+      }
+    language: text/javascript

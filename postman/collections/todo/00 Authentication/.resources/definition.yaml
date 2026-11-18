@@ -1,0 +1,4 @@
+$kind: collection
+name: 00 Authentication
+order: 0
+description: Test-only onboarding and session lifecycle. Enable registration on a disposable database. Generates ephemeral credentials and leaves a logged-in session for later feature folders.

@@ -1,0 +1,19 @@
+$kind: http-request
+order: 3000
+method: POST
+url: '{{baseUrl}}/auth/logout'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.request.headers.remove(pm.variables.get('csrfHeader') || 'X-CSRF-TOKEN');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Reject missing CSRF', () => {
+        pm.response.to.have.status(403);
+        const problem = pm.response.json();
+        pm.expect(problem.status).to.eql(403);
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:403');
+        pm.expect(problem.errors).to.be.an('array');
+      });

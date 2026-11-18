@@ -1,7 +1,14 @@
 # Modular monolith
 
 Salem Todo DevOps is one deployable Spring Boot application with one PostgreSQL database.
-The first business module is `workmanagement`, which owns projects, tasks and their tables.
+The `workmanagement` module owns projects, tasks and their tables.
+The `identity` module owns accounts, validation, password hashing, and session
+authentication. Its API exposes registration, login, current account, logout, and
+password change. Security infrastructure loads session identity, validates account
+state and credential version before CSRF, and protects business routes by default.
+Session principals contain no credential material. Password changes lock the account
+and increment its credential version, revoking existing sessions. Membership-based
+authorization belongs to #9. The module follows api/application/domain/infrastructure boundaries.
 Projects and tasks are separate entities within this module; each task has one immutable project association.
 
 ## Responsibilities

@@ -1,0 +1,17 @@
+$kind: http-request
+order: 9000
+method: POST
+url: '{{baseUrl}}/auth/login'
+headers:
+  X-CSRF-TOKEN: '{{csrfToken}}'
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{authEmail}}","password":"{{authPassword}}"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Login for business scenarios', () => {
+        pm.response.to.have.status(200);
+      });
