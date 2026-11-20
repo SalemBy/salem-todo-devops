@@ -39,16 +39,13 @@ public class AuthenticationService {
 
     @Transactional(readOnly = true)
     public boolean isValid(AccountPrincipal principal) {
-        return accounts.findById(principal.id()).filter(a -> a.isActive()
-            && a.getCredentialVersion() == principal.credentialVersion()).isPresent();
+        return accounts.findById(principal.id()).filter(a -> isCurrent(a, principal)).isPresent();
     }
 
     @Transactional(readOnly = true)
     public AccountResponse current(AccountPrincipal principal) {
-        var a = accounts.findById(principal.id()).filter(account -> account.isActive()
-            && account.getCredentialVersion() == principal.credentialVersion())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required"));
-        return response(a);
+        return accounts.findById(principal.id()).filter(a -> isCurrent(a, principal)).map(AccountResponse::from)
+            .orElseThrow(AuthenticationService::unauthorized);
     }
 
     // Hashes run before the locking transaction, which then rechecks the account (#44).
@@ -72,9 +69,5 @@ public class AuthenticationService {
 
     private static ResponseStatusException unauthorized() {
         return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-    }
-
-    private static AccountResponse response(Account a) {
-        return new AccountResponse(a.getId(), a.getEmail(), a.getDisplayName(), a.isActive(), a.getCreatedAt(), a.getUpdatedAt());
     }
 }

@@ -1,5 +1,6 @@
 package github.salemby.tododevops.workmanagement.application;
 
+import github.salemby.tododevops.shared.persistence.UniqueConstraints;
 import github.salemby.tododevops.shared.security.CurrentAccount;
 import github.salemby.tododevops.workmanagement.application.dto.request.CreateProjectRequest;
 import github.salemby.tododevops.workmanagement.application.dto.request.UpdateProjectRequest;
@@ -13,7 +14,6 @@ import github.salemby.tododevops.workmanagement.infrastructure.persistence.Proje
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.validation.annotation.Validated;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.Locale;
 
 @Service
 @Validated
@@ -47,7 +46,7 @@ public class ProjectService {
             return toResponse(project, ProjectRole.OWNER);
         } catch (DataIntegrityViolationException ex) {
             // Flush inside this transaction so concurrent duplicates also become 409.
-            if (isDuplicateKey(ex)) {
+            if (UniqueConstraints.violated(ex, "uk_projects_key")) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Project key already exists", ex);
             }
             throw ex;
@@ -92,23 +91,5 @@ public class ProjectService {
     private ProjectResponse toResponse(Project project, ProjectRole role) {
         return new ProjectResponse(project.getId(), project.getName(), project.getKey(), project.getDescription(),
             project.isActive(), project.getCreatedAt(), project.getUpdatedAt(), project.getCreatedByAccountId(), role);
-    }
-
-    private boolean isDuplicateKey(DataIntegrityViolationException exception) {
-        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
-            if (cause instanceof org.postgresql.util.PSQLException postgres
-                    && "23505".equals(postgres.getSQLState())
-                    && postgres.getServerErrorMessage() != null
-                    && "uk_projects_key".equals(postgres.getServerErrorMessage().getConstraint())) {
-                return true;
-            }
-            if (cause instanceof ConstraintViolationException violation
-                    && "23505".equals(violation.getSQLState()) && violation.getConstraintName() != null) {
-                // H2 qualifies the constraint and appends backing-index details.
-                String constraint = violation.getConstraintName().toLowerCase(Locale.ROOT).split(" ", 2)[0];
-                return constraint.equals("uk_projects_key") || constraint.equals("public.uk_projects_key");
-            }
-        }
-        return false;
     }
 }
