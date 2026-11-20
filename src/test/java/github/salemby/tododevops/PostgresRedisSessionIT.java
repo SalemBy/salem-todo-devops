@@ -116,6 +116,21 @@ class PostgresRedisSessionIT {
     }
 
     @Test
+    void unreadableSessionIsTreatedAsLoggedOut() throws Exception {
+        String cookie = loggedIn(portA(), email()).cookie("JSESSIONID");
+        String sessionId = new String(java.util.Base64.getDecoder().decode(cookie), StandardCharsets.UTF_8);
+        try (var redis = a.getBean(RedisConnectionFactory.class).getConnection()) {
+            byte[] key = ("spring:session:sessions:" + sessionId).getBytes(StandardCharsets.UTF_8);
+            assertTrue(redis.keyCommands().exists(key), "session key not found");
+            redis.hashCommands().hSet(key, "sessionAttr:SPRING_SECURITY_CONTEXT".getBytes(StandardCharsets.UTF_8),
+                "not java serialization".getBytes(StandardCharsets.UTF_8));
+        }
+        var me = meWithCookie(portB(), cookie);
+        assertEquals(401, me.statusCode(), me.body());
+        assertTrue(me.body().contains("\"status\":401"), me.body());
+    }
+
+    @Test
     void loginCookieKeepsItsAttributes() throws Exception {
         var client = new AuthClient(portA());
         assertEquals(200, client.csrf().statusCode());
