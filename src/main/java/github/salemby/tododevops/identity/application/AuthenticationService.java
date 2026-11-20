@@ -55,7 +55,8 @@ public class AuthenticationService {
         try {
             limiter.reset(emailKey);
         } catch (DataAccessException ex) {
-            log.warn("Could not reset the login rate-limit count; it expires with its window", ex);
+            log.warn("Could not reset the login rate-limit count; it expires with its window: {}", ex.getMessage());
+            log.debug("Rate-limit reset failure", ex);
         }
         return new AccountPrincipal(account.getId(), account.getCredentialVersion(), Instant.now());
     }
@@ -65,6 +66,8 @@ public class AuthenticationService {
         try {
             retryAfter = limiter.hit(emailKey, limits.loginPerEmail());
         } catch (DataAccessException ex) {
+            log.warn("Rate-limit store unavailable; failing closed: {}", ex.getMessage());
+            log.debug("Rate-limit store failure", ex);
             throw problem(HttpStatus.SERVICE_UNAVAILABLE, "Authentication is temporarily unavailable.", ex);
         }
         if (retryAfter.isPresent()) {
