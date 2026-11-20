@@ -17,12 +17,28 @@ public final class AuthClient {
     private static final ObjectMapper JSON = new ObjectMapper();
     private final String base;
     private final HttpClient http;
+    private final CookieManager cookies;
     private String token, header;
 
     public AuthClient(int port) {
+        this(port, new CookieManager(null, CookiePolicy.ACCEPT_ALL));
+    }
+
+    /** A client on another server that shares one browser's cookie jar (cookies are keyed by host, not port). */
+    public AuthClient(int port, CookieManager cookies) {
         base = "http://127.0.0.1:" + port;
-        http = HttpClient.newBuilder().cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
-            .connectTimeout(Duration.ofSeconds(5)).build();
+        this.cookies = cookies;
+        http = HttpClient.newBuilder().cookieHandler(cookies).connectTimeout(Duration.ofSeconds(5)).build();
+    }
+
+    public CookieManager cookies() {
+        return cookies;
+    }
+
+    /** The raw value of a cookie in this client's jar, or null. */
+    public String cookie(String name) {
+        return cookies.getCookieStore().getCookies().stream().filter(c -> c.getName().equals(name))
+            .map(java.net.HttpCookie::getValue).findFirst().orElse(null);
     }
 
     public HttpResponse<String> call(String method, String path, Object body) throws Exception {

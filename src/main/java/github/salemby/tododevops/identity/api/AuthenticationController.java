@@ -25,15 +25,13 @@ public class AuthenticationController {
     private final SecurityContextRepository contexts;
     private final SessionAuthenticationStrategy sessions;
     private final boolean registrationEnabled;
-    private final boolean secureCookie;
 
     public AuthenticationController(AccountService accounts, AuthenticationService authentication,
             SecurityContextRepository contexts, SessionAuthenticationStrategy sessions, AuthenticationManager manager,
-            @Value("${app.auth.registration-enabled:false}") boolean registrationEnabled,
-            @Value("${server.servlet.session.cookie.secure:true}") boolean secureCookie) {
+            @Value("${app.auth.registration-enabled:false}") boolean registrationEnabled) {
         this.accounts = accounts; this.authentication = authentication; this.contexts = contexts;
         this.manager = manager;
-        this.sessions = sessions; this.registrationEnabled = registrationEnabled; this.secureCookie = secureCookie;
+        this.sessions = sessions; this.registrationEnabled = registrationEnabled;
     }
 
     public record CsrfResponse(String token, String headerName) {}
@@ -78,9 +76,8 @@ public class AuthenticationController {
         clearSession(request, response);
     }
 
+    // Invalidating the session deletes it from Redis; Spring Session then expires the cookie.
     private void clearSession(HttpServletRequest request, HttpServletResponse response) {
         new SecurityContextLogoutHandler().logout(request, response, SecurityContextHolder.getContext().getAuthentication());
-        response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from("JSESSIONID", "").path("/").httpOnly(true)
-            .secure(secureCookie).sameSite("Lax").maxAge(0).build().toString());
     }
 }
