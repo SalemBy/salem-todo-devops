@@ -1,6 +1,7 @@
 # Modular monolith
 
 Salem Todo DevOps is one deployable Spring Boot application with one PostgreSQL database.
+Redis holds short-lived shared state: the `identity` module's authentication rate-limit counters.
 The `workmanagement` module owns projects, tasks and their tables.
 The `identity` module owns accounts, validation, password hashing, and session
 authentication. Its API exposes registration, login, current account, logout, and

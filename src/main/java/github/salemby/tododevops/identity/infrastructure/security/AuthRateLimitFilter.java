@@ -15,6 +15,10 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.HexFormat;
 
 /** Per-address limits on the anonymous routes that cost a hash or create a session. Runs before CSRF. */
 final class AuthRateLimitFilter extends OncePerRequestFilter {
@@ -42,7 +46,7 @@ final class AuthRateLimitFilter extends OncePerRequestFilter {
         else if (CSRF.matches(request) && request.getSession(false) == null) { route = "session"; limit = limits.sessionsPerAddress(); }
         if (route != null) {
             try {
-                var retryAfter = limiter.hit(route + ":addr:" + request.getRemoteAddr(), limit);
+                var retryAfter = limiter.hit(route + ":addr:" + clientKey(request.getRemoteAddr()), limit);
                 if (retryAfter.isPresent()) {
                     response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfter.get().toSeconds()));
                     problems.write(request, response, 429, "Too many requests. Try again later.");
@@ -55,5 +59,17 @@ final class AuthRateLimitFilter extends OncePerRequestFilter {
             }
         }
         chain.doFilter(request, response);
+    }
+
+    /** IPv4 per address; IPv6 per /64, because one client usually controls a whole /64. */
+    static String clientKey(String remoteAddr) {
+        if (remoteAddr == null || remoteAddr.indexOf(':') < 0) return remoteAddr;
+        try {
+            var address = InetAddress.getByName(remoteAddr); // an IPv6 literal: parsed, never resolved
+            if (address instanceof Inet4Address) return address.getHostAddress(); // IPv4-mapped IPv6
+            return HexFormat.of().formatHex(address.getAddress(), 0, 8) + "/64";
+        } catch (UnknownHostException ex) {
+            return remoteAddr;
+        }
     }
 }

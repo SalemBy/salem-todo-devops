@@ -77,6 +77,10 @@ installation:
 Then set `DB_PASSWORD` in `.env` to your database password, and adjust `DB_URL`
 and `DB_USERNAME` if needed.
 
+Also install Redis and have it listen on `127.0.0.1:6379`, or point
+`spring.data.redis.host` and `spring.data.redis.port` at your Redis. Without
+Redis, login, registration, and `GET /auth/csrf` return 503.
+
 ## Use the API
 
 Select **Salem Todo - Local Authentication** in Postman, then open
@@ -153,7 +157,8 @@ The limits are `app.rate-limit.*` properties in `application.properties`.
 the local counters, run
 `docker compose exec redis sh -c "redis-cli --scan --pattern 'rl:*' | xargs -r redis-cli del"`.
 
-The client address is the TCP peer address. Behind a reverse proxy, configure
+The client address is the TCP peer address. IPv6 clients are counted per /64
+network, because one client usually controls a whole /64. Behind a reverse proxy, configure
 the API to trust the proxy's forwarding headers
 (`server.forward-headers-strategy=native`, with the proxy listed as an internal
 proxy); otherwise all users share the proxy's address and its limits.
@@ -166,10 +171,10 @@ Run the database-independent tests:
 .\mvnw.cmd test
 ```
 
-The complete suite needs a disposable PostgreSQL database and a user that can
-create and drop schemas. `docker compose up -d --wait` provides both, with
-local-only credentials. Configure the test connection separately from the
-application database:
+The complete suite needs a disposable PostgreSQL database, a user that can
+create and drop schemas, and Redis on `127.0.0.1:6379`.
+`docker compose up -d --wait` provides all three, with local-only credentials.
+Configure the test connection separately from the application database:
 
 ```powershell
 $env:TEST_DB_URL = 'jdbc:postgresql://127.0.0.1:5432/todo_integration'
@@ -178,7 +183,8 @@ $env:TEST_DB_PASSWORD = 'todo-test-only'
 .\mvnw.cmd -B --no-transfer-progress -Ppostgres-it verify
 ```
 
-Without Docker, point these variables at your own disposable database instead.
+Without Docker, point these variables at your own disposable database instead,
+and run Redis on `127.0.0.1:6379`.
 
 This runs unit, HTTP, persistence, concurrency, and migration tests. Reports are
 written to `target/surefire-reports` and `target/failsafe-reports`.
