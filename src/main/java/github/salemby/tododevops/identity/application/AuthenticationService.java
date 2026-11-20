@@ -9,6 +9,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
@@ -18,15 +19,17 @@ import java.time.Instant;
 public class AuthenticationService {
     private final AccountRepository accounts;
     private final PasswordEncoder passwords;
+    private final TransactionOperations transactions;
     private final String dummyHash;
 
-    public AuthenticationService(AccountRepository accounts, PasswordEncoder passwords) {
+    public AuthenticationService(AccountRepository accounts, PasswordEncoder passwords, TransactionOperations transactions) {
         this.accounts = accounts;
         this.passwords = passwords;
+        this.transactions = transactions;
         dummyHash = passwords.encode(java.util.UUID.randomUUID().toString());
     }
 
-    @Transactional(readOnly = true)
+    // Not transactional: the hash must not run while a pooled connection is held (#44).
     public AccountPrincipal authenticate(@Valid LoginRequest request) {
         var account = accounts.findByEmail(request.email()).orElse(null);
         boolean matches = passwords.matches(request.password(), account == null ? dummyHash : account.getPasswordHash());
@@ -48,16 +51,27 @@ public class AuthenticationService {
         return response(a);
     }
 
-    @Transactional
+    // Hashes run before the locking transaction, which then rechecks the account (#44).
     public void changePassword(AccountPrincipal principal, @Valid PasswordChangeRequest request) {
-        var account = accounts.findForPasswordChange(principal.id())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required"));
-        if (!account.isActive() || account.getCredentialVersion() != principal.credentialVersion())
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        var account = accounts.findById(principal.id()).filter(a -> isCurrent(a, principal))
+            .orElseThrow(AuthenticationService::unauthorized);
         if (!passwords.matches(request.currentPassword(), account.getPasswordHash()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
-        account.changePassword(passwords.encode(request.newPassword()));
-        accounts.flush();
+        String encoded = passwords.encode(request.newPassword());
+        transactions.executeWithoutResult(status -> {
+            var locked = accounts.findForPasswordChange(principal.id()).filter(a -> isCurrent(a, principal))
+                .orElseThrow(AuthenticationService::unauthorized); // concurrent change or disable
+            locked.changePassword(encoded);
+            accounts.flush();
+        });
+    }
+
+    private static boolean isCurrent(Account a, AccountPrincipal principal) {
+        return a.isActive() && a.getCredentialVersion() == principal.credentialVersion();
+    }
+
+    private static ResponseStatusException unauthorized() {
+        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
     }
 
     private static AccountResponse response(Account a) {

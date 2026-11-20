@@ -8,7 +8,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 /** Account creation; HTTP onboarding availability is enforced by the authentication API. */
@@ -23,15 +22,15 @@ public class AccountService {
         this.passwords = passwords;
     }
 
-    @Transactional
+    // Not transactional: hash first, then saveAndFlush in the repository's own transaction (#44).
     public AccountResponse create(@NotNull @Valid AccountRegistration request) {
+        String hash = passwords.encode(request.password());
         try {
-            var account = accounts.saveAndFlush(new Account(request.email(), request.displayName(),
-                passwords.encode(request.password())));
+            var account = accounts.saveAndFlush(new Account(request.email(), request.displayName(), hash));
             return new AccountResponse(account.getId(), account.getEmail(), account.getDisplayName(),
                 account.isActive(), account.getCreatedAt(), account.getUpdatedAt());
         } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-            // Flush inside the transaction so concurrent registrations receive the same conflict.
+            // saveAndFlush flushes inside its transaction, so concurrent registrations receive the same conflict.
             for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
                 if (cause instanceof org.hibernate.exception.ConstraintViolationException constraint
                         && "uk_accounts_email".equals(constraint.getConstraintName()))
