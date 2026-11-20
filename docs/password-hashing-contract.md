@@ -21,6 +21,13 @@ No password hash runs while the application holds a database connection or a row
 
 `authenticate` is no longer `@Transactional`. Its signature and validation stay the same.
 
+### Registration (`POST /auth/register`)
+
+1. Encode the password with no transaction open.
+2. Save with `saveAndFlush` in the repository's own short transaction. A duplicate email still fails on the unique constraint inside that flush and returns **409**, including for concurrent registrations.
+
+`AccountService.create` is no longer `@Transactional`.
+
 ### Password change (`POST /auth/password`)
 
 **Unlocked phase** (no transaction around the hashing):
@@ -59,7 +66,7 @@ Only steps 4–6 hold the row lock. No hashing happens inside them.
 
 ## Verification
 
-- A new `PostgresPasswordHashingIT` uses a test-only `GatedPasswordEncoder`, which pauses inside a hash on command. While a login (for both a known and an unknown email) or a password change is paused mid-hash, the IT asserts that the pool has **0 active connections**. On the code before this fix the count is 1, so the test fails there.
+- A new `PostgresPasswordHashingIT` uses a test-only `GatedPasswordEncoder`, which pauses inside a hash on command. While a login (for both a known and an unknown email), a registration or a password change is paused mid-hash, the IT asserts that the pool has **0 active connections**. On the code before this fix the count is 1, so the test fails there.
 - The same IT covers an account disabled in the middle of a password change: 401, with the hash and version unchanged.
 - `PostgresAuthenticationIT` passes unchanged, including the concurrent password-change test.
 - `.\mvnw.cmd -B --no-transfer-progress verify` and `.\mvnw.cmd -B --no-transfer-progress -Ppostgres-it verify` pass.

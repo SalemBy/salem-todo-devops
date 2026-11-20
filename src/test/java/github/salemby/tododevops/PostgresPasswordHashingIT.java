@@ -75,6 +75,16 @@ class PostgresPasswordHashingIT {
         assertEquals(401, login.get(20, TimeUnit.SECONDS).statusCode());
     }
 
+    @Test void registrationHashesWithoutHoldingADatabaseConnection() throws Exception {
+        String email = email(); var c = new Client(); c.csrf();
+        gate.arm();
+        var register = background.submit(() -> c.register(email));
+        gate.awaitParked(Duration.ofSeconds(10));
+        assertEquals(0, activeConnections(), "registration held a pooled connection while hashing");
+        gate.disarm();
+        assertEquals(201, register.get(20, TimeUnit.SECONDS).statusCode());
+    }
+
     @Test void passwordChangeHashesWithoutHoldingAConnectionOrRowLock() throws Exception {
         String email = email(); var c = loggedIn(email);
         gate.arm();
