@@ -77,6 +77,7 @@ class PostgresRedisSessionIT {
     void logoutOnOneServerIsEnforcedOnTheOther() throws Exception {
         var onA = loggedIn(portA(), email());
         String cookie = onA.cookie("JSESSIONID");
+        assertEquals(200, meWithCookie(portB(), cookie).statusCode(), "server B must accept the session before the logout");
         assertEquals(200, onA.csrf().statusCode());
         assertEquals(204, onA.call("POST", "/auth/logout", null).statusCode());
         assertEquals(401, meWithCookie(portB(), cookie).statusCode());
@@ -98,29 +99,54 @@ class PostgresRedisSessionIT {
     @Test
     void noPasswordOrHashIsStoredInRedis() throws Exception {
         String email = email();
-        loggedIn(portA(), email);
+        byte[] key = sessionKey(loggedIn(portA(), email).cookie("JSESSIONID"));
         String hash = a.getBean(JdbcTemplate.class).queryForObject("select password_hash from accounts where email = ?", String.class, email);
-        int sessions = 0;
         try (var redis = a.getBean(RedisConnectionFactory.class).getConnection()) {
-            for (byte[] key : redis.keyCommands().keys("spring:session:sessions:*".getBytes(StandardCharsets.UTF_8))) {
-                sessions++;
-                for (var entry : redis.hashCommands().hGetAll(key).entrySet()) {
-                    String stored = new String(entry.getValue(), StandardCharsets.ISO_8859_1);
-                    assertFalse(stored.contains(PASSWORD), "password stored in " + new String(entry.getKey()));
-                    assertFalse(stored.contains(hash), "password hash stored in " + new String(entry.getKey()));
-                    assertFalse(stored.contains("{pbkdf2"), "a password hash stored in " + new String(entry.getKey()));
-                }
+            var fields = redis.hashCommands().hGetAll(key);
+            assertFalse(fields.isEmpty(), "this login's session is not stored in Redis");
+            for (var entry : fields.entrySet()) {
+                String stored = new String(entry.getValue(), StandardCharsets.ISO_8859_1);
+                assertFalse(stored.contains(PASSWORD), "password stored in " + new String(entry.getKey()));
+                assertFalse(stored.contains(hash), "password hash stored in " + new String(entry.getKey()));
+                assertFalse(stored.contains("{pbkdf2"), "a password hash stored in " + new String(entry.getKey()));
             }
         }
-        assertTrue(sessions > 0, "no session was stored in Redis");
+    }
+
+    /** The Redis key of the session behind a JSESSIONID cookie value (Base64 of the session ID). */
+    static byte[] sessionKey(String cookie) {
+        String sessionId = new String(java.util.Base64.getDecoder().decode(cookie), StandardCharsets.UTF_8);
+        return ("spring:session:sessions:" + sessionId).getBytes(StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void logoutDuringConcurrentRequestsNeverFailsWith500() throws Exception {
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(41);
+        var statuses = new java.util.ArrayList<Integer>();
+        try {
+            for (int round = 0; round < 5; round++) {
+                var client = loggedIn(portA(), email());
+                assertEquals(200, client.csrf().statusCode());
+                String cookie = client.cookie("JSESSIONID");
+                var calls = new java.util.ArrayList<java.util.concurrent.Callable<Integer>>();
+                for (int i = 0; i < 40; i++) calls.add(() -> meWithCookie(portA(), cookie).statusCode());
+                calls.add(() -> client.call("POST", "/auth/logout", null).statusCode());
+                for (var result : pool.invokeAll(calls)) statuses.add(result.get());
+                // Afterwards the old cookie is cleanly logged out, not a broken half-written session.
+                assertEquals(401, meWithCookie(portA(), cookie).statusCode());
+                assertEquals(401, meWithCookie(portB(), cookie).statusCode());
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+        assertFalse(statuses.contains(500), statuses.toString());
     }
 
     @Test
     void unreadableSessionIsTreatedAsLoggedOut() throws Exception {
         String cookie = loggedIn(portA(), email()).cookie("JSESSIONID");
-        String sessionId = new String(java.util.Base64.getDecoder().decode(cookie), StandardCharsets.UTF_8);
         try (var redis = a.getBean(RedisConnectionFactory.class).getConnection()) {
-            byte[] key = ("spring:session:sessions:" + sessionId).getBytes(StandardCharsets.UTF_8);
+            byte[] key = sessionKey(cookie);
             assertTrue(redis.keyCommands().exists(key), "session key not found");
             redis.hashCommands().hSet(key, "sessionAttr:SPRING_SECURITY_CONTEXT".getBytes(StandardCharsets.UTF_8),
                 "not java serialization".getBytes(StandardCharsets.UTF_8));

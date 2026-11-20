@@ -24,7 +24,11 @@ class PostgresSessionRedisDownIT {
         try (var apps = new SharedSchemaApps()) {
             int port = SharedSchemaApps.port(apps.start("spring.data.redis.port=1"));
             String cookie = Base64.getEncoder().encodeToString(UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
-            unavailable(get(port, "/auth/me", cookie));
+            var me = get(port, "/auth/me", cookie);
+            unavailable(me);
+            // The security headers written before the failure must survive into the 503.
+            assertEquals("nosniff", me.headers().firstValue("X-Content-Type-Options").orElse(null));
+            assertEquals("DENY", me.headers().firstValue("X-Frame-Options").orElse(null));
             assertEquals(200, get(port, "/", null).statusCode());
         }
     }

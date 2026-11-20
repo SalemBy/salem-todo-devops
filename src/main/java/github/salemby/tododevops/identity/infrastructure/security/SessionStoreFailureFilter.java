@@ -29,7 +29,7 @@ final class SessionStoreFailureFilter extends OncePerRequestFilter {
             if (response.isCommitted()) throw ex;
             logger.warn("Session store unavailable; failing closed: " + ex.getMessage());
             logger.debug("Session store failure", ex);
-            response.reset();
+            response.resetBuffer(); // keeps the security headers already written (nosniff, frame options)
             problems.write(request, response, 503, "Authentication is temporarily unavailable.");
         }
     }
