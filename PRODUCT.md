@@ -67,7 +67,7 @@ Open decisions:
 
 ## Evidence on Hand
 
-- API contracts: `docs/authentication-contract.md`, `docs/project-membership-contract.md`, `docs/task-filter-contract.md`, `docs/architecture.md`.
+- API behavior: `README.md` and `docs/architecture.md`.
 - A working Postman collection: `postman/collections/todo`.
 - None of these exist yet: a UI, AI features, screenshots, a logo or brand assets, real users, testimonials or usage data. Future work must not invent them.
 

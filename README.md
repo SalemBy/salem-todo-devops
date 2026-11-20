@@ -82,8 +82,7 @@ action receives 403.
 Owners add existing accounts by email, change roles, and remove members. Any
 member can leave a project by removing their own membership. A project always
 keeps at least one active owner, so removing, demoting, or leaving as the last
-owner returns 409. Adding an unknown or disabled email returns 422. The full
-rules are in `docs/project-membership-contract.md`.
+owner returns 409. Adding an unknown or disabled email returns 422.
 
 Business endpoints require login. Sessions expire after 30 minutes of inactivity
 or 12 hours total, and server restarts sign users out. Password changes revoke
@@ -126,7 +125,5 @@ and uploads test reports and the application JAR.
 ## Documentation
 
 - [Postman guide](postman/README.md) — request examples, environments, and runnable scenarios.
-- [Authentication contract](docs/authentication-contract.md) — endpoints, validation, sessions, and CSRF.
-- [Task filtering contract](docs/task-filter-contract.md) — filters and pagination behavior.
 - [Architecture](docs/architecture.md) — module boundaries and persistence responsibilities.
 - [Contributing](CONTRIBUTING.md) — branches, commit messages, pull requests, and checks.

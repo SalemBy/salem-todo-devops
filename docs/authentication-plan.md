@@ -4,7 +4,6 @@ Status: account foundation and authentication/session protection implemented loc
 Existing HTTP tests authenticate through real endpoints. Postman includes a session
 workflow and inherited CSRF headers. Local implementation, review, and verification
 are complete. GitHub CI and PR review remain before merge.
-See authentication-contract.md for the contract.
 
 ## Scope and sequence
 
@@ -35,7 +34,7 @@ bounded lifetime, explicit context persistence, and logout invalidation.
 
 Bearer tokens and JWT issuance are outside this first version.
 
-## Contract decisions recorded in authentication-contract.md
+## Contract decisions
 
 - Endpoint paths, request/response DTOs, input lengths, password rules, and errors.
 - Email normalization and database uniqueness, including concurrent registration.
