@@ -75,6 +75,42 @@ class PostgresPasswordHashingIT {
         assertEquals(401, login.get(20, TimeUnit.SECONDS).statusCode());
     }
 
+    @Test void passwordChangeHashesWithoutHoldingAConnectionOrRowLock() throws Exception {
+        String email = email(); var c = loggedIn(email);
+        gate.arm();
+        var change = background.submit(() -> c.changePassword(PASSWORD, "A replacement password!"));
+        gate.awaitParked(Duration.ofSeconds(10)); // current-password check
+        assertEquals(0, activeConnections(), "password change held a pooled connection while checking the current password");
+        gate.releaseOne();
+        gate.awaitParked(Duration.ofSeconds(10)); // new-password encode
+        assertEquals(0, activeConnections(), "password change held a pooled connection while encoding the new password");
+        gate.disarm();
+        assertEquals(204, change.get(20, TimeUnit.SECONDS).statusCode());
+        assertEquals(1L, jdbc.queryForObject("select credential_version from accounts where email = ?", Long.class, email));
+    }
+
+    @Test void disablingTheAccountMidChangeRejectsIt() throws Exception {
+        String email = email(); var c = loggedIn(email);
+        String hashBefore = jdbc.queryForObject("select password_hash from accounts where email = ?", String.class, email);
+        gate.arm();
+        var change = background.submit(() -> c.changePassword(PASSWORD, "A replacement password!"));
+        gate.awaitParked(Duration.ofSeconds(10)); // current-password check
+        jdbc.update("update accounts set active = false where email = ?", email);
+        gate.disarm();
+        var response = change.get(20, TimeUnit.SECONDS);
+        assertEquals(401, response.statusCode(), response.body());
+        assertTrue(response.headers().firstValue("Content-Type").orElseThrow().startsWith("application/problem+json"));
+        assertEquals(0L, jdbc.queryForObject("select credential_version from accounts where email = ?", Long.class, email));
+        assertEquals(hashBefore, jdbc.queryForObject("select password_hash from accounts where email = ?", String.class, email));
+    }
+
+    Client loggedIn(String email) throws Exception {
+        var c = new Client(); c.csrf();
+        assertEquals(201, c.register(email).statusCode());
+        assertEquals(200, c.login(email, PASSWORD).statusCode());
+        c.csrf(); return c;
+    }
+
     final class Client {
         final CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
         final HttpClient http = HttpClient.newBuilder().cookieHandler(cookies).connectTimeout(Duration.ofSeconds(5)).build();
@@ -93,5 +129,6 @@ class PostgresPasswordHashingIT {
         }
         HttpResponse<String> register(String email) throws Exception { return call("POST", "/auth/register", Map.of("email", email, "displayName", "Person", "password", PASSWORD), true); }
         HttpResponse<String> login(String email, String password) throws Exception { return call("POST", "/auth/login", Map.of("email", email, "password", password), true); }
+        HttpResponse<String> changePassword(String current, String next) throws Exception { return call("POST", "/auth/password", Map.of("currentPassword", current, "newPassword", next), true); }
     }
 }
