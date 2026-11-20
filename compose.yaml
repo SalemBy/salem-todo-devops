@@ -19,7 +19,8 @@ services:
       - source: test-database
         target: /docker-entrypoint-initdb.d/10-test-database.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d todo"]
+      # Over TCP: during first-start init the temporary server listens on the unix socket only.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d todo"]
       interval: 5s
       timeout: 5s
       retries: 10

@@ -20,8 +20,10 @@ instead of `Copy-Item`.
    ```
 
    The template works as is. Spring and Docker Compose both read `.env`, so the
-   database password stays the same in both. The template enables registration
-   and allows session cookies over local HTTP. Keep this file private.
+   database password stays the same in both. Keep `DB_PASSWORD` to letters,
+   digits, `-` and `_`: Compose and Spring read `$`, `\`, quotes and ` #`
+   differently. The template enables registration and allows session cookies
+   over local HTTP. Keep this file private.
 
 2. Start PostgreSQL 18 and Redis:
 
