@@ -8,26 +8,29 @@ The repository includes a Maven Wrapper and a runnable Postman collection.
 
 ## Run locally
 
-You need JDK 17 or newer and PostgreSQL 18. Set `JAVA_HOME` to your installed JDK.
-The commands below use PowerShell. On Linux or macOS, use `./mvnw` instead of
-`.\mvnw.cmd`.
+You need JDK 17 or newer and Docker (Docker Desktop on Windows and macOS, Docker
+Engine on Linux). Set `JAVA_HOME` to your installed JDK. The commands below use
+PowerShell. On Linux or macOS, use `./mvnw` instead of `.\mvnw.cmd` and `cp`
+instead of `Copy-Item`.
 
-1. Start PostgreSQL and create a database named `todo`. For a standard Windows
-   installation:
-
-   ```powershell
-   & 'C:\Program Files\PostgreSQL\18\bin\createdb.exe' -h 127.0.0.1 -U postgres -W todo
-   ```
-
-2. If you do not already have a `.env` file, copy the configuration template:
+1. If you do not already have a `.env` file, copy the configuration template:
 
    ```powershell
    Copy-Item .env.example .env
    ```
 
-   Set `DB_PASSWORD` in `.env` to your database password. Adjust `DB_URL` and
-   `DB_USERNAME` if needed. The template enables registration and allows session
-   cookies over local HTTP. Keep this file private.
+   The template works as is. Spring and Docker Compose both read `.env`, so the
+   database password stays the same in both. The template enables registration
+   and allows session cookies over local HTTP. Keep this file private.
+
+2. Start PostgreSQL 18 and Redis:
+
+   ```powershell
+   docker compose up -d --wait
+   ```
+
+   The command returns once both services are healthy. It creates the `todo`
+   database for the API and the `todo_integration` database for the tests.
 
 3. Start the API from the project root:
 
@@ -41,6 +44,36 @@ Flyway applies database migrations on startup.
 In IntelliJ, open `pom.xml` as a Maven project and run
 `SalemTodoDevOpsApplication` with the project root as its working directory.
 Reload Maven after dependency changes and restart the API after changing configuration.
+
+### Local services
+
+| Task | Command |
+| --- | --- |
+| Start | `docker compose up -d --wait` |
+| Stop and keep data | `docker compose down` |
+| Reset all data | `docker compose down -v` |
+
+Both services listen on `127.0.0.1` only: PostgreSQL on 5432 and Redis on 6379.
+Redis is not used by the API yet.
+
+- **Port 5432 already in use:** another PostgreSQL is running on this machine.
+  Stop it, or use the setup without Docker below.
+- **Password authentication failed after changing `DB_PASSWORD`:** the database
+  keeps the password from its first start. Reset with `docker compose down -v`.
+- **`todo_integration` does not exist:** the database volume was created before
+  this setup. Reset with `docker compose down -v`.
+
+### Without Docker
+
+Install PostgreSQL 18 and create a database named `todo`. For a standard Windows
+installation:
+
+```powershell
+& 'C:\Program Files\PostgreSQL\18\bin\createdb.exe' -h 127.0.0.1 -U postgres -W todo
+```
+
+Then set `DB_PASSWORD` in `.env` to your database password, and adjust `DB_URL`
+and `DB_USERNAME` if needed.
 
 ## Use the API
 
@@ -104,17 +137,19 @@ Run the database-independent tests:
 .\mvnw.cmd test
 ```
 
-For the complete suite, provision a dedicated disposable PostgreSQL database and
-a user with permission to create and drop schemas. Configure the test connection
-separately from the application database:
+The complete suite needs a disposable PostgreSQL database and a user that can
+create and drop schemas. `docker compose up -d --wait` provides both, with
+local-only credentials. Configure the test connection separately from the
+application database:
 
 ```powershell
 $env:TEST_DB_URL = 'jdbc:postgresql://127.0.0.1:5432/todo_integration'
 $env:TEST_DB_USERNAME = 'todo_test'
-$testCredential = Get-Credential -UserName todo_test -Message 'Test database credentials'
-$env:TEST_DB_PASSWORD = $testCredential.GetNetworkCredential().Password
+$env:TEST_DB_PASSWORD = 'todo-test-only'
 .\mvnw.cmd -B --no-transfer-progress -Ppostgres-it verify
 ```
+
+Without Docker, point these variables at your own disposable database instead.
 
 This runs unit, HTTP, persistence, concurrency, and migration tests. Reports are
 written to `target/surefire-reports` and `target/failsafe-reports`.
