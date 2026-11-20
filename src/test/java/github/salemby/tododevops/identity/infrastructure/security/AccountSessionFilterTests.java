@@ -16,7 +16,7 @@ class AccountSessionFilterTests {
         var accounts = new AuthenticationService(null, new org.springframework.security.crypto.password.PasswordEncoder() {
             public String encode(CharSequence raw) { return "unused-test-hash"; }
             public boolean matches(CharSequence raw, String encoded) { throw new UnsupportedOperationException(); }
-        }, null) {
+        }, null, null, null) {
             @Override public boolean isValid(AccountPrincipal principal) { return true; }
         };
         Instant login = Instant.parse("2026-11-17T00:00:00Z");

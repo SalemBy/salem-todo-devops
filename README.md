@@ -56,7 +56,7 @@ Reload Maven after dependency changes and restart the API after changing configu
 | Reset all data | `docker compose down -v` |
 
 Both services listen on `127.0.0.1` only: PostgreSQL on 5432 and Redis on 6379.
-Redis is not used by the API yet.
+The API needs both: Redis holds the authentication rate-limit counters.
 
 - **Port 5432 already in use:** another PostgreSQL is running on this machine.
   Stop it, or use the setup without Docker below.
@@ -76,6 +76,10 @@ installation:
 
 Then set `DB_PASSWORD` in `.env` to your database password, and adjust `DB_URL`
 and `DB_USERNAME` if needed.
+
+Also install Redis and have it listen on `127.0.0.1:6379`, or point
+`spring.data.redis.host` and `spring.data.redis.port` at your Redis. Without
+Redis, login, registration, and `GET /auth/csrf` return 503.
 
 ## Use the API
 
@@ -131,6 +135,34 @@ Registration is disabled by default. Enable `AUTH_REGISTRATION_ENABLED` for
 controlled onboarding. Use `SESSION_COOKIE_SECURE=false` for local HTTP and
 `true` for HTTPS deployments.
 
+### Rate limits
+
+Login, registration, and new sessions are rate limited, with counters in Redis
+that every API instance shares:
+
+| Limit | Default |
+| --- | --- |
+| Login attempts per client address | 20 per minute |
+| Login attempts per email | 5 per 15 minutes, reset by a successful login |
+| Registrations per client address | 5 per hour |
+| New sessions (`GET /auth/csrf` without a session) per client address | 30 per minute |
+
+Over a limit, the API returns 429 with a `Retry-After` header (in seconds). The
+response is the same for existing and unknown emails. A throttled login never
+checks the password. If Redis is unavailable, these routes return 503 and every
+other route keeps working.
+
+The limits are `app.rate-limit.*` properties in `application.properties`.
+`.env.example` relaxes the per-address limits for local development. To clear
+the local counters, run
+`docker compose exec redis sh -c "redis-cli --scan --pattern 'rl:*' | xargs -r redis-cli del"`.
+
+The client address is the TCP peer address. IPv6 clients are counted per /64
+network, because one client usually controls a whole /64. Behind a reverse proxy, configure
+the API to trust the proxy's forwarding headers
+(`server.forward-headers-strategy=native`, with the proxy listed as an internal
+proxy); otherwise all users share the proxy's address and its limits.
+
 ## Tests
 
 Run the database-independent tests:
@@ -139,10 +171,10 @@ Run the database-independent tests:
 .\mvnw.cmd test
 ```
 
-The complete suite needs a disposable PostgreSQL database and a user that can
-create and drop schemas. `docker compose up -d --wait` provides both, with
-local-only credentials. Configure the test connection separately from the
-application database:
+The complete suite needs a disposable PostgreSQL database, a user that can
+create and drop schemas, and Redis on `127.0.0.1:6379`.
+`docker compose up -d --wait` provides all three, with local-only credentials.
+Configure the test connection separately from the application database:
 
 ```powershell
 $env:TEST_DB_URL = 'jdbc:postgresql://127.0.0.1:5432/todo_integration'
@@ -151,7 +183,8 @@ $env:TEST_DB_PASSWORD = 'todo-test-only'
 .\mvnw.cmd -B --no-transfer-progress -Ppostgres-it verify
 ```
 
-Without Docker, point these variables at your own disposable database instead.
+Without Docker, point these variables at your own disposable database instead,
+and run Redis on `127.0.0.1:6379`.
 
 This runs unit, HTTP, persistence, concurrency, and migration tests. Reports are
 written to `target/surefire-reports` and `target/failsafe-reports`.
