@@ -26,7 +26,7 @@ public class AuthenticationService {
         dummyHash = passwords.encode(java.util.UUID.randomUUID().toString());
     }
 
-    @Transactional(readOnly = true)
+    // Not transactional: the hash must not run while a pooled connection is held (#44).
     public AccountPrincipal authenticate(@Valid LoginRequest request) {
         var account = accounts.findByEmail(request.email()).orElse(null);
         boolean matches = passwords.matches(request.password(), account == null ? dummyHash : account.getPasswordHash());
