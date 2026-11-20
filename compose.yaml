@@ -1,0 +1,49 @@
+# Local services for development and the PostgreSQL integration tests.
+# Start: docker compose up -d --wait   Stop: docker compose down   Reset: docker compose down -v
+# Compose reads the repository .env, so the database password follows DB_PASSWORD.
+name: salem-todo-devops
+
+services:
+  postgres:
+    image: postgres:18 # keep in step with .github/workflows/ci.yml
+    environment:
+      POSTGRES_DB: todo
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-todo-local-only}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql # PostgreSQL 18 images keep data under /var/lib/postgresql/18
+    configs:
+      # Runs only when the volume is empty; reset with "down -v" to rerun it.
+      - source: test-database
+        target: /docker-entrypoint-initdb.d/10-test-database.sql
+    healthcheck:
+      # Over TCP: during first-start init the temporary server listens on the unix socket only.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d todo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8.10-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+configs:
+  test-database:
+    # Local-only credentials for the disposable integration-test database.
+    content: |
+      CREATE ROLE todo_test LOGIN PASSWORD 'todo-test-only';
+      CREATE DATABASE todo_integration OWNER todo_test;
+
+volumes:
+  postgres-data:
+  redis-data:
