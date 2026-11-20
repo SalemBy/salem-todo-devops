@@ -18,7 +18,9 @@ class SessionSerializerConfiguration {
 
     @Bean("springSessionDefaultRedisSerializer")
     RedisSerializer<Object> springSessionDefaultRedisSerializer() {
-        var jdk = new JdkSerializationRedisSerializer();
+        // The application's class loader, not Spring's default: under DevTools the app classes live in a
+        // restart class loader, and a principal read with another loader fails `instanceof` and logs the user out.
+        var jdk = new JdkSerializationRedisSerializer(SessionSerializerConfiguration.class.getClassLoader());
         return new RedisSerializer<>() {
             @Override
             public byte[] serialize(Object value) {
