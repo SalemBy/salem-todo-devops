@@ -27,9 +27,7 @@ public class AccountService {
     public AccountResponse create(@NotNull @Valid AccountRegistration request) {
         String hash = passwords.encode(request.password());
         try {
-            var account = accounts.saveAndFlush(new Account(request.email(), request.displayName(), hash));
-            return new AccountResponse(account.getId(), account.getEmail(), account.getDisplayName(),
-                account.isActive(), account.getCreatedAt(), account.getUpdatedAt());
+            return AccountResponse.from(accounts.saveAndFlush(new Account(request.email(), request.displayName(), hash)));
         } catch (org.springframework.dao.DataIntegrityViolationException ex) {
             // saveAndFlush flushes inside its transaction, so concurrent registrations receive the same conflict.
             if (UniqueConstraints.violated(ex, "uk_accounts_email"))
