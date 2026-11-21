@@ -48,6 +48,8 @@ public class SecurityConfiguration {
     }
     @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationService accounts, ObjectMapper json,
             github.salemby.tododevops.identity.application.Administrators administrators,
+            @org.springframework.beans.factory.annotation.Qualifier("handlerExceptionResolver")
+            org.springframework.web.servlet.HandlerExceptionResolver resolver,
             RedisRateLimiter limiter, RateLimitProperties limits,
             SecurityContextRepository contexts, CsrfTokenRepository csrf,
             @Value("${app.auth.absolute-timeout:12h}") Duration absoluteTimeout) throws Exception {
@@ -67,7 +69,7 @@ public class SecurityConfiguration {
                 .requestMatchers(publicRoutes).permitAll().anyRequest().authenticated())
             .addFilterBefore(new AuthRateLimitFilter(limiter, limits, problems), CsrfFilter.class)
             .addFilterBefore(new AccountSessionFilter(accounts, publicRoutes, problems, absoluteTimeout, Clock.systemUTC()), CsrfFilter.class)
-            .addFilterAfter(new AdministratorFilter(administrators, paths.matcher("/admin/**"), problems), CsrfFilter.class);
+            .addFilterAfter(new AdministratorFilter(administrators, paths.matcher("/admin/**"), resolver), CsrfFilter.class);
         return http.build();
     }
 }

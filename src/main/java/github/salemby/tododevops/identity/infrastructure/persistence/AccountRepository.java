@@ -15,4 +15,9 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_READ)
     @org.springframework.data.jpa.repository.Query("select a from Account a where a.id = :id")
     Optional<Account> findShareLockedById(Long id);
+
+    /** Locks the given accounts in ID order, so concurrent callers queue instead of deadlocking. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select a from Account a where a.email in :emails order by a.id")
+    java.util.List<Account> findLockedByEmailIn(@org.springframework.data.repository.query.Param("emails") java.util.Collection<String> emails);
 }

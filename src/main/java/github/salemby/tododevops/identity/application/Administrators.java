@@ -32,11 +32,9 @@ public class Administrators {
         return accounts.findById(accountId).filter(this::isAdministrator).isPresent();
     }
 
-    /** Whether an active administrator other than the given account exists. */
-    @Transactional(readOnly = true)
-    public boolean hasOtherActiveAdministrator(Long accountId) {
-        return emails.stream().map(accounts::findByEmail).flatMap(java.util.Optional::stream)
-            .anyMatch(a -> !a.getId().equals(accountId) && a.isActive());
+    /** The configured administrator emails, normalized. */
+    Set<String> emails() {
+        return emails;
     }
 
     boolean isAdministrator(Account account) {

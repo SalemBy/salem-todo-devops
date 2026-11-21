@@ -136,9 +136,10 @@ public class ProjectMemberService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
         if (hasAnotherActiveOwner(projectId, null))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Project already has an active owner");
-        var accounts = directory.findByIds(List.of(accountId));
-        if (!accounts.containsKey(accountId) || !accounts.get(accountId).active())
+        // The shared row lock makes a concurrent deactivation of this account run before or after the recovery.
+        if (!directory.isActiveLocked(accountId))
             throw new ResponseStatusException(HttpStatusCode.valueOf(422), "Account must be active");
+        var accounts = directory.findByIds(List.of(accountId));
         var membership = memberships.findByProjectIdAndAccountId(projectId, accountId)
             .orElseGet(() -> new ProjectMembership(project, accountId, ProjectRole.OWNER));
         membership.changeRole(ProjectRole.OWNER);

@@ -56,19 +56,20 @@ class PostgresAdministrationIT {
         assertEquals(401, anonymous.call("POST", "/admin/accounts/1/deactivate", null).statusCode());
 
         var u = user();
-        for (Object[] c : new Object[][]{
-                {"POST", "/admin/accounts/" + u.id() + "/deactivate", null},
-                {"POST", "/admin/accounts/" + u.id() + "/reactivate", null},
-                {"POST", "/admin/projects/1/owners", Map.of("accountId", "x")},
-                {"GET", "/admin/accounts/" + u.id() + "/deactivate", null}}) {
+        var cases = new java.util.ArrayList<Object[]>();
+        for (String method : List.of("POST", "PUT", "PATCH", "DELETE", "GET", "HEAD", "OPTIONS"))
+            cases.add(new Object[]{method, "/admin/accounts/" + u.id() + "/deactivate", null});
+        cases.add(new Object[]{"POST", "/admin/projects/1/owners", Map.of("accountId", "x")});
+        cases.add(new Object[]{"POST", "/admin", null});
+        for (Object[] c : cases) {
             String method = (String) c[0], path = (String) c[1];
             var hidden = u.call(method, path, c[2]);
-            var unknown = u.call(method, path.replace("/admin/", "/nimda/"), c[2]);
-            assertEquals(404, unknown.statusCode(), unknown.body());
+            var unknown = u.call(method, path.replace("/admin", "/nimda"), c[2]);
+            assertEquals(404, unknown.statusCode(), method + " unknown: " + unknown.body());
             assertEquals(404, hidden.statusCode(), method + " " + path + ": " + hidden.body());
-            assertEquals(JSON.readTree(unknown.body().replace("nimda", "admin")), JSON.readTree(hidden.body()));
-            assertEquals(unknown.headers().firstValue("Content-Type"), hidden.headers().firstValue("Content-Type"));
-            assertEquals(unknown.headers().firstValue("Cache-Control"), hidden.headers().firstValue("Cache-Control"));
+            // Byte for byte, and every header but the clock and cookies: nothing may tell the routes exist.
+            assertEquals(unknown.body().replace("nimda", "admin"), hidden.body(), method + " body");
+            assertEquals(headers(unknown), headers(hidden), method + " headers");
         }
         assertEquals(200, u.call("GET", "/auth/me", null).statusCode(), "nothing ran against the caller");
     }
@@ -156,14 +157,96 @@ class PostgresAdministrationIT {
     @Test
     void lastActiveAdministratorStays() throws Exception {
         var first = admin();
+        var second = register(a, SECOND_ADMIN);
+        deactivate(first, second.id(), 200);
         var refused = first.call("POST", "/admin/accounts/" + first.id() + "/deactivate", null);
-        assertEquals(409, refused.statusCode(), refused.body());
-        assertEquals("At least one active administrator is required", JSON.readTree(refused.body()).get("detail").stringValue());
+        assertDetail(refused, 409, "At least one active administrator is required");
         assertEquals(200, first.call("GET", "/auth/me", null).statusCode());
 
-        var second = register(a, SECOND_ADMIN);
+        assertEquals(200, first.call("POST", "/admin/accounts/" + second.id() + "/reactivate", null).statusCode());
+        second = login(a, SECOND_ADMIN);
         deactivate(second, first.id(), 200);
         assertEquals(200, second.call("POST", "/admin/accounts/" + first.id() + "/reactivate", null).statusCode());
+    }
+
+    @Test
+    void administratorsDeactivatingEachOtherKeepOneActive() throws Exception {
+        var first = admin();
+        var second = register(a, SECOND_ADMIN);
+        long p = project(second);
+        long k = task(second, p);
+        assign(second, p, k, second.id());
+        var data = a.getBean(DataSource.class);
+        try (var c = data.getConnection()) {
+            c.setAutoCommit(false);
+            try (var s = c.createStatement()) {
+                // Holds the second administrator's task, so the first deactivation pauses after its check.
+                s.execute("SELECT 1 FROM tasks WHERE id=" + k + " FOR UPDATE");
+                var firstWins = CompletableFuture.supplyAsync(() -> call(first, "POST", "/admin/accounts/" + second.id() + "/deactivate", null));
+                assertThrows(TimeoutException.class, () -> firstWins.get(1, TimeUnit.SECONDS));
+                var secondTries = CompletableFuture.supplyAsync(() -> call(second, "POST", "/admin/accounts/" + first.id() + "/deactivate", null));
+                assertThrows(TimeoutException.class, () -> secondTries.get(1, TimeUnit.SECONDS),
+                    "the second deactivation waits for the administrator rows");
+                c.commit();
+                assertEquals(200, firstWins.get(15, TimeUnit.SECONDS).statusCode());
+                assertDetail(secondTries.get(15, TimeUnit.SECONDS), 409, "At least one active administrator is required");
+            }
+        }
+        assertEquals(200, first.call("GET", "/auth/me", null).statusCode(), "the first administrator stays active");
+        assertEquals(200, first.call("POST", "/admin/accounts/" + second.id() + "/reactivate", null).statusCode());
+    }
+
+    @Test
+    void taskEditsDoNotRestoreAClearedAssignment() throws Exception {
+        var t = user();
+        var o = user();
+        long p = project(o);
+        addMember(o, p, t, "MEMBER");
+        long k = task(o, p);
+        assign(o, p, k, t.id());
+        var admin = admin();
+        var data = a.getBean(DataSource.class);
+        try (var c = data.getConnection()) {
+            c.setAutoCommit(false);
+            try (var s = c.createStatement()) {
+                s.execute("SELECT 1 FROM tasks WHERE id=" + k + " FOR UPDATE");
+                var deactivation = CompletableFuture.supplyAsync(() -> call(admin, "POST", "/admin/accounts/" + t.id() + "/deactivate", null));
+                assertThrows(TimeoutException.class, () -> deactivation.get(1, TimeUnit.SECONDS));
+                // The edit loads the task while it is still assigned, then waits behind the deactivation.
+                var edit = CompletableFuture.supplyAsync(() -> call(o, "PUT", tasks(p) + "/" + k,
+                    Map.of("title", "Edited meanwhile", "status", "PENDING")));
+                assertThrows(TimeoutException.class, () -> edit.get(1, TimeUnit.SECONDS));
+                c.commit();
+                assertEquals(200, deactivation.get(15, TimeUnit.SECONDS).statusCode());
+                var edited = edit.get(15, TimeUnit.SECONDS);
+                assertEquals(200, edited.statusCode(), edited.body());
+            }
+        }
+        var task = read(o, tasks(p) + "/" + k);
+        assertEquals("Edited meanwhile", task.get("title").stringValue());
+        assertTrue(task.get("assigneeId").isNull(), "the edit must not write back the cleared assignee: " + task);
+    }
+
+    @Test
+    void recoveryWaitsForADeactivationOfTheNewOwner() throws Exception {
+        var admin = admin();
+        var gone = user();
+        var x = user();
+        long q = project(gone);
+        deactivate(admin, gone.id(), 200);
+        var data = a.getBean(DataSource.class);
+        try (var c = data.getConnection()) {
+            c.setAutoCommit(false);
+            try (var s = c.createStatement()) {
+                s.execute("SELECT 1 FROM accounts WHERE id=" + x.id() + " FOR UPDATE"); // stands in for a deactivation
+                var recovery = CompletableFuture.supplyAsync(() -> call(admin, "POST", "/admin/projects/" + q + "/owners",
+                    Map.of("accountId", x.id())));
+                assertThrows(TimeoutException.class, () -> recovery.get(1, TimeUnit.SECONDS), "the recovery waits for the account row");
+                s.executeUpdate("UPDATE accounts SET active=false, credential_version=credential_version+1 WHERE id=" + x.id());
+                c.commit();
+                assertDetail(recovery.get(15, TimeUnit.SECONDS), 422, "Account must be active");
+            }
+        }
     }
 
     @Test
@@ -257,6 +340,13 @@ class PostgresAdministrationIT {
     }
 
     // --- fixtures -------------------------------------------------------------------------------
+
+    static Map<String, List<String>> headers(HttpResponse<String> response) {
+        var all = new java.util.TreeMap<>(response.headers().map());
+        all.remove("date");
+        all.remove("set-cookie");
+        return all;
+    }
 
     static HttpResponse<String> recover(User admin, long projectId, Object body) throws Exception {
         return admin.call("POST", "/admin/projects/" + projectId + "/owners", body);

@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 /** Turns accounts off and on for system administrators (#67). Callers check that the caller is an administrator. */
 @Service
 public class AccountAdministration {
@@ -26,8 +28,12 @@ public class AccountAdministration {
      */
     @Transactional
     public AccountResponse deactivate(Long accountId) {
+        // Every configured administrator row first, in ID order: two administrators deactivating each other
+        // queue here, and the second one sees the first change before it checks for another active administrator.
+        var admins = administrators.emails().isEmpty() ? List.<Account>of() : accounts.findLockedByEmailIn(administrators.emails());
         var account = locked(accountId);
-        if (administrators.isConfigured(account) && !administrators.hasOtherActiveAdministrator(accountId))
+        if (administrators.isConfigured(account)
+                && admins.stream().noneMatch(a -> !a.getId().equals(accountId) && a.isActive()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, LAST_ADMINISTRATOR);
         if (account.isActive()) account.deactivate();
         accounts.flush();
