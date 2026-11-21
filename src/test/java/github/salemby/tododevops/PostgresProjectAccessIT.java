@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles("postgres-test")
 @ContextConfiguration(initializers = IsolatedPostgresSchema.class)
 class PostgresProjectAccessIT {
-    enum Caller { OWNER, MEMBER, VIEWER, OUTSIDER }
+    enum Caller { OWNER, MANAGER, MEMBER, VIEWER, OUTSIDER }
 
     private record Fixture(long project, long task, long label) {
         String path() { return "/projects/" + project; }
@@ -60,11 +60,11 @@ class PostgresProjectAccessIT {
         var p = f.path();
         int read = caller == Caller.OUTSIDER ? 404 : 200;
         for (String path : List.of(p, p + "/tasks", p + "/tasks/" + f.task(), p + "/tasks/" + f.task() + "/labels",
-                p + "/labels", p + "/labels/" + f.label())) {
+                p + "/labels", p + "/labels/" + f.label(), p + "/members")) {
             expect(caller, "GET", path, null, read);
         }
 
-        boolean writer = caller == Caller.OWNER || caller == Caller.MEMBER;
+        boolean writer = caller == Caller.OWNER || caller == Caller.MANAGER || caller == Caller.MEMBER;
         int denied = caller == Caller.OUTSIDER ? 404 : 403;
         String task = p + "/tasks/" + f.task(), label = p + "/labels/" + f.label();
         expect(caller, "POST", p + "/tasks", "{\"title\":\"Created by caller\"}", writer ? 201 : denied);
@@ -76,7 +76,7 @@ class PostgresProjectAccessIT {
         expect(caller, "DELETE", label, null, writer ? 204 : denied);
         expect(caller, "DELETE", task, null, writer ? 204 : denied);
 
-        boolean manager = caller == Caller.OWNER;
+        boolean manager = caller == Caller.OWNER; // only owners edit or archive the project; MANAGERs cannot (#69)
         expect(caller, "PUT", p, "{\"name\":\"Renamed project\"}", manager ? 200 : denied);
         expect(caller, "DELETE", p, null, manager ? 204 : denied);
 
@@ -147,11 +147,12 @@ class PostgresProjectAccessIT {
         expect(Caller.OUTSIDER, "GET", "/projects/0", null, 400);
     }
 
-    /** A fresh project owned by OWNER, with MEMBER and VIEWER memberships, one task, and one label. */
+    /** A fresh project owned by OWNER, with MANAGER, MEMBER and VIEWER memberships, one task, and one label. */
     private Fixture fixture() throws Exception {
         var owner = session(Caller.OWNER);
         var project = TestProjects.owned(projects, memberships, owner.accountId(), "Access fixture",
             TestProjects.uniqueKey("A"));
+        memberships.saveAndFlush(new ProjectMembership(project, session(Caller.MANAGER).accountId(), ProjectRole.MANAGER));
         memberships.saveAndFlush(new ProjectMembership(project, session(Caller.MEMBER).accountId(), ProjectRole.MEMBER));
         memberships.saveAndFlush(new ProjectMembership(project, session(Caller.VIEWER).accountId(), ProjectRole.VIEWER));
         String p = "/projects/" + project.getId();

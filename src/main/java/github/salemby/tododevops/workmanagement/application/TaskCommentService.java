@@ -27,7 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Validated
 public class TaskCommentService {
     static final String NOT_AUTHOR = "Only the author can edit this comment";
-    static final String NOT_AUTHOR_OR_MODERATOR = "Only the author or a project owner can delete this comment";
+    static final String NOT_AUTHOR_OR_MODERATOR = "Only the author, an owner or a manager can delete this comment";
 
     private final ProjectAccess access;
     private final TaskRepository tasks;

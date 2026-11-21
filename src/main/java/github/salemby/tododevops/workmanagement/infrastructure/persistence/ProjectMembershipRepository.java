@@ -24,13 +24,14 @@ public interface ProjectMembershipRepository extends JpaRepository<ProjectMember
     List<ProjectMembership> findAllWithProjectByAccountIdAndActive(@Param("accountId") Long accountId,
                                                                    @Param("active") boolean active);
 
-    /** A page of a project's members: owners first, then members, then viewers, each by account ID. */
+    /** A page of a project's members by rank (owners, managers, members, viewers), each by account ID. */
     @Query(value = """
         select m from ProjectMembership m where m.project.id = :projectId
         order by case m.role
             when github.salemby.tododevops.workmanagement.domain.ProjectRole.OWNER then 0
-            when github.salemby.tododevops.workmanagement.domain.ProjectRole.MEMBER then 1
-            else 2 end, m.accountId""",
+            when github.salemby.tododevops.workmanagement.domain.ProjectRole.MANAGER then 1
+            when github.salemby.tododevops.workmanagement.domain.ProjectRole.MEMBER then 2
+            else 3 end, m.accountId""",
         countQuery = "select count(m) from ProjectMembership m where m.project.id = :projectId")
     Page<ProjectMembership> findPageByProjectId(@Param("projectId") Long projectId, Pageable pageable);
 

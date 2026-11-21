@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PostgresTaskCommentIT {
     static final String SIZE = "Comment body must contain at most 10000 characters";
     static final String NOT_AUTHOR = "Only the author can edit this comment";
-    static final String NOT_AUTHOR_OR_OWNER = "Only the author or a project owner can delete this comment";
+    static final String NOT_AUTHOR_OR_MODERATOR = "Only the author, an owner or a manager can delete this comment";
     static final String ROLE_FORBIDDEN = "Your project role does not allow this action";
 
     /** OWNER owns each fixture project; SECOND and FOURTH are MEMBERs, THIRD a VIEWER, OUTSIDER nothing. */
@@ -184,7 +184,7 @@ class PostgresTaskCommentIT {
         long first = post(Account.SECOND, p, t, "First").get("id").asLong();
         long second = post(Account.SECOND, p, t, "Second").get("id").asLong();
         var byMember = expect(Account.FOURTH, "DELETE", comments(p, t) + "/" + first, null, 403);
-        assertDetail(byMember, NOT_AUTHOR_OR_OWNER);
+        assertDetail(byMember, NOT_AUTHOR_OR_MODERATOR);
         assertDetail(expect(Account.THIRD, "DELETE", comments(p, t) + "/" + first, null, 403), ROLE_FORBIDDEN);
         // A role that can never delete gets 403 before any state check, like POST and PUT.
         assertDetail(expect(Account.THIRD, "DELETE", comments(p, t) + "/999999999", null, 403), ROLE_FORBIDDEN);

@@ -10,10 +10,12 @@ public enum ProjectPermission {
     LABEL_WRITE,
     /** Update or archive the project. */
     PROJECT_MANAGE,
-    /** Add members, change roles, and remove other members. */
+    /** Add members, change roles, and remove other members; OWNERs and MANAGERs also need PRIVILEGED_MEMBERS_MANAGE. */
     MEMBERS_MANAGE,
     /** Post task comments, and edit or delete your own. */
     COMMENT_WRITE,
     /** Delete anyone's task comment. */
-    COMMENT_MODERATE
+    COMMENT_MODERATE,
+    /** Add, remove, or change the role of OWNERs and MANAGERs, and grant those roles (#69). */
+    PRIVILEGED_MEMBERS_MANAGE
 }

@@ -1,0 +1,9 @@
+$kind: collection
+name: 12 Manager role
+order: 12000
+description: |-
+  The MANAGER project role (issue #69). Run after 00 Authentication.
+  Setup registers a disposable manager account and a third account; the current login
+  creates a project and adds the manager. The manager then manages a member and a viewer.
+  The exceptions check what stays with owners: editing or archiving the project and
+  changing owners or managers. The last request logs back in as the original account.

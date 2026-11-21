@@ -1,0 +1,23 @@
+$kind: http-request
+order: 3000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Manager checks","key":"{{managerProjectKey}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('managerProjectKey', 'G' + pm.variables.replaceIn('{{$randomUUID}}').replace(/-/g, '').slice(0, 8).toUpperCase());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Current login owns the project', () => {
+        pm.response.to.have.status(201);
+        pm.expect(pm.response.json().role).to.eql('OWNER');
+        pm.collectionVariables.set('managerProjectId', String(pm.response.json().id));
+        pm.collectionVariables.set('managerOwnerId', String(pm.response.json().createdByAccountId));
+      });

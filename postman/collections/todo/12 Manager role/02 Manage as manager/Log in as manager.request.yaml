@@ -1,0 +1,17 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/auth/login'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{managerEmail}}","password":"{{managerPassword}}"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Logged in as the manager', () => {
+        pm.response.to.have.status(200);
+        pm.expect(String(pm.response.json().id)).to.eql(pm.collectionVariables.get('managerAccountId'));
+      });

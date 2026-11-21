@@ -111,7 +111,8 @@ the caller's role in that project:
 
 | Role | Can do |
 | --- | --- |
-| `OWNER` | Everything, including updating and archiving the project |
+| `OWNER` | Everything, including updating and archiving the project and managing owners and managers |
+| `MANAGER` | Read the project; manage tasks and labels; moderate comments; add, remove and change `MEMBER`s and `VIEWER`s |
 | `MEMBER` | Read the project; manage tasks and labels |
 | `VIEWER` | Read only |
 
@@ -120,12 +121,15 @@ not belong to, every endpoint returns 404, the same as for a missing project, so
 the API never reveals that it exists. A member whose role does not allow an
 action receives 403.
 
-Owners add existing accounts by email, change roles, and remove members. Any
-member can leave a project by removing their own membership. A project always
+Owners and managers add existing accounts by email, change roles, and remove
+members. Only an owner can add, change or remove an `OWNER` or `MANAGER`, or
+grant those roles; a manager who tries gets 403 `Only an owner can manage
+owners and managers` and nothing changes. Any member can leave a project by
+removing their own membership. A project always
 keeps at least one active owner, so removing, demoting, or leaving as the last
 owner returns 409. Adding an unknown or disabled email returns 422.
 
-A task can have one assignee, an active `OWNER` or `MEMBER` of its project.
+A task can have one assignee, an active `OWNER`, `MANAGER` or `MEMBER` of its project.
 Assignment records responsibility only; it never grants access.
 
 | Request | Result |
@@ -147,15 +151,15 @@ Members discuss a task through comments at
 | Request | Who | Result |
 | --- | --- | --- |
 | `GET` (`?page=&size=`) | any member | 200 page of comments, oldest first |
-| `POST` with `{"body": "..."}` | `OWNER`, `MEMBER` | 201 with the comment and its `Location` |
+| `POST` with `{"body": "..."}` | `OWNER`, `MANAGER`, `MEMBER` | 201 with the comment and its `Location` |
 | `GET /{commentId}` | any member | 200 with the comment |
 | `PUT /{commentId}` with `{"body": "..."}` | the author | 200 with the edited comment |
-| `DELETE /{commentId}` | the author, or an `OWNER` | 204 |
+| `DELETE /{commentId}` | the author, an `OWNER` or a `MANAGER` | 204 |
 
 A comment holds `id`, `taskId`, `authorId`, `body`, `createdAt`, and
 `updatedAt`. The body is plain text of 1 to 10000 characters, stored exactly as
-sent and never rendered. The author and creation time never change; owners
-moderate by deleting, never by editing someone else's words. An author who is
+sent and never rendered. The author and creation time never change; owners and
+managers moderate by deleting, never by editing someone else's words. An author who is
 demoted to `VIEWER` or leaves can no longer edit or delete their comments,
 which stay visible. Deleting hides a comment from every endpoint (404) but
 keeps it in the database for audit; deleted comments cannot be read through the

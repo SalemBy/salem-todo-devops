@@ -38,6 +38,7 @@ import java.util.Map;
 public class ProjectMemberService {
     static final String MEMBER_NOT_FOUND = "Member not found";
     static final String LAST_OWNER = "A project must keep at least one active owner";
+    static final String RANK = "Only an owner can manage owners and managers";
 
     private final ProjectAccess access;
     private final ProjectMembershipRepository memberships;
@@ -75,6 +76,7 @@ public class ProjectMemberService {
     @Transactional
     public MemberResponse add(@NotNull CurrentAccount account, Long projectId, @NotNull @Valid AddMemberRequest request) {
         var granted = access.lock(projectId, account, ProjectPermission.MEMBERS_MANAGE);
+        requireRank(granted.role(), request.role()); // before the lookup, so a refusal says nothing about accounts
         // 422, not 404: in this API 404 means the project was not found.
         AccountSummary target = directory.findActiveByEmail(request.email()).orElseThrow(() ->
             new ResponseStatusException(HttpStatusCode.valueOf(422), "Account not found"));
@@ -88,8 +90,9 @@ public class ProjectMemberService {
     public MemberResponse changeRole(@NotNull CurrentAccount account, Long projectId, Long accountId,
                                      @NotNull @Valid ChangeMemberRoleRequest request) {
         requireValidAccountId(accountId);
-        access.lock(projectId, account, ProjectPermission.MEMBERS_MANAGE);
+        var granted = access.lock(projectId, account, ProjectPermission.MEMBERS_MANAGE);
         var membership = requireMembership(projectId, accountId);
+        requireRank(granted.role(), membership.getRole(), request.role());
         if (membership.getRole() != request.role()) {
             if (membership.getRole() == ProjectRole.OWNER) requireAnotherActiveOwner(projectId, accountId);
             // Only roles that may write tasks can hold one (#10).
@@ -105,8 +108,9 @@ public class ProjectMemberService {
     public void remove(@NotNull CurrentAccount account, Long projectId, Long accountId) {
         requireValidAccountId(accountId);
         boolean leaving = accountId.equals(account.id());
-        access.lock(projectId, account, leaving ? ProjectPermission.PROJECT_READ : ProjectPermission.MEMBERS_MANAGE);
+        var granted = access.lock(projectId, account, leaving ? ProjectPermission.PROJECT_READ : ProjectPermission.MEMBERS_MANAGE);
         var membership = requireMembership(projectId, accountId);
+        if (!leaving) requireRank(granted.role(), membership.getRole());
         if (membership.getRole() == ProjectRole.OWNER) requireAnotherActiveOwner(projectId, accountId);
         tasks.clearAssignee(projectId, accountId, Timestamps.now()); // the assignee FK refuses the delete otherwise (#10)
         memberships.delete(membership);
@@ -144,6 +148,13 @@ public class ProjectMemberService {
             .orElseGet(() -> new ProjectMembership(project, accountId, ProjectRole.OWNER));
         membership.changeRole(ProjectRole.OWNER);
         return toResponse(memberships.saveAndFlush(membership), accounts);
+    }
+
+    /** Only callers with PRIVILEGED_MEMBERS_MANAGE may add, change, remove or grant an OWNER or MANAGER (#69). */
+    private static void requireRank(ProjectRole caller, ProjectRole... touched) {
+        if (caller.allows(ProjectPermission.PRIVILEGED_MEMBERS_MANAGE)) return;
+        for (var role : touched)
+            if (role.privileged()) throw new ResponseStatusException(HttpStatus.FORBIDDEN, RANK);
     }
 
     /** Callers hold the project lock, so no concurrent change can remove the remaining owner. */

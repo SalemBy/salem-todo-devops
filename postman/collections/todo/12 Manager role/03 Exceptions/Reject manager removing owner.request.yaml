@@ -1,0 +1,12 @@
+$kind: http-request
+order: 4000
+method: DELETE
+url: '{{baseUrl}}/projects/{{managerProjectId}}/members/{{managerOwnerId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Managers cannot remove owners', () => {
+        pm.response.to.have.status(403);
+        pm.expect(pm.response.json().detail).to.eql('Only an owner can manage owners and managers');
+      });

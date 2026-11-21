@@ -1,0 +1,14 @@
+$kind: http-request
+order: 6000
+method: GET
+url: '{{baseUrl}}/projects/{{managerProjectId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Refused changes left the project as it was', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().name).to.eql('Manager checks');
+        pm.expect(pm.response.json().active).to.eql(true);
+        pm.expect(pm.response.json().role).to.eql('OWNER');
+      });
