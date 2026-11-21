@@ -2,6 +2,11 @@ package github.salemby.tododevops.workmanagement.application;
 
 import org.springframework.data.domain.Sort;
 import github.salemby.tododevops.workmanagement.application.dto.request.TaskFilters;
+import github.salemby.tododevops.workmanagement.application.dto.request.AssignTaskRequest;
+import github.salemby.tododevops.identity.application.AccountDirectory;
+import github.salemby.tododevops.identity.application.dto.AccountSummary;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectMembershipRepository;
+import org.springframework.http.HttpStatusCode;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskSpecifications;
 import org.springframework.data.domain.PageRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.PageResponse;
@@ -31,8 +36,13 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final LabelRepository labels;
     private final ProjectAccess access;
+    private final ProjectMembershipRepository memberships;
+    private final AccountDirectory directory;
 
-    public TaskService(TaskRepository taskRepository, ProjectAccess access, LabelRepository labels) {
+    public TaskService(TaskRepository taskRepository, ProjectAccess access, LabelRepository labels,
+                       ProjectMembershipRepository memberships, AccountDirectory directory) {
+        this.memberships = memberships;
+        this.directory = directory;
         this.taskRepository = taskRepository;
         this.access = access;
         this.labels = labels;
@@ -139,6 +149,41 @@ public class TaskService {
         } else {
             task.getLabels().remove(label);
         }
+    }
+
+    /** Makes an active owner or member of the project responsible for the task (#10). */
+    @Transactional
+    public TaskResponse assign(@NotNull CurrentAccount account, Long projectId, Long id,
+                               @NotNull @Valid AssignTaskRequest request) {
+        access.lockActive(projectId, account, ProjectPermission.TASK_WRITE);
+        Task task = requireActiveTask(projectId, id);
+        Long target = request.accountId();
+        requireAssignable(projectId, target);
+        if (!target.equals(task.getAssigneeAccountId())) {
+            task.assign(target);
+            taskRepository.saveAndFlush(task);
+        }
+        return toResponse(task);
+    }
+
+    @Transactional
+    public void unassign(@NotNull CurrentAccount account, Long projectId, Long id) {
+        access.lockActive(projectId, account, ProjectPermission.TASK_WRITE);
+        requireActiveTask(projectId, id).unassign();
+    }
+
+    private Task requireActiveTask(Long projectId, Long id) {
+        return taskRepository.findByIdAndProjectIdAndActiveTrue(id, projectId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+    }
+
+    /** One answer for viewers, outsiders, unknown and inactive accounts: nothing about other accounts leaks. */
+    private void requireAssignable(Long projectId, Long accountId) {
+        boolean member = memberships.findByProjectIdAndAccountId(projectId, accountId)
+            .filter(m -> m.getRole().allows(ProjectPermission.TASK_WRITE)).isPresent();
+        boolean active = member && directory.findByIds(List.of(accountId)).values().stream().anyMatch(AccountSummary::active);
+        if (!active) throw new ResponseStatusException(HttpStatusCode.valueOf(422),
+            "Assignee must be an active owner or member of this project");
     }
 
     private TaskResponse toResponse(Task task) {

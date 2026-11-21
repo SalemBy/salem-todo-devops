@@ -31,6 +31,9 @@ class ServiceValidationTests {
         @Bean ProjectRepository projects() { return mock(ProjectRepository.class); }
         @Bean LabelRepository labels() { return mock(LabelRepository.class); }
         @Bean ProjectMembershipRepository memberships() { return mock(ProjectMembershipRepository.class); }
+        @Bean github.salemby.tododevops.identity.application.AccountDirectory directory() {
+            return mock(github.salemby.tododevops.identity.application.AccountDirectory.class);
+        }
     }
 
     @Autowired TaskService taskService;

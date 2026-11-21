@@ -67,6 +67,18 @@ public class TaskController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{id}/assignee")
+    public TaskResponse assign(CurrentAccount account, @PathVariable Long projectId, @PathVariable Long id,
+                               @Valid @RequestBody github.salemby.tododevops.workmanagement.application.dto.request.AssignTaskRequest request) {
+        return taskService.assign(account, projectId, id, request);
+    }
+
+    @DeleteMapping("/{id}/assignee")
+    public ResponseEntity<Void> unassign(CurrentAccount account, @PathVariable Long projectId, @PathVariable Long id) {
+        taskService.unassign(account, projectId, id);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(CurrentAccount account, @PathVariable Long projectId, @PathVariable Long id) {
         taskService.delete(account, projectId, id);
