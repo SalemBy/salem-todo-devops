@@ -1,0 +1,19 @@
+$kind: http-request
+order: 3000
+method: POST
+url: '{{baseUrl}}/projects/{{assignmentProjectId}}/tasks'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Assignable task"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('New tasks start unassigned', () => {
+        pm.response.to.have.status(201);
+        const task = pm.response.json();
+        pm.expect(task.assigneeId).to.eql(null);
+        pm.collectionVariables.set('assignmentTaskId', String(task.id));
+      });

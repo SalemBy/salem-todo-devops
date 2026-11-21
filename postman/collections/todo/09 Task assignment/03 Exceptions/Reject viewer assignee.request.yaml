@@ -1,0 +1,20 @@
+$kind: http-request
+order: 3000
+method: PUT
+url: '{{baseUrl}}/projects/{{assignmentProjectId}}/tasks/{{assignmentTaskId}}/assignee'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"accountId":{{assignmentMemberId}}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Viewers cannot be assigned', () => {
+        pm.response.to.have.status(422);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+        const problem = pm.response.json();
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:422');
+        pm.expect(problem.detail).to.eql('Assignee must be an active owner or member of this project');
+      });

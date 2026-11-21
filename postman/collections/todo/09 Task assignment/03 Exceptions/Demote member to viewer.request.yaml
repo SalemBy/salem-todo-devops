@@ -1,0 +1,17 @@
+$kind: http-request
+order: 2000
+method: PUT
+url: '{{baseUrl}}/projects/{{assignmentProjectId}}/members/{{assignmentMemberId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"role":"VIEWER"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Member becomes a viewer', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().role).to.eql('VIEWER');
+      });

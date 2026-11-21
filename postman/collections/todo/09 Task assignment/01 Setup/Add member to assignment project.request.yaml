@@ -1,0 +1,19 @@
+$kind: http-request
+order: 2000
+method: POST
+url: '{{baseUrl}}/projects/{{assignmentProjectId}}/members'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{memberEmail}}","role":"MEMBER"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Member is added', () => {
+        pm.response.to.have.status(201);
+        const member = pm.response.json();
+        pm.expect(member.role).to.eql('MEMBER');
+        pm.collectionVariables.set('assignmentMemberId', String(member.accountId));
+      });
