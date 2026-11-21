@@ -27,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Validated
 public class TaskCommentService {
     static final String NOT_AUTHOR = "Only the author can edit this comment";
+    static final String NOT_AUTHOR_OR_MODERATOR = "Only the author or a project owner can delete this comment";
 
     private final ProjectAccess access;
     private final TaskRepository tasks;
@@ -78,6 +79,23 @@ public class TaskCommentService {
             comments.saveAndFlush(comment);
         }
         return CommentResponse.from(comment);
+    }
+
+    /**
+     * Soft delete: the author while their role still allows writing comments, or anyone who may moderate.
+     * The row and its text stay for audit; the API no longer returns it.
+     */
+    @Transactional
+    public void delete(@NotNull CurrentAccount account, Long projectId, Long taskId, Long commentId) {
+        var granted = access.lock(projectId, account, ProjectPermission.PROJECT_READ);
+        if (!granted.project().isActive()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Project is archived");
+        requireActiveTask(projectId, taskId);
+        TaskComment comment = requireComment(taskId, commentId);
+        boolean author = comment.getAuthorAccountId().equals(account.id())
+            && granted.role().allows(ProjectPermission.COMMENT_WRITE);
+        if (!author && !granted.role().allows(ProjectPermission.COMMENT_MODERATE))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, NOT_AUTHOR_OR_MODERATOR);
+        comment.delete();
     }
 
     private void requireTask(Long projectId, Long taskId) {

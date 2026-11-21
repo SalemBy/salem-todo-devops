@@ -44,4 +44,11 @@ public class TaskCommentController {
             @PathVariable Long commentId, @Valid @RequestBody CommentRequest request) {
         return comments.edit(account, projectId, taskId, commentId, request);
     }
+
+    @DeleteMapping("/{commentId}")
+    public ResponseEntity<Void> delete(CurrentAccount account, @PathVariable Long projectId, @PathVariable Long taskId,
+            @PathVariable Long commentId) {
+        comments.delete(account, projectId, taskId, commentId);
+        return ResponseEntity.noContent().build();
+    }
 }

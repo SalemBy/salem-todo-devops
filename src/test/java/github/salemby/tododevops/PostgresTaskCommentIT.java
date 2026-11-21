@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PostgresTaskCommentIT {
     static final String SIZE = "Comment body must contain at most 10000 characters";
     static final String NOT_AUTHOR = "Only the author can edit this comment";
+    static final String NOT_AUTHOR_OR_OWNER = "Only the author or a project owner can delete this comment";
 
     /** OWNER owns each fixture project; SECOND and FOURTH are MEMBERs, THIRD a VIEWER, OUTSIDER nothing. */
     enum Account { OWNER, SECOND, THIRD, OUTSIDER, FOURTH }
@@ -156,6 +157,70 @@ class PostgresTaskCommentIT {
         expect(Account.OWNER, "PUT", comments(q, u) + "/" + d, body("Late"), 409);
         expect(Account.THIRD, "GET", comments(q, u), null, 200);
         expect(Account.THIRD, "GET", comments(q, u) + "/" + d, null, 200);
+    }
+
+    @Test
+    void authorDeletesAndTheRowIsKept() throws Exception {
+        long p = project(), t = task(p);
+        long c = post(Account.SECOND, p, t, "Soon gone").get("id").asLong();
+        post(Account.OWNER, p, t, "Stays");
+        expect(Account.SECOND, "DELETE", comments(p, t) + "/" + c, null, 204);
+        assertEquals(List.of("Stays"), bodies(json.readTree(expect(Account.THIRD, "GET", comments(p, t), null, 200).body())));
+        assertDetail(expect(Account.THIRD, "GET", comments(p, t) + "/" + c, null, 404), "Comment not found");
+        assertDetail(expect(Account.SECOND, "DELETE", comments(p, t) + "/" + c, null, 404), "Comment not found");
+        assertDetail(expect(Account.SECOND, "PUT", comments(p, t) + "/" + c, body("Back"), 404), "Comment not found");
+        var row = jdbc.queryForMap("select active, body, author_account_id from task_comments where id = ?", c);
+        assertEquals(false, row.get("active"));
+        assertEquals("Soon gone", row.get("body"));
+        assertEquals(id(Account.SECOND), ((Number) row.get("author_account_id")).longValue());
+    }
+
+    @Test
+    void ownerModeratesButOthersCannot() throws Exception {
+        long p = project(), t = task(p);
+        long first = post(Account.SECOND, p, t, "First").get("id").asLong();
+        long second = post(Account.SECOND, p, t, "Second").get("id").asLong();
+        var byMember = expect(Account.FOURTH, "DELETE", comments(p, t) + "/" + first, null, 403);
+        assertDetail(byMember, NOT_AUTHOR_OR_OWNER);
+        assertDetail(expect(Account.THIRD, "DELETE", comments(p, t) + "/" + first, null, 403), NOT_AUTHOR_OR_OWNER);
+        expect(Account.OUTSIDER, "DELETE", comments(p, t) + "/" + first, null, 404);
+        expect(Account.OWNER, "DELETE", comments(p, t) + "/" + second, null, 204);
+        assertEquals(List.of("First"), bodies(json.readTree(expect(Account.OWNER, "GET", comments(p, t), null, 200).body())));
+    }
+
+    @Test
+    void demotedAuthorCanNoLongerEditOrDelete() throws Exception {
+        long p = project(), t = task(p);
+        long c = post(Account.SECOND, p, t, "Said as a member").get("id").asLong();
+        expect(Account.OWNER, "PUT", "/projects/" + p + "/members/" + id(Account.SECOND), "{\"role\":\"VIEWER\"}", 200);
+        expect(Account.SECOND, "PUT", comments(p, t) + "/" + c, body("Changed"), 403);
+        expect(Account.SECOND, "DELETE", comments(p, t) + "/" + c, null, 403);
+        assertEquals("Said as a member",
+            json.readTree(expect(Account.OWNER, "GET", comments(p, t) + "/" + c, null, 200).body()).get("body").stringValue());
+    }
+
+    @Test
+    void commentsSurviveTheAuthorLeaving() throws Exception {
+        long p = project(), t = task(p);
+        post(Account.SECOND, p, t, "Goodbye");
+        expect(Account.SECOND, "DELETE", "/projects/" + p + "/members/" + id(Account.SECOND), null, 204);
+        var page = json.readTree(expect(Account.OWNER, "GET", comments(p, t), null, 200).body());
+        assertEquals(List.of("Goodbye"), bodies(page));
+        assertEquals(id(Account.SECOND), page.get("items").get(0).get("authorId").asLong());
+    }
+
+    @Test
+    void deleteFollowsLifecycle() throws Exception {
+        long p = project(), t = task(p);
+        long c = post(Account.OWNER, p, t, "Kept").get("id").asLong();
+        expect(Account.OWNER, "DELETE", "/projects/" + p + "/tasks/" + t, null, 204);
+        assertDetail(expect(Account.OWNER, "DELETE", comments(p, t) + "/" + c, null, 404), "Task not found");
+
+        long q = project(), u = task(q);
+        long d = post(Account.OWNER, q, u, "Kept").get("id").asLong();
+        expect(Account.OWNER, "DELETE", "/projects/" + q, null, 204);
+        expect(Account.OWNER, "DELETE", comments(q, u) + "/" + d, null, 409);
+        assertEquals(1, json.readTree(expect(Account.OWNER, "GET", comments(q, u), null, 200).body()).get("totalElements").asInt());
     }
 
     // --- fixtures -------------------------------------------------------------------------------
