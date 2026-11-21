@@ -5,6 +5,7 @@ import github.salemby.tododevops.identity.infrastructure.ratelimit.RateLimitProp
 import github.salemby.tododevops.identity.infrastructure.ratelimit.RedisRateLimiter;
 import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.*;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -15,6 +16,7 @@ import org.springframework.security.web.csrf.*;
 import org.springframework.security.web.authentication.session.*;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.*;
+import org.springframework.session.web.http.SessionRepositoryFilter;
 import tools.jackson.databind.ObjectMapper;
 import java.time.*;
 import java.util.List;
@@ -36,6 +38,13 @@ public class SecurityConfiguration {
     @Bean CsrfTokenRepository csrfTokenRepository() { return new HttpSessionCsrfTokenRepository(); }
     @Bean SessionAuthenticationStrategy sessionAuthenticationStrategy(CsrfTokenRepository csrf) {
         return new CompositeSessionAuthenticationStrategy(List.of(new ChangeSessionIdAuthenticationStrategy(), new CsrfAuthenticationStrategy(csrf)));
+    }
+    /** Runs just outside Spring Session's filter, so a failing session store becomes a 503 problem response. */
+    @Bean FilterRegistrationBean<SessionStoreFailureFilter> sessionStoreFailureFilter(ObjectMapper json) {
+        var registration = new FilterRegistrationBean<>(new SessionStoreFailureFilter(new SecurityProblems(json)));
+        registration.setOrder(SessionRepositoryFilter.DEFAULT_ORDER - 1);
+        registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
+        return registration;
     }
     @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationService accounts, ObjectMapper json,
             RedisRateLimiter limiter, RateLimitProperties limits,

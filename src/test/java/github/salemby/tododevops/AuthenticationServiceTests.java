@@ -8,6 +8,9 @@ import github.salemby.tododevops.identity.infrastructure.ratelimit.RateLimitProp
 import github.salemby.tododevops.identity.infrastructure.ratelimit.RateLimitProperties.Limit;
 import github.salemby.tododevops.identity.infrastructure.ratelimit.RedisRateLimiter;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +25,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /** The email limit has no notion of client address, so it holds whichever address the attempts come from. */
+@ExtendWith(OutputCaptureExtension.class)
 class AuthenticationServiceTests {
     private static final String EMAIL = "ana@example.com";
     private final AccountRepository accounts = mock(AccountRepository.class);
@@ -50,6 +54,15 @@ class AuthenticationServiceTests {
         assertEquals("Authentication is temporarily unavailable.", result.getBody().getDetail());
         verify(passwords, never()).matches(any(), any());
         verifyNoInteractions(accounts);
+    }
+
+    @Test
+    void redisFailureIsLoggedOnceWithoutAStackTrace(CapturedOutput output) {
+        when(limiter.hit(any(), any())).thenThrow(new RedisConnectionFailureException("redis is down"));
+        assertThrows(ErrorResponseException.class, () -> service.authenticate(new LoginRequest(EMAIL, "guess")));
+        assertTrue(output.getOut().contains("WARN"), output.getOut());
+        assertTrue(output.getOut().contains("redis is down"), output.getOut());
+        assertFalse(output.getOut().contains("\tat "), "stack trace logged at WARN:\n" + output.getOut());
     }
 
     @Test

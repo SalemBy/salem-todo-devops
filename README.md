@@ -56,7 +56,8 @@ Reload Maven after dependency changes and restart the API after changing configu
 | Reset all data | `docker compose down -v` |
 
 Both services listen on `127.0.0.1` only: PostgreSQL on 5432 and Redis on 6379.
-The API needs both: Redis holds the authentication rate-limit counters.
+The API needs both: Redis holds the login sessions and the authentication
+rate-limit counters.
 
 - **Port 5432 already in use:** another PostgreSQL is running on this machine.
   Stop it, or use the setup without Docker below.
@@ -79,7 +80,8 @@ and `DB_USERNAME` if needed.
 
 Also install Redis and have it listen on `127.0.0.1:6379`, or point
 `spring.data.redis.host` and `spring.data.redis.port` at your Redis. Without
-Redis, login, registration, and `GET /auth/csrf` return 503.
+Redis, login, registration, `GET /auth/csrf`, and every logged-in request
+return 503.
 
 ## Use the API
 
@@ -124,8 +126,11 @@ keeps at least one active owner, so removing, demoting, or leaving as the last
 owner returns 409. Adding an unknown or disabled email returns 422.
 
 Business endpoints require login. Sessions expire after 30 minutes of inactivity
-or 12 hours total, and server restarts sign users out. Password changes revoke
-existing logins.
+or 12 hours total. They are stored in Redis, so they survive API restarts and
+are shared when several API instances run. Password changes revoke existing
+logins on every instance. If Redis is unavailable, any request that needs its
+session returns 503 (`Authentication is temporarily unavailable.`); requests
+without a session, such as `GET /`, keep working.
 
 Upgrading an existing database to schema V8 requires an empty `projects` table,
 because older projects have no recorded owner. Reset a development database
@@ -149,8 +154,7 @@ that every API instance shares:
 
 Over a limit, the API returns 429 with a `Retry-After` header (in seconds). The
 response is the same for existing and unknown emails. A throttled login never
-checks the password. If Redis is unavailable, these routes return 503 and every
-other route keeps working.
+checks the password. If Redis is unavailable, these routes return 503.
 
 The limits are `app.rate-limit.*` properties in `application.properties`.
 `.env.example` relaxes the per-address limits for local development. To clear

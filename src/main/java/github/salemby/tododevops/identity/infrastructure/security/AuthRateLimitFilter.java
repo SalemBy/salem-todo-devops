@@ -53,7 +53,8 @@ final class AuthRateLimitFilter extends OncePerRequestFilter {
                     return;
                 }
             } catch (DataAccessException ex) {
-                logger.warn("Rate-limit store unavailable; failing closed", ex);
+                logger.warn("Rate-limit store unavailable; failing closed: " + ex.getMessage());
+                logger.debug("Rate-limit store failure", ex);
                 problems.write(request, response, 503, "Authentication is temporarily unavailable.");
                 return;
             }
