@@ -208,7 +208,64 @@ class PostgresAdministrationIT {
         assertTrue(read(o, tasks(p) + "/" + k).get("assigneeId").isNull());
     }
 
+    @Test
+    void recoveryOnlyForOwnerlessProjects() throws Exception {
+        var admin = admin();
+        var o = user();
+        long owned = project(o);
+        assertDetail(recover(admin, owned, Map.of("accountId", o.id())), 409, "Project already has an active owner");
+        assertDetail(recover(admin, 999999999L, Map.of("accountId", o.id())), 404, "Project not found");
+        for (Object body : List.of(Map.of(), Map.of("accountId", "5"), Map.of("accountId", 0), Map.of("accountId", 1.5)))
+            assertEquals(400, recover(admin, owned, body).statusCode(), String.valueOf(body));
+
+        var gone = user();
+        long q = project(gone);
+        deactivate(admin, gone.id(), 200);
+        assertDetail(recover(admin, q, Map.of("accountId", gone.id())), 422, "Account must be active");
+        assertDetail(recover(admin, q, Map.of("accountId", 999999999L)), 422, "Account must be active");
+    }
+
+    @Test
+    void recoveryPromotesOrAddsAnOwner() throws Exception {
+        var admin = admin();
+        var gone = user();
+        var m = user();
+        var v = user();
+        long q1 = project(gone);
+        addMember(gone, q1, m, "MEMBER");
+        addMember(gone, q1, v, "VIEWER");
+        var u = user();
+        long q2 = project(gone);
+        assertEquals(204, gone.call("DELETE", "/projects/" + q2, null).statusCode());
+        assertEquals(List.of(q1, q2), ids(deactivate(admin, gone.id(), 200).get("ownerlessProjectIds")));
+
+        var promoted = recover(admin, q1, Map.of("accountId", m.id()));
+        assertEquals(200, promoted.statusCode(), promoted.body());
+        assertEquals("OWNER", JSON.readTree(promoted.body()).get("role").stringValue());
+        assertEquals(m.id(), JSON.readTree(promoted.body()).get("accountId").asLong());
+        var managed = m.call("PUT", "/projects/" + q1 + "/members/" + v.id(), Map.of("role", "MEMBER"));
+        assertEquals(200, managed.statusCode(), "the new owner manages members: " + managed.body());
+        assertEquals(1, read(m, "/projects/" + q1 + "/members").get("items").valueStream()
+            .filter(row -> row.get("accountId").asLong() == m.id()).count(), "promoted, not duplicated");
+
+        var added = recover(admin, q2, Map.of("accountId", u.id()));
+        assertEquals(200, added.statusCode(), added.body());
+        assertEquals("OWNER", JSON.readTree(added.body()).get("role").stringValue());
+        assertEquals(200, u.call("GET", "/projects/" + q2, null).statusCode(), "recovery works on archived projects");
+
+        assertDetail(recover(admin, q1, Map.of("accountId", u.id())), 409, "Project already has an active owner");
+    }
+
     // --- fixtures -------------------------------------------------------------------------------
+
+    static HttpResponse<String> recover(User admin, long projectId, Object body) throws Exception {
+        return admin.call("POST", "/admin/projects/" + projectId + "/owners", body);
+    }
+
+    static void assertDetail(HttpResponse<String> response, int status, String detail) throws Exception {
+        assertEquals(status, response.statusCode(), response.body());
+        assertEquals(detail, JSON.readTree(response.body()).get("detail").stringValue());
+    }
 
     static User admin() throws Exception {
         return register(a, ADMIN);

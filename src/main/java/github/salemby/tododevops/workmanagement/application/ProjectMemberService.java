@@ -13,6 +13,7 @@ import github.salemby.tododevops.workmanagement.domain.ProjectMembership;
 import github.salemby.tododevops.workmanagement.domain.ProjectPermission;
 import github.salemby.tododevops.workmanagement.domain.ProjectRole;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectMembershipRepository;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -42,10 +43,12 @@ public class ProjectMemberService {
     private final ProjectMembershipRepository memberships;
     private final AccountDirectory directory;
     private final TaskRepository tasks;
+    private final ProjectRepository projects;
 
     public ProjectMemberService(ProjectAccess access, ProjectMembershipRepository memberships, AccountDirectory directory,
-                                TaskRepository tasks) {
+                                TaskRepository tasks, ProjectRepository projects) {
         this.tasks = tasks;
+        this.projects = projects;
         this.access = access;
         this.memberships = memberships;
         this.directory = directory;
@@ -123,12 +126,31 @@ public class ProjectMemberService {
         return new AccountRelease(unassigned, ownerless);
     }
 
+    /**
+     * Makes an active account an OWNER of a project that has no active owner (#67): an existing membership is
+     * promoted, otherwise one is created. Archived projects qualify, like other membership changes.
+     */
+    @Transactional
+    public MemberResponse recoverOwner(Long projectId, Long accountId) {
+        var project = projects.findLockedById(projectId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+        if (hasAnotherActiveOwner(projectId, null))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Project already has an active owner");
+        var accounts = directory.findByIds(List.of(accountId));
+        if (!accounts.containsKey(accountId) || !accounts.get(accountId).active())
+            throw new ResponseStatusException(HttpStatusCode.valueOf(422), "Account must be active");
+        var membership = memberships.findByProjectIdAndAccountId(projectId, accountId)
+            .orElseGet(() -> new ProjectMembership(project, accountId, ProjectRole.OWNER));
+        membership.changeRole(ProjectRole.OWNER);
+        return toResponse(memberships.saveAndFlush(membership), accounts);
+    }
+
     /** Callers hold the project lock, so no concurrent change can remove the remaining owner. */
     private void requireAnotherActiveOwner(Long projectId, Long changingAccountId) {
         if (!hasAnotherActiveOwner(projectId, changingAccountId)) throw new ResponseStatusException(HttpStatus.CONFLICT, LAST_OWNER);
     }
 
-    /** Whether an active account other than the given one is an OWNER of the project. */
+    /** Whether an active account other than the given one (null: any account) is an OWNER of the project. */
     boolean hasAnotherActiveOwner(Long projectId, Long accountId) {
         var otherOwners = memberships.findAllByProjectIdAndRole(projectId, ProjectRole.OWNER).stream()
             .map(ProjectMembership::getAccountId).filter(id -> !id.equals(accountId)).toList();

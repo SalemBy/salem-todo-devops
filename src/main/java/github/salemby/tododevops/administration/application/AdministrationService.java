@@ -1,10 +1,12 @@
 package github.salemby.tododevops.administration.application;
 
 import github.salemby.tododevops.administration.application.dto.DeactivationResponse;
+import github.salemby.tododevops.administration.application.dto.OwnerRequest;
 import github.salemby.tododevops.identity.application.AccountAdministration;
 import github.salemby.tododevops.identity.application.dto.AccountResponse;
 import github.salemby.tododevops.shared.security.CurrentAccount;
 import github.salemby.tododevops.workmanagement.application.ProjectMemberService;
+import github.salemby.tododevops.workmanagement.application.dto.response.MemberResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,12 @@ public class AdministrationService {
         var release = members.release(accountId);
         log.info("Administrator {} deactivated account {}", admin.id(), accountId);
         return new DeactivationResponse(account, release.unassignedTasks(), release.ownerlessProjectIds());
+    }
+
+    public MemberResponse recoverOwner(CurrentAccount admin, Long projectId, OwnerRequest request) {
+        var owner = members.recoverOwner(projectId, request.accountId());
+        log.info("Administrator {} made account {} an owner of project {}", admin.id(), request.accountId(), projectId);
+        return owner;
     }
 
     public AccountResponse reactivate(CurrentAccount admin, Long accountId) {
