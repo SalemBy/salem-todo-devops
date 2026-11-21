@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 /** A plain-text comment on a task. The author and creation time never change; deletion only hides it. */
@@ -53,12 +54,17 @@ public class TaskComment {
 
     @PrePersist
     private void onCreate() {
-        createdAt = Instant.now();
+        createdAt = now();
         updatedAt = createdAt;
     }
 
     @PreUpdate
     private void onUpdate() {
-        updatedAt = Instant.now();
+        updatedAt = now();
+    }
+
+    /** PostgreSQL keeps microseconds; cutting here makes write responses report the stored instant. */
+    private static Instant now() {
+        return Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 }

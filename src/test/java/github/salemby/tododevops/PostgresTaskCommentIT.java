@@ -76,6 +76,8 @@ class PostgresTaskCommentIT {
         assertEquals("Second, edited", edited.get("body").stringValue());
         assertEquals("Second, edited", after.get("body").stringValue());
         assertEquals(before.get("createdAt"), after.get("createdAt"), "creation time never changes");
+        assertEquals(second.get("createdAt"), before.get("createdAt"), "the 201 response reports the stored creation time");
+        assertEquals(edited.get("updatedAt"), after.get("updatedAt"), "the edit response reports the stored update time");
         assertEquals(id(Account.SECOND), after.get("authorId").asLong(), "authorship never changes");
         assertTrue(after.get("updatedAt").stringValue().compareTo(after.get("createdAt").stringValue()) > 0);
         assertEquals("First", first.get("body").stringValue());
