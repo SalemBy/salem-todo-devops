@@ -20,12 +20,13 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HexFormat;
 
-/** Per-address limits on the anonymous routes that cost a hash or create a session. Runs before CSRF. */
+/** Per-address limits on the routes that cost a hash or create a session. Runs before CSRF. */
 final class AuthRateLimitFilter extends OncePerRequestFilter {
     private static final PathPatternRequestMatcher.Builder PATHS = PathPatternRequestMatcher.withDefaults();
     private static final RequestMatcher LOGIN = PATHS.matcher(HttpMethod.POST, "/auth/login");
     private static final RequestMatcher REGISTER = PATHS.matcher(HttpMethod.POST, "/auth/register");
     private static final RequestMatcher CSRF = PATHS.matcher(HttpMethod.GET, "/auth/csrf");
+    private static final RequestMatcher PASSWORD = PATHS.matcher(HttpMethod.POST, "/auth/password");
 
     private final RedisRateLimiter limiter;
     private final RateLimitProperties limits;
@@ -42,6 +43,8 @@ final class AuthRateLimitFilter extends OncePerRequestFilter {
         Limit limit = null;
         if (LOGIN.matches(request)) { route = "login"; limit = limits.loginPerAddress(); }
         else if (REGISTER.matches(request)) { route = "register"; limit = limits.registerPerAddress(); }
+        // The per-login count resets with every new login; this caps the hashes one address can cause.
+        else if (PASSWORD.matches(request)) { route = "password"; limit = limits.passwordChangePerAddress(); }
         // Only a caller without a session gets a new one here; token refreshes in a live session are free.
         else if (CSRF.matches(request) && request.getSession(false) == null) { route = "session"; limit = limits.sessionsPerAddress(); }
         if (route != null) {

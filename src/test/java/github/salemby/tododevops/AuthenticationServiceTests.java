@@ -133,7 +133,7 @@ class AuthenticationServiceTests {
 
     private AuthenticationService service() {
         when(passwords.encode(any())).thenReturn("dummy");
-        var limits = new RateLimitProperties("rl:", perEmail, perEmail, perEmail, perEmail, perLogin);
+        var limits = new RateLimitProperties("rl:", perEmail, perEmail, perEmail, perEmail, perLogin, perLogin);
         return new AuthenticationService(accounts, passwords, null, limiter, limits);
     }
 }

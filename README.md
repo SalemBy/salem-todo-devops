@@ -152,6 +152,7 @@ that every API instance shares:
 | Registrations per client address | 5 per hour |
 | New sessions (`GET /auth/csrf` without a session) per client address | 30 per minute |
 | Password changes per login | 5 per 15 minutes |
+| Password changes per client address | 10 per minute |
 
 Over a limit, the API returns 429 with a `Retry-After` header (in seconds). The
 response is the same for existing and unknown emails. A throttled login never
@@ -159,7 +160,9 @@ checks the password. If Redis is unavailable, these routes return 503.
 
 The password-change limit counts per login, not per account. Someone holding a
 stolen session can only use up that session's attempts, so the owner can still
-change the password from their own login, which ends every session.
+change the password from their own login, which ends every session. Because a
+new login starts a new count, the per-address limit caps how many password
+checks one address can cause.
 
 The limits are `app.rate-limit.*` properties in `application.properties`.
 For repeated local Postman runs, uncomment the relaxed per-address limits in
