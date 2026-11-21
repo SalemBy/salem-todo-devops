@@ -6,12 +6,13 @@ headers:
   Content-Type: application/json
 body:
   type: json
-  content: '{"email":"{{thirdEmail}}","displayName":"Postman third","password":"{{$randomUUID}}"}'
+  content: '{"email":"{{thirdEmail}}","displayName":"Postman third","password":"{{thirdPassword}}"}'
 scripts:
   - type: beforeRequest
     language: text/javascript
     code: |-
       pm.variables.set('thirdEmail', pm.variables.replaceIn('{{$randomUUID}}') + '@example.com');
+      pm.variables.set('thirdPassword', pm.variables.replaceIn('{{$randomUUID}}'));
   - type: afterResponse
     language: text/javascript
     code: |-

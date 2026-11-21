@@ -1,0 +1,17 @@
+$kind: http-request
+order: 1500
+method: POST
+url: '{{baseUrl}}/auth/verify'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"token":"{{verificationToken}}","password":"{{authPassword}}"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('A verification token works once', () => {
+        pm.response.to.have.status(400);
+        pm.expect(pm.response.json().detail).to.eql('Verification link is invalid or has expired');
+      });

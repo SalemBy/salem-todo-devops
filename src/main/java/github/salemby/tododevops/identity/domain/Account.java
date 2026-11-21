@@ -27,6 +27,12 @@ public class Account {
     private long credentialVersion;
     @Version
     private long version;
+    /** Null until the owner proves they control the address (#71). */
+    private Instant emailVerifiedAt;
+    /** SHA-256 of the pending verification token; the raw token exists only in the email. */
+    @Column(length = 64)
+    private String verificationTokenHash;
+    private Instant verificationTokenExpiresAt;
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
     @Column(nullable = false)
@@ -50,6 +56,18 @@ public class Account {
         credentialVersion = Math.incrementExact(credentialVersion);
     }
     public void reactivate() { active = true; }
+    public boolean isVerified() { return emailVerifiedAt != null; }
+    /** Replaces any earlier token, which stops working. */
+    public void issueVerificationToken(String hash, Instant expiresAt) {
+        verificationTokenHash = Objects.requireNonNull(hash);
+        verificationTokenExpiresAt = Objects.requireNonNull(expiresAt);
+    }
+    /** Registering an unverified email again replaces that pending registration (#71). */
+    public void replacePendingRegistration(String displayName, String passwordHash) {
+        if (isVerified()) throw new IllegalStateException("Only an unverified registration can be replaced");
+        this.displayName = Objects.requireNonNull(displayName);
+        this.passwordHash = Objects.requireNonNull(passwordHash);
+    }
     @PreUpdate
     private void onUpdate() { updatedAt = Timestamps.now(); }
 }

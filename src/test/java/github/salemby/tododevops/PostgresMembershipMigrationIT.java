@@ -42,9 +42,10 @@ class PostgresMembershipMigrationIT {
                 c.setSchema(schema);
                 try (var s = c.createStatement()) {
                     s.executeUpdate("INSERT INTO accounts(id,email,display_name,password_hash,created_at,updated_at) VALUES (1,'owner@example.com','Owner','test-fixture-hash',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),(2,'member@example.com','Member','test-fixture-hash',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
-                    var accounts = rows(s, "SELECT * FROM accounts ORDER BY id");
+                    // The V7 columns only: later migrations may add columns (#71 adds verification ones).
+                    var accounts = rows(s, "SELECT id,email,display_name,password_hash,active,credential_version,version,created_at,updated_at FROM accounts ORDER BY id");
                     flyway.migrate();
-                    assertEquals(accounts, rows(s, "SELECT * FROM accounts ORDER BY id"), "Accounts must be preserved");
+                    assertEquals(accounts, rows(s, "SELECT id,email,display_name,password_hash,active,credential_version,version,created_at,updated_at FROM accounts ORDER BY id"), "Accounts must be preserved");
 
                     String project = "INSERT INTO projects(id,name,project_key,created_at,updated_at,created_by_account_id) VALUES ";
                     assertEquals("23502", state(s, "INSERT INTO projects(name,project_key,created_at,updated_at) VALUES ('No creator','NONE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"));

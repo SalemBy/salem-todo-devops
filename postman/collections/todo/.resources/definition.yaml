@@ -2,6 +2,7 @@ $kind: collection
 name: Salem Todo DevOps
 description: |-
   Run 00 Authentication first, then the desired feature folders in the same runner invocation.
+  New accounts verify their email: start Mailpit with docker compose up -d (mailpitUrl).  
   Each feature creates its own records and captures IDs automatically.  
   Run a complete feature folder; numbered subfolders show the required execution order.  
   Exceptions folders intentionally send invalid requests and assert 400, 403, 404, 409 or 422.  
@@ -15,6 +16,7 @@ description: |-
   See postman/README.md for desktop and CLI instructions.
 variables:
   baseUrl: http://127.0.0.1:8080
+  mailpitUrl: http://127.0.0.1:8025
   projectId: ""
   projectKey: ""
   projectCreatedAt: ""

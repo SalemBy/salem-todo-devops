@@ -27,6 +27,8 @@ final class AuthRateLimitFilter extends OncePerRequestFilter {
     private static final RequestMatcher REGISTER = PATHS.matcher(HttpMethod.POST, "/auth/register");
     private static final RequestMatcher CSRF = PATHS.matcher(HttpMethod.GET, "/auth/csrf");
     private static final RequestMatcher PASSWORD = PATHS.matcher(HttpMethod.POST, "/auth/password");
+    private static final RequestMatcher VERIFICATION_EMAIL = PATHS.matcher(HttpMethod.POST, "/auth/verification-email");
+    private static final RequestMatcher VERIFY = PATHS.matcher(HttpMethod.POST, "/auth/verify");
 
     private final RedisRateLimiter limiter;
     private final RateLimitProperties limits;
@@ -45,6 +47,10 @@ final class AuthRateLimitFilter extends OncePerRequestFilter {
         else if (REGISTER.matches(request)) { route = "register"; limit = limits.registerPerAddress(); }
         // The per-login count resets with every new login; this caps the hashes one address can cause.
         else if (PASSWORD.matches(request)) { route = "password"; limit = limits.passwordChangePerAddress(); }
+        // Each request may send an email (#71).
+        else if (VERIFICATION_EMAIL.matches(request)) { route = "verification"; limit = limits.verificationEmailPerAddress(); }
+        // Each verify checks a password hash (#71).
+        else if (VERIFY.matches(request)) { route = "verify"; limit = limits.verifyPerAddress(); }
         // Only a caller without a session gets a new one here; token refreshes in a live session are free.
         else if (CSRF.matches(request) && request.getSession(false) == null) { route = "session"; limit = limits.sessionsPerAddress(); }
         if (route != null) {

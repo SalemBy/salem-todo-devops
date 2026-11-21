@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles("postgres-test")
 @ContextConfiguration(initializers = IsolatedPostgresSchema.class)
 @TestPropertySource(properties = {"app.rate-limit.login-per-email.max=3", "app.rate-limit.login-per-email.window=60s",
+    "app.rate-limit.verification-email-per-email.max=2", "app.rate-limit.verification-email-per-email.window=60s",
     "app.rate-limit.password-change-per-login.max=3", "app.rate-limit.password-change-per-login.window=60s"})
 class PostgresAuthRateLimitIT {
     @Autowired RedisRateLimiter limiter;
@@ -154,6 +155,18 @@ class PostgresAuthRateLimitIT {
 
     static HttpResponse<String> changePassword(AuthClient client, String current) throws Exception {
         return client.call("POST", "/auth/password", Map.of("currentPassword", current, "newPassword", "A replacement test passphrase!"));
+    }
+
+    @Test
+    void verificationEmailLimitIsPerEmailWhetherOrNotTheAccountExists() throws Exception {
+        var client = new AuthClient(port);
+        assertEquals(200, client.csrf().statusCode());
+        String limited = UUID.randomUUID() + "@unverified.example.com";
+        for (int i = 0; i < 2; i++)
+            assertEquals(202, client.call("POST", "/auth/verification-email", java.util.Map.of("email", limited)).statusCode());
+        assertThrottled(client.call("POST", "/auth/verification-email", java.util.Map.of("email", limited)));
+        var other = client.call("POST", "/auth/verification-email", java.util.Map.of("email", UUID.randomUUID() + "@example.com"));
+        assertEquals(202, other.statusCode(), "another email has its own count");
     }
 
     static void spendPasswordChanges(AuthClient client) throws Exception {

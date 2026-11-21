@@ -30,7 +30,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @ContextConfiguration(initializers = IsolatedPostgresSchema.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @TestPropertySource(properties = {"app.rate-limit.login-per-address.max=3", "app.rate-limit.register-per-address.max=2",
-    "app.rate-limit.sessions-per-address.max=2", "app.rate-limit.password-change-per-address.max=2"})
+    "app.rate-limit.sessions-per-address.max=2", "app.rate-limit.password-change-per-address.max=2",
+    "app.rate-limit.verification-email-per-address.max=2", "app.rate-limit.verify-per-address.max=2"})
 class PostgresAuthAddressLimitIT {
     @Autowired JdbcTemplate jdbc;
     @Value("${local.server.port}") int port;
@@ -58,6 +59,28 @@ class PostgresAuthAddressLimitIT {
         assertEquals(201, client.register(email()).statusCode());
         assertEquals(201, client.register(email()).statusCode());
         assertEquals(429, client.register(email()).statusCode());
+    }
+
+    @Test
+    void verificationEmailAddressLimitHoldsAcrossEmails() throws Exception {
+        var client = new AuthClient(port);
+        assertEquals(200, client.csrf().statusCode());
+        for (int i = 0; i < 2; i++)
+            assertEquals(202, client.call("POST", "/auth/verification-email", java.util.Map.of("email", email())).statusCode());
+        var throttled = client.call("POST", "/auth/verification-email", java.util.Map.of("email", email()));
+        assertEquals(429, throttled.statusCode());
+        assertTrue(throttled.headers().firstValue("Retry-After").isPresent());
+    }
+
+    @Test
+    void verifyAddressLimitCapsPasswordChecks() throws Exception {
+        var client = new AuthClient(port);
+        assertEquals(200, client.csrf().statusCode());
+        var body = java.util.Map.of("token", "unknown-token", "password", PASSWORD);
+        for (int i = 0; i < 2; i++) assertEquals(400, client.call("POST", "/auth/verify", body).statusCode());
+        var throttled = client.call("POST", "/auth/verify", body);
+        assertEquals(429, throttled.statusCode());
+        assertTrue(throttled.headers().firstValue("Retry-After").isPresent());
     }
 
     @Test

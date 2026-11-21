@@ -24,7 +24,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Issue #67: configured system administrators deactivate and reactivate accounts and recover ownerless projects. */
 class PostgresAdministrationIT {
-    static final String ADMIN = "admin-one@example.com", SECOND_ADMIN = "admin-two@example.com";
+    static final String ADMIN = "admin-one@example.com", SECOND_ADMIN = "admin-two@example.com",
+        UNVERIFIED_ADMIN = "admin-three" + github.salemby.tododevops.support.CapturedVerificationMail.UNVERIFIED_DOMAIN;
     static final ObjectMapper JSON = new ObjectMapper();
     static SharedSchemaApps apps;
     static ConfigurableApplicationContext a, b;
@@ -39,7 +40,7 @@ class PostgresAdministrationIT {
     @BeforeAll
     static void start() {
         apps = new SharedSchemaApps();
-        String admins = "app.admin.emails= Admin-One@Example.com ," + SECOND_ADMIN;
+        String admins = "app.admin.emails= Admin-One@Example.com ," + SECOND_ADMIN + "," + UNVERIFIED_ADMIN;
         a = apps.start(admins);
         b = apps.start(admins);
     }
@@ -167,6 +168,23 @@ class PostgresAdministrationIT {
         second = login(a, SECOND_ADMIN);
         deactivate(second, first.id(), 200);
         assertEquals(200, second.call("POST", "/admin/accounts/" + first.id() + "/reactivate", null).statusCode());
+    }
+
+    @Test
+    void unverifiedAccountsAreNotAdministrators() throws Exception {
+        var pending = new AuthClient(SharedSchemaApps.port(a));
+        pending.csrf();
+        int status = pending.register(UNVERIFIED_ADMIN).statusCode();
+        assertTrue(status == 201, "registered, unverified: " + status);
+        assertEquals(401, pending.login(UNVERIFIED_ADMIN, PASSWORD).statusCode());
+
+        var first = admin();
+        var second = register(a, SECOND_ADMIN);
+        deactivate(first, second.id(), 200);
+        // The configured but unverified third address must not count as another active administrator.
+        assertDetail(first.call("POST", "/admin/accounts/" + first.id() + "/deactivate", null), 409,
+            "At least one active administrator is required");
+        assertEquals(200, first.call("POST", "/admin/accounts/" + second.id() + "/reactivate", null).statusCode());
     }
 
     @Test

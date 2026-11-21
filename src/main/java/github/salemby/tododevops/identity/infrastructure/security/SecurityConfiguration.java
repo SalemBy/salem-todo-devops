@@ -57,7 +57,8 @@ public class SecurityConfiguration {
         var paths = PathPatternRequestMatcher.withDefaults();
         RequestMatcher publicRoutes = new OrRequestMatcher(paths.matcher(HttpMethod.GET, "/"),
             paths.matcher(HttpMethod.GET, "/auth/csrf"), paths.matcher(HttpMethod.POST, "/auth/register"),
-            paths.matcher(HttpMethod.POST, "/auth/login"));
+            paths.matcher(HttpMethod.POST, "/auth/login"), paths.matcher(HttpMethod.POST, "/auth/verify"),
+            paths.matcher(HttpMethod.POST, "/auth/verification-email"));
         var problems = new SecurityProblems(json);
         http.formLogin(AbstractHttpConfigurer::disable).httpBasic(AbstractHttpConfigurer::disable)
             .logout(AbstractHttpConfigurer::disable).requestCache(AbstractHttpConfigurer::disable)

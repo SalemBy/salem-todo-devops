@@ -1,0 +1,17 @@
+$kind: http-request
+order: 1800
+method: POST
+url: '{{baseUrl}}/auth/login'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{pendingEmail}}","password":"{{pendingPassword}}"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('An unverified account cannot log in', () => {
+        pm.response.to.have.status(401);
+        pm.expect(pm.response.json().detail).to.eql('Invalid credentials');
+      });
