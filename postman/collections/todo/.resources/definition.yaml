@@ -48,6 +48,11 @@ variables:
   adminTargetId: ""
   adminProjectId: ""
   adminProjectKey: ""
+  managerProjectId: ""
+  managerProjectKey: ""
+  managerAccountId: ""
+  managerOwnerId: ""
+  managerThirdId: ""
 auth:
   type: noauth
 scripts:

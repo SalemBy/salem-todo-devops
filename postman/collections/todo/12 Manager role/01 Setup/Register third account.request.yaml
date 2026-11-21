@@ -1,0 +1,21 @@
+$kind: http-request
+order: 2000
+method: POST
+url: '{{baseUrl}}/auth/register'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{thirdEmail}}","displayName":"Postman third","password":"{{$randomUUID}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.variables.set('thirdEmail', pm.variables.replaceIn('{{$randomUUID}}') + '@example.com');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Third account is registered', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('managerThirdId', String(pm.response.json().id));
+      });

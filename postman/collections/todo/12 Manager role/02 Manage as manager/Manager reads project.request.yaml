@@ -1,0 +1,12 @@
+$kind: http-request
+order: 2000
+method: GET
+url: '{{baseUrl}}/projects/{{managerProjectId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('The project reports the MANAGER role', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().role).to.eql('MANAGER');
+      });

@@ -88,9 +88,13 @@ Salem Todo DevOps
 │   ├── 01 Setup
 │   ├── 02 Comments
 │   └── 03 Exceptions
-└── 11 Administration
+├── 11 Administration
+│   ├── 01 Setup
+│   ├── 02 Deactivate and recover
+│   └── 03 Exceptions
+└── 12 Manager role
     ├── 01 Setup
-    ├── 02 Deactivate and recover
+    ├── 02 Manage as manager
     └── 03 Exceptions
 ```
 
@@ -118,6 +122,13 @@ it (its login then fails), gives the ownerless project an owner and reactivates
 it. The exceptions check an unknown account (404), a project that still has an
 owner (409), a string account ID (400) and, logged in as the target, the hidden
 routes (the unknown-route 404). It then logs back in as the original account.
+
+**Manager role** registers a disposable manager and a third account, and the
+current login creates a project and makes the manager a `MANAGER`. Logged in as
+the manager, it adds the third account as `MEMBER` and makes it a `VIEWER`. The
+exceptions check that a manager cannot rename or archive the project (403), grant
+`MANAGER` or remove the owner (403 `Only an owner can manage owners and
+managers`); it then logs back in and confirms the project is unchanged.
 
 **Projects**, **Tasks** and **Validation** each have their own setup and can run
 independently. The task scenario creates two projects to verify that ownership

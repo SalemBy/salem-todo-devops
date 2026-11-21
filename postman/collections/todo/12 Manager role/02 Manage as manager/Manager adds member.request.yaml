@@ -1,0 +1,17 @@
+$kind: http-request
+order: 3000
+method: POST
+url: '{{baseUrl}}/projects/{{managerProjectId}}/members'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{thirdEmail}}","role":"MEMBER"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Managers add members', () => {
+        pm.response.to.have.status(201);
+        pm.expect(pm.response.json().role).to.eql('MEMBER');
+      });

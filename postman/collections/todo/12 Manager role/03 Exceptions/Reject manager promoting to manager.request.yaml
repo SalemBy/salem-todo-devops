@@ -1,0 +1,17 @@
+$kind: http-request
+order: 3000
+method: PUT
+url: '{{baseUrl}}/projects/{{managerProjectId}}/members/{{managerThirdId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"role":"MANAGER"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Only owners grant MANAGER', () => {
+        pm.response.to.have.status(403);
+        pm.expect(pm.response.json().detail).to.eql('Only an owner can manage owners and managers');
+      });
