@@ -145,7 +145,8 @@ public class TaskService {
         return new TaskResponse(task.getId(), task.getProject().getId(), task.getTitle(), task.getDescription(),
             task.getStatus(), task.getCreatedAt(), task.getUpdatedAt(), task.isActive(),
             task.getType(), task.getPriority(), task.getDueDate(),
-            task.getLabels().stream().sorted(java.util.Comparator.comparing(Label::getId)).map(LabelResponse::from).toList());
+            task.getLabels().stream().sorted(java.util.Comparator.comparing(Label::getId)).map(LabelResponse::from).toList(),
+            task.getAssigneeAccountId());
     }
 
 }
