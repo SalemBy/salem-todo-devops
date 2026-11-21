@@ -27,7 +27,7 @@ public class AccountDirectory {
     public Optional<AccountSummary> findActiveByEmail(String email) {
         if (email == null) return Optional.empty();
         return accounts.findByEmail(Emails.normalize(email))
-            .filter(Account::isActive).map(AccountDirectory::summary);
+            .filter(AccountDirectory::usable).map(AccountDirectory::summary);
     }
 
     /** Summaries for the given IDs in one query, keyed by ID. Unknown IDs are absent. */
@@ -44,10 +44,15 @@ public class AccountDirectory {
      */
     @Transactional
     public boolean isActiveLocked(Long accountId) {
-        return accounts.findShareLockedById(accountId).filter(Account::isActive).isPresent();
+        return accounts.findShareLockedById(accountId).filter(AccountDirectory::usable).isPresent();
     }
 
     private static AccountSummary summary(Account account) {
-        return new AccountSummary(account.getId(), account.getEmail(), account.getDisplayName(), account.isActive());
+        return new AccountSummary(account.getId(), account.getEmail(), account.getDisplayName(), usable(account));
+    }
+
+    /** Other modules see an account as active only once it is enabled and its email is verified (#71). */
+    private static boolean usable(Account account) {
+        return account.isActive() && account.isVerified();
     }
 }

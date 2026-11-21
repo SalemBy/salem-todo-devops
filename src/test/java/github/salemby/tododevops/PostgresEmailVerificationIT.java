@@ -34,6 +34,7 @@ class PostgresEmailVerificationIT {
 
     @Autowired Environment environment;
     @Autowired JdbcTemplate jdbc;
+    @Autowired github.salemby.tododevops.identity.application.EmailVerificationService verification;
     private final ObjectMapper json = new ObjectMapper();
 
     @Test
@@ -169,6 +170,36 @@ class PostgresEmailVerificationIT {
         c.csrf(); // login rotates the token
         var duplicate = c.call("POST", "/auth/register", Map.of("email", email, "displayName", "Third", "password", second));
         assertDetail(duplicate, 409, "Email is already registered");
+    }
+
+    @Test
+    void unverifiedAccountsCannotBeAddedToProjects() throws Exception {
+        var owner = client();
+        String ownerEmail = "owner-" + UUID.randomUUID() + "@example.com";
+        owner.register(ownerEmail);
+        assertEquals(200, owner.login(ownerEmail, PASSWORD).statusCode());
+        owner.csrf();
+        var project = owner.call("POST", "/projects", Map.of("name", "Verified only", "key", "V" + UUID.randomUUID().toString()
+            .replace("-", "").substring(0, 8).toUpperCase()));
+        assertEquals(201, project.statusCode(), project.body());
+        long p = json.readTree(project.body()).get("id").asLong();
+        String pending = unverifiedEmail();
+        client().register(pending);
+        assertDetail(owner.call("POST", "/projects/" + p + "/members", Map.of("email", pending, "role", "MEMBER")), 422,
+            "Account not found");
+    }
+
+    @Test
+    void staleUnverifiedAccountsAreDeleted() throws Exception {
+        var c = client();
+        String stale = unverifiedEmail(), recent = unverifiedEmail(), old = "old-" + UUID.randomUUID() + "@example.com";
+        for (String email : List.of(stale, recent, old)) c.register(email);
+        jdbc.update("UPDATE accounts SET updated_at = now() - interval '8 days' WHERE email = ?", stale);
+        jdbc.update("UPDATE accounts SET created_at = now() - interval '30 days', updated_at = now() - interval '30 days' WHERE email = ?", old);
+        assertEquals(1, verification.deleteStaleUnverified(java.time.Instant.now()));
+        assertEquals(List.of(recent, old), jdbc.queryForList(
+            "SELECT email FROM accounts WHERE email IN (?, ?, ?) ORDER BY email = ? DESC", String.class, stale, recent, old, recent));
+        assertEquals(201, c.register(stale).statusCode(), "the email is free again");
     }
 
     // --- fixtures -------------------------------------------------------------------------------

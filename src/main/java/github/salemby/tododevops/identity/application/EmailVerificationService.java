@@ -24,15 +24,28 @@ public class EmailVerificationService {
     private final TransactionOperations transactions;
     private final Throttle throttle;
     private final RateLimitProperties limits;
+    private final java.time.Duration retention;
 
     public EmailVerificationService(AccountRepository accounts, VerificationTokens tokens, VerificationMailer mailer,
-            TransactionOperations transactions, Throttle throttle, RateLimitProperties limits) {
+            TransactionOperations transactions, Throttle throttle, RateLimitProperties limits,
+            @org.springframework.beans.factory.annotation.Value("${app.auth.unverified-account-retention:7d}")
+            java.time.Duration retention) {
         this.accounts = accounts;
         this.tokens = tokens;
         this.mailer = mailer;
         this.transactions = transactions;
         this.throttle = throttle;
         this.limits = limits;
+        this.retention = retention;
+    }
+
+    /**
+     * Removes registrations nobody verified within the retention period, which frees their emails. Unverified
+     * accounts cannot log in, so they own and belong to nothing that would block the delete.
+     */
+    @Transactional
+    public int deleteStaleUnverified(java.time.Instant now) {
+        return accounts.deleteUnverifiedUpdatedBefore(now.minus(retention));
     }
 
     /**

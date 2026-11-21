@@ -33,7 +33,7 @@ public class AccountAdministration {
         var admins = administrators.emails().isEmpty() ? List.<Account>of() : accounts.findLockedByEmailIn(administrators.emails());
         var account = locked(accountId);
         if (administrators.isConfigured(account)
-                && admins.stream().noneMatch(a -> !a.getId().equals(accountId) && a.isActive()))
+                && admins.stream().noneMatch(a -> !a.getId().equals(accountId) && administrators.isAdministrator(a)))
             throw new ResponseStatusException(HttpStatus.CONFLICT, LAST_ADMINISTRATOR);
         if (account.isActive()) account.deactivate();
         accounts.flush();

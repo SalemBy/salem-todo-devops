@@ -38,7 +38,7 @@ public class Administrators {
     }
 
     boolean isAdministrator(Account account) {
-        return account.isActive() && emails.contains(account.getEmail());
+        return account.isActive() && account.isVerified() && emails.contains(account.getEmail());
     }
 
     boolean isConfigured(Account account) {

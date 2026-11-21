@@ -23,6 +23,12 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     int verify(@org.springframework.data.repository.query.Param("hash") String hash,
                @org.springframework.data.repository.query.Param("now") java.time.Instant now);
 
+    /** Deletes registrations that were never verified and have not changed since the cutoff. */
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Query(
+        "delete from Account a where a.emailVerifiedAt is null and a.updatedAt < :cutoff")
+    int deleteUnverifiedUpdatedBefore(@org.springframework.data.repository.query.Param("cutoff") java.time.Instant cutoff);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @org.springframework.data.jpa.repository.Query("select a from Account a where a.id = :id")
     Optional<Account> findLockedById(Long id);
