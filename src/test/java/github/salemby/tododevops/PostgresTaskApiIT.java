@@ -2,6 +2,7 @@ package github.salemby.tododevops;
 
 import github.salemby.tododevops.support.TestHttp;
 import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import github.salemby.tododevops.support.TaskRows;
 import org.springframework.test.context.ContextConfiguration;
 
 import github.salemby.tododevops.workmanagement.domain.Task;
@@ -47,7 +48,7 @@ class PostgresTaskApiIT {
     }
     @org.junit.jupiter.api.AfterEach
     void cleanupOwner() {
-        tasks.deleteAll(tasks.findAllByProjectId(owner.getId()));
+        TaskRows.delete(jdbc, owner.getId());
         ownerProjects.deleteById(owner.getId());
     }
     @Autowired Environment environment;

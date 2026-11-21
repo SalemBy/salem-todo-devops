@@ -2,6 +2,7 @@ package github.salemby.tododevops;
 
 import github.salemby.tododevops.support.TestHttp;
 import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import github.salemby.tododevops.support.TaskRows;
 import org.springframework.test.context.ContextConfiguration;
 
 import github.salemby.tododevops.workmanagement.domain.Project;
@@ -39,6 +40,7 @@ class PostgresRequiredFieldsIT {
             "Task owner", github.salemby.tododevops.support.TestProjects.uniqueKey("T"));
     }
     @Autowired Environment environment;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired TaskRepository tasks;
     @Autowired ProjectRepository projects;
     private final Set<Long> taskIds = new HashSet<>();
@@ -48,7 +50,7 @@ class PostgresRequiredFieldsIT {
 
     @AfterEach
     void cleanup() {
-        tasks.deleteAll(tasks.findAllByProjectId(owner.getId()));
+        TaskRows.delete(jdbc, owner.getId());
         tasks.deleteAllById(taskIds);
         projects.deleteAllById(projectIds);
         ownerProjects.deleteById(owner.getId());

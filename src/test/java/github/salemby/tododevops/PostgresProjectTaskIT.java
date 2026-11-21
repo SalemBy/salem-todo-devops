@@ -2,6 +2,7 @@ package github.salemby.tododevops;
 
 import github.salemby.tododevops.support.TestHttp;
 import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import github.salemby.tododevops.support.TaskRows;
 import org.springframework.test.context.ContextConfiguration;
 
 import org.junit.jupiter.api.*;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ContextConfiguration(initializers = IsolatedPostgresSchema.class)
 class PostgresProjectTaskIT {
     @Autowired Environment environment;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired TaskRepository tasks;
     @Autowired ProjectRepository projects;
     final ObjectMapper json = new ObjectMapper();
@@ -39,7 +41,7 @@ class PostgresProjectTaskIT {
         return call("POST", "/projects/"+project+"/tasks", "{\"projectId\":" + project + ",\"title\":\"Task\"}", 201);
     }
     @AfterEach void cleanup() {
-        for (Long id : owners) { tasks.deleteAll(tasks.findAllByProjectId(id)); projects.deleteById(id); }
+        for (Long id : owners) { TaskRows.delete(jdbc, id); projects.deleteById(id); }
     }
     @Test void isolatesBacklogsAndRetainsOwnershipAcrossLifecycle() throws Exception {
         long a=project(), b=project(), empty=project();
@@ -119,7 +121,7 @@ class PostgresProjectTaskIT {
         long other = project();
         var valid = call("POST", path, "{\"title\":\"Valid integer owner\",\"projectId\":" + other + ".75}", 201);
         assertEquals(owner, valid.get("projectId").asLong());
-        assertEquals(0, tasks.findAllByProjectId(other).size());
+        assertEquals(0, TaskRows.count(jdbc, other));
         assertEquals(count + 1, tasks.count());
     }
 

@@ -9,8 +9,6 @@ import java.util.Optional;
 public interface TaskRepository extends JpaRepository<Task, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Task> {
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "labels")
     List<Task> findAllByProjectIdAndIdIn(Long projectId, List<Long> ids);
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "labels")
-    List<Task> findAllByProjectId(Long projectId);
 
 
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "labels")

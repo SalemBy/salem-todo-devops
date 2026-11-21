@@ -2,6 +2,7 @@ package github.salemby.tododevops;
 
 import github.salemby.tododevops.support.TestHttp;
 import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import github.salemby.tododevops.support.TaskRows;
 import org.springframework.test.context.ContextConfiguration;
 
 import org.junit.jupiter.api.*;
@@ -20,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ContextConfiguration(initializers = IsolatedPostgresSchema.class)
 class PostgresTaskFilterIT {
     @Autowired Environment environment;
-    @Autowired TaskRepository tasks;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired ProjectRepository projects;
     @Autowired LabelRepository labels;
     final ObjectMapper json = new ObjectMapper();
@@ -40,7 +41,7 @@ class PostgresTaskFilterIT {
         return call("POST", "/projects/"+project+"/tasks", "{\"projectId\":" + project + ",\"title\":\"Task\"}", 201);
     }
     @AfterEach void cleanup() {
-        for (Long id : owners) { tasks.deleteAll(tasks.findAllByProjectId(id)); labels.deleteAll(labels.findAllByProjectIdOrderById(id)); projects.deleteById(id); }
+        for (Long id : owners) { TaskRows.delete(jdbc, id); labels.deleteAll(labels.findAllByProjectIdOrderById(id)); projects.deleteById(id); }
     }
 
     @Test void combinesFiltersBeforeCountingAndPagingWithoutDuplicatingLabels() throws Exception {

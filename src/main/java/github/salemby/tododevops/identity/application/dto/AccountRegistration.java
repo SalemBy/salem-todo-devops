@@ -1,9 +1,9 @@
 package github.salemby.tododevops.identity.application.dto;
 
+import github.salemby.tododevops.shared.validation.Emails;
 import github.salemby.tododevops.shared.validation.NotBlankText;
 import github.salemby.tododevops.shared.validation.NoNulText;
 import jakarta.validation.constraints.*;
-import java.util.Locale;
 
 public record AccountRegistration(
     @NotBlank @Email @Size(max = 254) @Pattern(regexp = "[\\x21-\\x7E]+") String email,
@@ -11,7 +11,7 @@ public record AccountRegistration(
     @NotNull @NoNulText String password
 ) {
     public AccountRegistration {
-        if (email != null) email = email.strip().toLowerCase(Locale.ROOT);
+        email = Emails.normalize(email);
     }
 
     @AssertTrue(message = "Password must contain 15 to 128 Unicode code points")

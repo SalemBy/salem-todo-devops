@@ -1,6 +1,7 @@
 package github.salemby.tododevops;
 
 import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import github.salemby.tododevops.support.TaskRows;
 import github.salemby.tododevops.support.TestHttp;
 import github.salemby.tododevops.support.TestProjects;
 import github.salemby.tododevops.workmanagement.domain.ProjectMembership;
@@ -47,6 +48,7 @@ class PostgresProjectAccessIT {
     @Autowired Environment environment;
     @Autowired ProjectRepository projects;
     @Autowired ProjectMembershipRepository memberships;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired TaskRepository tasks;
     @Autowired LabelRepository labels;
     private final ObjectMapper json = new ObjectMapper();
@@ -83,7 +85,7 @@ class PostgresProjectAccessIT {
             assertEquals("Fixture task", unchangedTask.getTitle());
             assertTrue(unchangedTask.isActive());
             assertTrue(labels.findById(f.label()).orElseThrow().isActive());
-            assertEquals(1, tasks.findAllByProjectId(f.project()).size(), "Denied callers must not create tasks");
+            assertEquals(1, TaskRows.count(jdbc, f.project()), "Denied callers must not create tasks");
         }
         if (!manager) {
             var unchangedProject = projects.findById(f.project()).orElseThrow();
