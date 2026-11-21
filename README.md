@@ -100,13 +100,15 @@ A new account must verify its email address before it can log in.
 | Request | Result |
 | --- | --- |
 | `POST /auth/register` | 201 with the account, `emailVerified: false`; sends an email with a link |
-| `POST /auth/verify` with `{"token": "..."}` | 204; the account can log in |
+| `POST /auth/verify` with `{"token": "...", "password": "..."}` | 204; the account can log in |
 | `POST /auth/verification-email` with `{"email": "..."}` | 202 with no body, for every email |
 
-- The link is `AUTH_VERIFICATION_URL?token=...`; the page behind it posts the
-  token to `/auth/verify`. A token works once and expires after 24 hours.
-  Unknown, expired, and used tokens get 400 `Verification link is invalid or has
-  expired`.
+- The link is `AUTH_VERIFICATION_URL?token=...`; the page behind it asks for the
+  password chosen at registration and posts both to `/auth/verify`. Proving the
+  inbox and the password together means nobody who re-registers a pending email
+  can have its owner verify the account for them. A token works once and expires
+  after 24 hours. Unknown, expired and used tokens, and a wrong password, get 400
+  `Verification link is invalid or has expired`.
 - Until it is verified, an account cannot log in (401 `Invalid credentials`,
   like a wrong password), cannot be added to a project, and is not an
   administrator. Account responses include `emailVerified`.
@@ -115,7 +117,8 @@ A new account must verify its email address before it can log in.
 - Registering a pending email again replaces that registration (name, password
   and link), so nobody can hold someone else's address. A verified email still
   gets 409. Registrations nobody verifies are deleted after 7 days.
-- If the email cannot be sent, registration still succeeds; ask for it again.
+- Emails are sent in the background, with 5-second SMTP timeouts. If one cannot
+  be sent, registration still succeeds; ask for it again.
 - Mail goes over SMTP: `MAIL_HOST` (default `127.0.0.1`), `MAIL_PORT` (`1025`),
   optional `MAIL_USERNAME` and `MAIL_PASSWORD`, and `MAIL_FROM`. Accounts that
   existed before verification was added count as verified.
@@ -226,6 +229,7 @@ that every API instance shares:
 | Password changes per client address | 10 per minute |
 | Verification emails per client address | 5 per hour |
 | Verification emails per email | 3 per hour |
+| Email verifications (`POST /auth/verify`) per client address | 20 per minute |
 
 Over a limit, the API returns 429 with a `Retry-After` header (in seconds). The
 response is the same for existing and unknown emails. A throttled login never

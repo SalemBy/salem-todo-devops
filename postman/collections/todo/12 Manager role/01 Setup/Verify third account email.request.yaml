@@ -6,20 +6,23 @@ headers:
   Content-Type: application/json
 body:
   type: json
-  content: '{"token":"{{verificationToken}}"}'
+  content: '{"token":"{{verificationToken}}","password":"{{thirdPassword}}"}'
 scripts:
   - type: beforeRequest
     language: text/javascript
     code: |-
-      // Reads the newest verification email for this address from Mailpit (docker compose up) and takes its token.
+      // Emails are sent in the background, so poll Mailpit (docker compose up) for the newest one to this address.
       const email = pm.variables.get('thirdEmail');
       const mailpit = pm.variables.replaceIn('{{mailpitUrl}}').replace(/\/$/, '');
-      pm.sendRequest(mailpit + '/api/v1/search?query=' + encodeURIComponent('to:"' + email + '"'), (error, search) => {
-        if (error || search.code !== 200 || search.json().messages.length === 0) {
+      const search = mailpit + '/api/v1/search?query=' + encodeURIComponent('to:"' + email + '"');
+      const readToken = (attempt) => pm.sendRequest(search, (error, found) => {
+        const messages = !error && found.code === 200 ? found.json().messages : [];
+        if (messages.length === 0) {
+          if (attempt < 20) return setTimeout(() => readToken(attempt + 1), 250);
           pm.execution.skipRequest();
           throw new Error('No verification email for ' + email + ' in Mailpit. Start it with docker compose up -d.');
         }
-        pm.sendRequest(mailpit + '/api/v1/message/' + search.json().messages[0].ID, (readError, message) => {
+        pm.sendRequest(mailpit + '/api/v1/message/' + messages[0].ID, (readError, message) => {
           const match = !readError && message.code === 200 && message.json().Text.match(/token=([A-Za-z0-9_-]+)/);
           if (!match) {
             pm.execution.skipRequest();
@@ -28,6 +31,7 @@ scripts:
           pm.variables.set('verificationToken', match[1]);
         });
       });
+      readToken(0);
   - type: afterResponse
     language: text/javascript
     code: |-
