@@ -1,0 +1,21 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects/{{commentProjectId}}/tasks/{{commentTaskId}}/comments'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"body":"   "}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Blank comments are rejected', () => {
+        pm.response.to.have.status(400);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+        const problem = pm.response.json();
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:400');
+        pm.expect(problem.detail).to.eql('Request validation failed');
+        pm.expect(JSON.stringify(problem.errors)).to.include('Comment body is required');
+      });

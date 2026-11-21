@@ -1,0 +1,23 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Comment checks","key":"{{commentKey}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('commentKey', 'C' + pm.variables.replaceIn('{{$randomUUID}}').replace(/-/g, '').slice(0, 8).toUpperCase());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Comment project is created', () => {
+        pm.response.to.have.status(201);
+        const project = pm.response.json();
+        pm.collectionVariables.set('commentProjectId', String(project.id));
+        pm.collectionVariables.set('commentAuthorId', String(project.createdByAccountId));
+      });

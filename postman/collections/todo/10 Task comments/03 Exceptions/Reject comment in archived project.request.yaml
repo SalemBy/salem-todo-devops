@@ -1,0 +1,20 @@
+$kind: http-request
+order: 5000
+method: POST
+url: '{{baseUrl}}/projects/{{commentProjectId}}/tasks/{{commentTaskId}}/comments'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"body":"Too late"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Archived projects are read-only', () => {
+        pm.response.to.have.status(409);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+        const problem = pm.response.json();
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:409');
+        pm.expect(problem.detail).to.eql('Project is archived');
+      });

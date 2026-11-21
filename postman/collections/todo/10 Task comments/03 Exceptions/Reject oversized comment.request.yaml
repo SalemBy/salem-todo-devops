@@ -1,0 +1,25 @@
+$kind: http-request
+order: 2000
+method: POST
+url: '{{baseUrl}}/projects/{{commentProjectId}}/tasks/{{commentTaskId}}/comments'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"body":"{{oversizedComment}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.variables.set('oversizedComment', 'a'.repeat(10001));
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Comments over 10000 characters are rejected', () => {
+        pm.response.to.have.status(400);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+        const problem = pm.response.json();
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:400');
+        pm.expect(problem.detail).to.eql('Request validation failed');
+        pm.expect(JSON.stringify(problem.errors)).to.include('Comment body must contain at most 10000 characters');
+      });

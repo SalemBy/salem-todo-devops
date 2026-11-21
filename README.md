@@ -98,7 +98,7 @@ manual sends, collection runs, and environment setup.
 | --- | --- | --- |
 | Accounts | `/auth` | Register, log in, read current account, log out, change password |
 | Projects | `/projects` | Create, list, read, update, archive |
-| Tasks | `/projects/{projectId}/tasks` | Manage tasks, assign them, filter results, browse pages |
+| Tasks | `/projects/{projectId}/tasks` | Manage tasks, assign them, discuss them in comments, filter results, browse pages |
 | Labels | `/projects/{projectId}/labels` | Manage project labels and associate them with tasks |
 | Members | `/projects/{projectId}/members` | List members, add by email, change roles, remove members, leave |
 
@@ -140,6 +140,27 @@ includes `assigneeId` (null when unassigned). Removing a member, a member
 leaving, or demoting one to `VIEWER` clears their assignments in that project.
 Archived tasks keep their assignee as history until that person loses edit
 rights in the project.
+
+Members discuss a task through comments at
+`/projects/{projectId}/tasks/{taskId}/comments`:
+
+| Request | Who | Result |
+| --- | --- | --- |
+| `GET` (`?page=&size=`) | any member | 200 page of comments, oldest first |
+| `POST` with `{"body": "..."}` | `OWNER`, `MEMBER` | 201 with the comment and its `Location` |
+| `GET /{commentId}` | any member | 200 with the comment |
+| `PUT /{commentId}` with `{"body": "..."}` | the author | 200 with the edited comment |
+| `DELETE /{commentId}` | the author, or an `OWNER` | 204 |
+
+A comment holds `id`, `taskId`, `authorId`, `body`, `createdAt`, and
+`updatedAt`. The body is plain text of 1 to 10000 characters, stored exactly as
+sent and never rendered. The author and creation time never change; owners
+moderate by deleting, never by editing someone else's words. An author who is
+demoted to `VIEWER` or leaves can no longer edit or delete their comments,
+which stay visible. Deleting hides a comment from every endpoint (404) but
+keeps it in the database for audit; deleted comments cannot be read through the
+API. Archived projects (409) and archived tasks (404) are read-only, and their
+comments stay readable.
 
 Business endpoints require login. Sessions expire after 30 minutes of inactivity
 or 12 hours total. They are stored in Redis, so they survive API restarts and
