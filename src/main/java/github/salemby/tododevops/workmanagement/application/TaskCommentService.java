@@ -88,6 +88,9 @@ public class TaskCommentService {
     @Transactional
     public void delete(@NotNull CurrentAccount account, Long projectId, Long taskId, Long commentId) {
         var granted = access.lock(projectId, account, ProjectPermission.PROJECT_READ);
+        // A role that can never delete gets 403 before any state check, like POST and PUT.
+        if (!granted.role().allows(ProjectPermission.COMMENT_WRITE) && !granted.role().allows(ProjectPermission.COMMENT_MODERATE))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ProjectAccess.FORBIDDEN);
         if (!granted.project().isActive()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Project is archived");
         requireActiveTask(projectId, taskId);
         TaskComment comment = requireComment(taskId, commentId);
