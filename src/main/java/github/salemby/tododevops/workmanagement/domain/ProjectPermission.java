@@ -11,5 +11,9 @@ public enum ProjectPermission {
     /** Update or archive the project. */
     PROJECT_MANAGE,
     /** Add members, change roles, and remove other members. */
-    MEMBERS_MANAGE
+    MEMBERS_MANAGE,
+    /** Post task comments, and edit or delete your own. */
+    COMMENT_WRITE,
+    /** Delete anyone's task comment. */
+    COMMENT_MODERATE
 }
