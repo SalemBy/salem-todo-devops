@@ -15,6 +15,7 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static github.salemby.tododevops.support.AuthClient.PASSWORD;
@@ -29,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ContextConfiguration(initializers = IsolatedPostgresSchema.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @TestPropertySource(properties = {"app.rate-limit.login-per-address.max=3", "app.rate-limit.register-per-address.max=2",
-    "app.rate-limit.sessions-per-address.max=2"})
+    "app.rate-limit.sessions-per-address.max=2", "app.rate-limit.password-change-per-address.max=2"})
 class PostgresAuthAddressLimitIT {
     @Autowired JdbcTemplate jdbc;
     @Value("${local.server.port}") int port;
@@ -67,6 +68,28 @@ class PostgresAuthAddressLimitIT {
         assertEquals(429, throttled.statusCode());
         assertTrue(throttled.headers().firstValue("Retry-After").isPresent());
         assertTrue(throttled.body().contains("\"detail\":\"Too many requests. Try again later.\""), throttled.body());
+    }
+
+    @Test
+    void passwordChangeAddressLimitHoldsAcrossLogins() throws Exception {
+        // A fresh login gets a fresh per-login count; the address count caps the hashes anyway.
+        var client = new AuthClient(port);
+        assertEquals(200, client.csrf().statusCode());
+        String email = email();
+        assertEquals(201, client.register(email).statusCode());
+        assertEquals(200, client.login(email, PASSWORD).statusCode());
+        client.csrf();
+        for (int i = 0; i < 2; i++) assertEquals(400, changePassword(client).statusCode());
+        assertEquals(200, client.login(email, PASSWORD).statusCode());
+        client.csrf();
+        var throttled = changePassword(client);
+        assertEquals(429, throttled.statusCode());
+        assertTrue(throttled.headers().firstValue("Retry-After").isPresent());
+        assertTrue(throttled.body().contains("\"detail\":\"Too many requests. Try again later.\""), throttled.body());
+    }
+
+    private static java.net.http.HttpResponse<String> changePassword(AuthClient client) throws Exception {
+        return client.call("POST", "/auth/password", Map.of("currentPassword", "A wrong current password", "newPassword", "A replacement test passphrase!"));
     }
 
     @Test

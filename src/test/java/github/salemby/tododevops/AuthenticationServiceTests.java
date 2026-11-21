@@ -1,7 +1,9 @@
 package github.salemby.tododevops;
 
+import github.salemby.tododevops.identity.application.AccountPrincipal;
 import github.salemby.tododevops.identity.application.AuthenticationService;
 import github.salemby.tododevops.identity.application.dto.LoginRequest;
+import github.salemby.tododevops.identity.application.dto.PasswordChangeRequest;
 import github.salemby.tododevops.identity.domain.Account;
 import github.salemby.tododevops.identity.infrastructure.persistence.AccountRepository;
 import github.salemby.tododevops.identity.infrastructure.ratelimit.RateLimitProperties;
@@ -17,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.ErrorResponseException;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,6 +35,9 @@ class AuthenticationServiceTests {
     private final PasswordEncoder passwords = mock(PasswordEncoder.class);
     private final RedisRateLimiter limiter = mock(RedisRateLimiter.class);
     private final Limit perEmail = new Limit(5, Duration.ofMinutes(15));
+    private final Limit perLogin = new Limit(5, Duration.ofMinutes(15));
+    private static final Instant LOGIN_AT = Instant.parse("2026-11-20T10:00:00Z");
+    private static final PasswordChangeRequest CHANGE = new PasswordChangeRequest("guess", "A new test only passphrase!");
     private final AuthenticationService service = service();
 
     @Test
@@ -91,9 +97,43 @@ class AuthenticationServiceTests {
         assertNotNull(service.authenticate(new LoginRequest(EMAIL, "right")));
     }
 
+    @Test
+    void throttledPasswordChangeNeverHashesOrReadsTheAccount() {
+        when(limiter.hit("password:7:" + LOGIN_AT, perLogin)).thenReturn(Optional.of(Duration.ofSeconds(7)));
+        clearInvocations(passwords);
+        var result = assertThrows(ErrorResponseException.class,
+            () -> service.changePassword(new AccountPrincipal(7L, 1, LOGIN_AT), CHANGE));
+        assertEquals(429, result.getStatusCode().value());
+        assertEquals("7", result.getHeaders().getFirst("Retry-After"));
+        assertEquals("Too many requests. Try again later.", result.getBody().getDetail());
+        verifyNoInteractions(passwords, accounts);
+    }
+
+    @Test
+    void passwordChangeRedisFailureFailsClosedWithoutHashing() {
+        when(limiter.hit(any(), any())).thenThrow(new RedisConnectionFailureException("down"));
+        clearInvocations(passwords);
+        var result = assertThrows(ErrorResponseException.class,
+            () -> service.changePassword(new AccountPrincipal(7L, 1, LOGIN_AT), CHANGE));
+        assertEquals(503, result.getStatusCode().value());
+        assertEquals("Authentication is temporarily unavailable.", result.getBody().getDetail());
+        verifyNoInteractions(passwords, accounts);
+    }
+
+    @Test
+    void passwordChangeIsCountedPerLogin() {
+        // Per login, not per account: a stolen session must not use up the owner's attempts.
+        when(limiter.hit(any(), any())).thenReturn(Optional.of(Duration.ofSeconds(1)));
+        Instant later = LOGIN_AT.plusSeconds(60);
+        assertThrows(ErrorResponseException.class, () -> service.changePassword(new AccountPrincipal(7L, 1, LOGIN_AT), CHANGE));
+        assertThrows(ErrorResponseException.class, () -> service.changePassword(new AccountPrincipal(7L, 1, later), CHANGE));
+        verify(limiter).hit("password:7:" + LOGIN_AT, perLogin);
+        verify(limiter).hit("password:7:" + later, perLogin);
+    }
+
     private AuthenticationService service() {
         when(passwords.encode(any())).thenReturn("dummy");
-        var limits = new RateLimitProperties("rl:", perEmail, perEmail, perEmail, perEmail);
+        var limits = new RateLimitProperties("rl:", perEmail, perEmail, perEmail, perEmail, perLogin, perLogin);
         return new AuthenticationService(accounts, passwords, null, limiter, limits);
     }
 }
