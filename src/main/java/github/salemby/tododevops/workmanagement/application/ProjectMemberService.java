@@ -2,6 +2,7 @@ package github.salemby.tododevops.workmanagement.application;
 
 import github.salemby.tododevops.identity.application.AccountDirectory;
 import github.salemby.tododevops.identity.application.dto.AccountSummary;
+import github.salemby.tododevops.shared.persistence.Timestamps;
 import github.salemby.tododevops.shared.security.CurrentAccount;
 import github.salemby.tododevops.workmanagement.application.dto.request.AddMemberRequest;
 import github.salemby.tododevops.workmanagement.application.dto.request.ChangeMemberRoleRequest;
@@ -22,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -89,7 +89,7 @@ public class ProjectMemberService {
         if (membership.getRole() != request.role()) {
             if (membership.getRole() == ProjectRole.OWNER) requireAnotherActiveOwner(projectId, accountId);
             // Only roles that may write tasks can hold one (#10).
-            if (!request.role().allows(ProjectPermission.TASK_WRITE)) tasks.clearAssignee(projectId, accountId, Instant.now());
+            if (!request.role().allows(ProjectPermission.TASK_WRITE)) tasks.clearAssignee(projectId, accountId, Timestamps.now());
             membership.changeRole(request.role());
             membership = memberships.saveAndFlush(membership);
         }
@@ -104,7 +104,7 @@ public class ProjectMemberService {
         access.lock(projectId, account, leaving ? ProjectPermission.PROJECT_READ : ProjectPermission.MEMBERS_MANAGE);
         var membership = requireMembership(projectId, accountId);
         if (membership.getRole() == ProjectRole.OWNER) requireAnotherActiveOwner(projectId, accountId);
-        tasks.clearAssignee(projectId, accountId, Instant.now()); // the assignee FK refuses the delete otherwise (#10)
+        tasks.clearAssignee(projectId, accountId, Timestamps.now()); // the assignee FK refuses the delete otherwise (#10)
         memberships.delete(membership);
         memberships.flush();
     }
