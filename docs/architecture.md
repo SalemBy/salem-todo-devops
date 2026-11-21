@@ -3,6 +3,7 @@
 Salem Todo DevOps is one deployable Spring Boot application with one PostgreSQL database.
 Redis holds short-lived shared state owned by the `identity` module: HTTP sessions (Spring Session)
 and the authentication rate-limit counters. The application keeps no session state in memory.
+Spring Boot Actuator runs on a separate local management port; the public API exposes no actuator endpoints.
 The `workmanagement` module owns projects, tasks and their tables.
 The `identity` module owns accounts, validation, password hashing, and session
 authentication. Its API exposes registration, login, current account, logout, and
