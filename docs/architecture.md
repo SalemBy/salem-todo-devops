@@ -30,6 +30,7 @@ Projects and tasks are separate entities within this module; each task has one i
 - `workmanagement.domain`: Project, ProjectMembership, Task and their enums; JPA mappings are kept here intentionally. No HTTP or Spring dependencies.
 - `workmanagement.infrastructure.persistence`: Spring Data repositories, queried by application services.
 - `shared`: common validation, configuration, error handling and application status endpoint. It cannot depend on workmanagement.
+- `administration`: system administration (`/admin`) that spans both modules, such as deactivating an account and clearing its assignments in one transaction. It uses only identity's and workmanagement's application services and DTOs, and nothing depends on it. Identity's security filter hides its routes from non-administrators.
 
 This is a pragmatic layered module. Application services currently use Spring Data repositories directly; repository ports can be introduced when alternate persistence or more complex domain behavior justifies them.
 Future modules must use the application services and DTOs of workmanagement rather than accessing its repositories or entities. Do not add placeholder identity or permission modules before implementing those features.

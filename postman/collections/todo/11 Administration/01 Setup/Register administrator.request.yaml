@@ -1,0 +1,17 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/auth/register'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{adminEmail}}","displayName":"Postman administrator","password":"{{adminPassword}}"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Administrator account exists', () => {
+        // 409: registered by an earlier run against this database.
+        pm.expect(pm.response.code).to.be.oneOf([201, 409]);
+      });

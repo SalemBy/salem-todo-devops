@@ -1,0 +1,23 @@
+$kind: http-request
+order: 2000
+method: POST
+url: '{{baseUrl}}/auth/register'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{targetEmail}}","displayName":"Postman target","password":"{{targetPassword}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Run-local disposable credentials; never stored in collection files.
+      pm.variables.set('targetEmail', pm.variables.replaceIn('{{$randomUUID}}') + '@example.com');
+      pm.variables.set('targetPassword', pm.variables.replaceIn('{{$randomUUID}}'));
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Target account is registered', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('adminTargetId', String(pm.response.json().id));
+      });

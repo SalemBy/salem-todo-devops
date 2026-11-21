@@ -1,0 +1,16 @@
+$kind: http-request
+order: 3000
+method: POST
+url: '{{baseUrl}}/admin/projects/{{adminProjectId}}/owners'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"accountId":"{{adminTargetId}}"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Account ID must be a JSON integer', () => {
+        pm.response.to.have.status(400);
+      });

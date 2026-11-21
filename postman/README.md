@@ -84,9 +84,13 @@ Salem Todo DevOps
 │   ├── 01 Setup
 │   ├── 02 Assign
 │   └── 03 Exceptions
-└── 10 Task comments
+├── 10 Task comments
+│   ├── 01 Setup
+│   ├── 02 Comments
+│   └── 03 Exceptions
+└── 11 Administration
     ├── 01 Setup
-    ├── 02 Comments
+    ├── 02 Deactivate and recover
     └── 03 Exceptions
 ```
 
@@ -105,6 +109,15 @@ posts, lists, reads, edits and deletes a comment, then checks a blank body
 (400), a body over 10000 characters (400), a deleted comment (404) and an
 archived project (409). The multi-user rules (authors, moderation, viewers)
 are covered by the integration tests.
+
+**Administration** needs the server to list `postman-admin@example.com` (the
+`adminEmail` variable) in `ADMIN_EMAILS`; `.env.example` has the line. The first
+run registers that account with the local-only `adminPassword`; later runs reuse
+it. A disposable target account creates a project, the administrator deactivates
+it (its login then fails), gives the ownerless project an owner and reactivates
+it. The exceptions check an unknown account (404), a project that still has an
+owner (409), a string account ID (400) and, logged in as the target, the hidden
+routes (the unknown-route 404). It then logs back in as the original account.
 
 **Projects**, **Tasks** and **Validation** each have their own setup and can run
 independently. The task scenario creates two projects to verify that ownership
