@@ -1,0 +1,12 @@
+$kind: http-request
+order: 3000
+method: GET
+url: '{{baseUrl}}/projects/{{commentProjectId}}/tasks/{{commentTaskId}}/comments/{{commentId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('The comment is read', () => {
+        pm.response.to.have.status(200);
+        pm.expect(String(pm.response.json().id)).to.eql(pm.collectionVariables.get('commentId'));
+      });

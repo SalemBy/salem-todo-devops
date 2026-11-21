@@ -1,0 +1,7 @@
+$kind: collection
+name: 10 Task comments
+order: 10000
+description: |-
+  Task comments (issue #11). Runs with the current login and creates its own project and task.
+  Comments are plain text of 1 to 10000 characters; the author edits, the author or an owner deletes,
+  and deleted comments are hidden from every endpoint.

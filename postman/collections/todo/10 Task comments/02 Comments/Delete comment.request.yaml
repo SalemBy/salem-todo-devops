@@ -1,0 +1,11 @@
+$kind: http-request
+order: 5000
+method: DELETE
+url: '{{baseUrl}}/projects/{{commentProjectId}}/tasks/{{commentTaskId}}/comments/{{commentId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('The comment is deleted', () => {
+        pm.response.to.have.status(204);
+      });

@@ -1,0 +1,12 @@
+$kind: http-request
+order: 6000
+method: GET
+url: '{{baseUrl}}/projects/{{commentProjectId}}/tasks/{{commentTaskId}}/comments'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Deleted comments are not listed', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().totalElements).to.eql(0);
+      });

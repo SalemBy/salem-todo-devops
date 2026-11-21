@@ -1,0 +1,15 @@
+$kind: http-request
+order: 3000
+method: GET
+url: '{{baseUrl}}/projects/{{commentProjectId}}/tasks/{{commentTaskId}}/comments/{{commentId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Deleted comments cannot be read', () => {
+        pm.response.to.have.status(404);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+        const problem = pm.response.json();
+        pm.expect(problem.type).to.eql('urn:projetotodo:problem:404');
+        pm.expect(problem.detail).to.eql('Comment not found');
+      });

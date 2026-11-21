@@ -1,0 +1,20 @@
+$kind: http-request
+order: 4000
+method: PUT
+url: '{{baseUrl}}/projects/{{commentProjectId}}/tasks/{{commentTaskId}}/comments/{{commentId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"body":"Split into two tasks."}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('The author edits the comment', () => {
+        pm.response.to.have.status(200);
+        const comment = pm.response.json();
+        pm.expect(comment.body).to.eql('Split into two tasks.');
+        pm.expect(String(comment.authorId)).to.eql(pm.collectionVariables.get('commentAuthorId'));
+        pm.expect(comment.createdAt).to.eql(pm.collectionVariables.get('commentCreatedAt'));
+      });

@@ -1,0 +1,23 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects/{{commentProjectId}}/tasks/{{commentTaskId}}/comments'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"body":"Let us split this task. <b>Plain text</b> stays as written."}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Comment is posted by the caller', () => {
+        pm.response.to.have.status(201);
+        const comment = pm.response.json();
+        pm.expect(comment.body).to.eql('Let us split this task. <b>Plain text</b> stays as written.');
+        pm.expect(String(comment.taskId)).to.eql(pm.collectionVariables.get('commentTaskId'));
+        pm.expect(String(comment.authorId)).to.eql(pm.collectionVariables.get('commentAuthorId'));
+        pm.expect(pm.response.headers.get('Location')).to.match(new RegExp('/comments/' + comment.id + '$'));
+        pm.collectionVariables.set('commentId', String(comment.id));
+        pm.collectionVariables.set('commentCreatedAt', comment.createdAt);
+      });

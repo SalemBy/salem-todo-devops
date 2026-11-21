@@ -11,7 +11,7 @@ import static github.salemby.tododevops.workmanagement.domain.ProjectPermission.
  */
 public enum ProjectRole {
     OWNER(EnumSet.allOf(ProjectPermission.class)),
-    MEMBER(EnumSet.of(PROJECT_READ, TASK_WRITE, LABEL_WRITE)),
+    MEMBER(EnumSet.of(PROJECT_READ, TASK_WRITE, LABEL_WRITE, COMMENT_WRITE)),
     VIEWER(EnumSet.of(PROJECT_READ));
 
     private final Set<ProjectPermission> permissions;

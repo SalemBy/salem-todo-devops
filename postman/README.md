@@ -80,9 +80,13 @@ Salem Todo DevOps
 │   ├── 02 Manage members
 │   ├── 03 Exceptions
 │   └── 04 Access as member
-└── 09 Task assignment
+├── 09 Task assignment
+│   ├── 01 Setup
+│   ├── 02 Assign
+│   └── 03 Exceptions
+└── 10 Task comments
     ├── 01 Setup
-    ├── 02 Assign
+    ├── 02 Comments
     └── 03 Exceptions
 ```
 
@@ -95,6 +99,12 @@ and leaving the project, then logs back in as the original account.
 adds that second account to a new project as `MEMBER`, assigns, filters by
 assignee and unassigns a task, then checks a missing account ID (400), a viewer
 assignee (422) and an archived project (409).
+
+**Task comments** has its own setup and runs with the current login only. It
+posts, lists, reads, edits and deletes a comment, then checks a blank body
+(400), a body over 10000 characters (400), a deleted comment (404) and an
+archived project (409). The multi-user rules (authors, moderation, viewers)
+are covered by the integration tests.
 
 **Projects**, **Tasks** and **Validation** each have their own setup and can run
 independently. The task scenario creates two projects to verify that ownership

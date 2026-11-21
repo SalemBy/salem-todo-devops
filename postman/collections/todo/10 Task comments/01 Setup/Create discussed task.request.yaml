@@ -1,0 +1,17 @@
+$kind: http-request
+order: 2000
+method: POST
+url: '{{baseUrl}}/projects/{{commentProjectId}}/tasks'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Discussed task"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Task is created', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('commentTaskId', String(pm.response.json().id));
+      });
