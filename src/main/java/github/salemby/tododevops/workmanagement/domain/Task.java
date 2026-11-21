@@ -58,6 +58,18 @@ public class Task {
         inverseJoinColumns = @JoinColumn(name = "label_id"))
     private java.util.Set<Label> labels = new java.util.HashSet<>();
 
+    /** A project member who may write tasks; the database keeps it within the project's members. */
+    @Column(name = "assignee_account_id")
+    private Long assigneeAccountId;
+
+    public void assign(Long accountId) {
+        assigneeAccountId = java.util.Objects.requireNonNull(accountId);
+    }
+
+    public void unassign() {
+        assigneeAccountId = null;
+    }
+
     public void replaceLabels(java.util.Collection<Label> replacement) {
         labels.clear();
         labels.addAll(replacement);

@@ -1,0 +1,15 @@
+$kind: http-request
+order: 2000
+method: GET
+url: '{{baseUrl}}/projects/{{assignmentProjectId}}/tasks?assigneeId={{assignmentMemberId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Only the assignee tasks are listed', () => {
+        pm.response.to.have.status(200);
+        const page = pm.response.json();
+        pm.expect(page.totalElements).to.eql(1);
+        pm.expect(String(page.items[0].id)).to.eql(pm.collectionVariables.get('assignmentTaskId'));
+        pm.expect(String(page.items[0].assigneeId)).to.eql(pm.collectionVariables.get('assignmentMemberId'));
+      });

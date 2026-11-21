@@ -75,17 +75,26 @@ Salem Todo DevOps
 ├── 05 Task metadata
 ├── 06 Labels
 ├── 07 Task filters
-└── 08 Memberships
+├── 08 Memberships
+│   ├── 01 Setup
+│   ├── 02 Manage members
+│   ├── 03 Exceptions
+│   └── 04 Access as member
+└── 09 Task assignment
     ├── 01 Setup
-    ├── 02 Manage members
-    ├── 03 Exceptions
-    └── 04 Access as member
+    ├── 02 Assign
+    └── 03 Exceptions
 ```
 
 **Memberships** registers a second disposable account (registering does not change
 the current login), adds it to a project, and checks the owner-only and last-owner
 rules. Its last subfolder logs in as that account to verify 403 and 404 responses
 and leaving the project, then logs back in as the original account.
+
+**Task assignment** must run in the same collection run after **Memberships**: it
+adds that second account to a new project as `MEMBER`, assigns, filters by
+assignee and unassigns a task, then checks a missing account ID (400), a viewer
+assignee (422) and an archived project (409).
 
 **Projects**, **Tasks** and **Validation** each have their own setup and can run
 independently. The task scenario creates two projects to verify that ownership

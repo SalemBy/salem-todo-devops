@@ -1,0 +1,23 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Assignment checks","key":"{{assignmentKey}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('assignmentKey', 'A' + pm.variables.replaceIn('{{$randomUUID}}').replace(/-/g, '').slice(0, 8).toUpperCase());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Assignment project is created', () => {
+        pm.response.to.have.status(201);
+        const project = pm.response.json();
+        pm.collectionVariables.set('assignmentProjectId', String(project.id));
+        pm.collectionVariables.set('assignmentOwnerId', String(project.createdByAccountId));
+      });

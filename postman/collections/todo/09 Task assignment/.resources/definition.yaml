@@ -1,0 +1,7 @@
+$kind: collection
+name: 09 Task assignment
+order: 9000
+description: |-
+  Task assignment (issue #10). Run after 08 Memberships, which registers the second account.
+  Setup creates a project, adds that account as MEMBER and creates a task. The assignee must be
+  an active OWNER or MEMBER of the project; assignment never grants access.

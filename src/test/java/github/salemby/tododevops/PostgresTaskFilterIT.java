@@ -71,6 +71,50 @@ class PostgresTaskFilterIT {
         assertEquals(2, call("GET", base + "/tasks" + query + "&active=all", null, 200).get("totalElements").asInt());
     }
 
+    @Test void filtersByAssignee() throws Exception {
+        long p = project();
+        String base = "/projects/" + p;
+        URI server = URI.create("http://127.0.0.1:" + environment.getProperty("local.server.port"));
+        long me = TestHttp.accountId(server);
+        var colleague = TestHttp.newSession(server);
+        call("POST", base + "/members", "{\"email\":\"" + colleague.email() + "\",\"role\":\"MEMBER\"}", 201);
+        long mine = task(p).get("id").asLong(), theirs = task(p).get("id").asLong(), nobodys = task(p).get("id").asLong();
+        long mineToo = task(p).get("id").asLong();
+        call("PUT", base + "/tasks/" + mine + "/assignee", "{\"accountId\":" + me + "}", 200);
+        call("PUT", base + "/tasks/" + mineToo + "/assignee", "{\"accountId\":" + me + "}", 200);
+        call("PUT", base + "/tasks/" + theirs + "/assignee", "{\"accountId\":" + colleague.accountId() + "}", 200);
+
+        assertEquals(List.of(mine, mineToo), ids(call("GET", base + "/tasks?assigneeId=" + me, null, 200)));
+        assertEquals(List.of(theirs), ids(call("GET", base + "/tasks?assigneeId=" + colleague.accountId(), null, 200)));
+        assertEquals(List.of(nobodys), ids(call("GET", base + "/tasks?assigneeId=none", null, 200)));
+        var page = call("GET", base + "/tasks?assigneeId=" + me + "&status=PENDING&size=1&page=1", null, 200);
+        assertEquals(2, page.get("totalElements").asInt());
+        assertEquals(List.of(mineToo), ids(page));
+        call("PUT", base + "/tasks/" + mine, "{\"title\":\"Done\",\"status\":\"COMPLETED\"}", 200);
+        assertEquals(List.of(mineToo), ids(call("GET", base + "/tasks?assigneeId=" + me + "&status=PENDING", null, 200)));
+    }
+
+    @Test void assigneeFilterRejectsInvalidValues() throws Exception {
+        String path = "/projects/" + project() + "/tasks?assigneeId=";
+        for (String invalid : List.of("0", "-1", "abc", "NONE", "1.5", "99999999999999999999", ""))
+            assertEquals("assigneeId must be a positive integer or none", call("GET", path + invalid, null, 400).get("detail").stringValue(), invalid);
+    }
+
+    @Test void assigneeFilterForAnOutsiderIsEmpty() throws Exception {
+        long p = project();
+        task(p);
+        URI server = URI.create("http://127.0.0.1:" + environment.getProperty("local.server.port"));
+        long outsider = TestHttp.newSession(server).accountId();
+        assertEquals(0, call("GET", "/projects/" + p + "/tasks?assigneeId=" + outsider, null, 200).get("totalElements").asInt());
+        assertEquals(0, call("GET", "/projects/" + p + "/tasks?assigneeId=9223372036854775807", null, 200).get("totalElements").asInt());
+    }
+
+    static List<Long> ids(JsonNode page) {
+        var ids = new ArrayList<Long>();
+        for (JsonNode item : page.get("items")) ids.add(item.get("id").asLong());
+        return ids;
+    }
+
     @Test void rejectsMalformedFiltersAndReversedRanges() throws Exception {
         String path = "/projects/" + project() + "/tasks?";
         for (String query : List.of("status=", "status=pending", "status=0", "type=OTHER", "priority=urgent",

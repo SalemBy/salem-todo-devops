@@ -7,23 +7,29 @@ import java.time.LocalDate;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+/** {@code unassigned} selects tasks with no assignee; {@code assigneeId} selects one account's tasks. */
 public record TaskFilters(TaskStatus status, TaskType type, TaskPriority priority,
-        Long labelId, LocalDate dueFrom, LocalDate dueTo) {
+        Long labelId, LocalDate dueFrom, LocalDate dueTo, Long assigneeId, boolean unassigned) {
     public static TaskFilters parse(String status, String type, String priority,
-            String labelId, String dueFrom, String dueTo) {
-        Long label = null;
-        if (labelId != null) {
-            try {
-                if (!labelId.matches("[0-9]+")) throw new IllegalArgumentException();
-                label = Long.valueOf(labelId);
-                if (label <= 0) throw new IllegalArgumentException();
-            } catch (IllegalArgumentException ex) { throw invalid("labelId must be a positive integer"); }
-        }
+            String labelId, String dueFrom, String dueTo, String assigneeId) {
+        Long label = labelId == null ? null : positiveId(labelId, "labelId must be a positive integer");
+        boolean unassigned = "none".equals(assigneeId);
+        Long assignee = assigneeId == null || unassigned ? null
+            : positiveId(assigneeId, "assigneeId must be a positive integer or none");
         var from = date("dueFrom", dueFrom);
         var to = date("dueTo", dueTo);
         if (from != null && to != null && from.isAfter(to)) throw invalid("dueFrom must not be after dueTo");
         return new TaskFilters(enumeration(TaskStatus.class, status), enumeration(TaskType.class, type),
-            enumeration(TaskPriority.class, priority), label, from, to);
+            enumeration(TaskPriority.class, priority), label, from, to, assignee, unassigned);
+    }
+
+    private static Long positiveId(String value, String detail) {
+        try {
+            if (!value.matches("[0-9]+")) throw new IllegalArgumentException();
+            long id = Long.parseLong(value);
+            if (id <= 0) throw new IllegalArgumentException();
+            return id;
+        } catch (IllegalArgumentException ex) { throw invalid(detail); }
     }
 
     private static <T extends Enum<T>> T enumeration(Class<T> type, String value) {

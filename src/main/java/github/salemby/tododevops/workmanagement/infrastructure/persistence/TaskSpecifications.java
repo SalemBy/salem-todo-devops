@@ -18,6 +18,8 @@ public final class TaskSpecifications {
             if (filters.type() != null) predicates.add(cb.equal(root.get("type"), filters.type()));
             if (filters.priority() != null) predicates.add(cb.equal(root.get("priority"), filters.priority()));
             if (filters.dueFrom() != null) predicates.add(cb.greaterThanOrEqualTo(root.get("dueDate"), filters.dueFrom()));
+            if (filters.assigneeId() != null) predicates.add(cb.equal(root.get("assigneeAccountId"), filters.assigneeId()));
+            if (filters.unassigned()) predicates.add(cb.isNull(root.get("assigneeAccountId")));
             if (filters.dueTo() != null) predicates.add(cb.lessThanOrEqualTo(root.get("dueDate"), filters.dueTo()));
             // A single label ID yields at most one association per task, so counts remain exact.
             if (filters.labelId() != null) predicates.add(cb.equal(root.join("labels").get("id"), filters.labelId()));

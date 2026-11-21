@@ -1,0 +1,11 @@
+$kind: http-request
+order: 3000
+method: DELETE
+url: '{{baseUrl}}/projects/{{assignmentProjectId}}/tasks/{{assignmentTaskId}}/assignee'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Task is unassigned', () => {
+        pm.response.to.have.status(204);
+      });

@@ -1,0 +1,11 @@
+$kind: http-request
+order: 4000
+method: DELETE
+url: '{{baseUrl}}/projects/{{assignmentProjectId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Project is archived', () => {
+        pm.response.to.have.status(204);
+      });

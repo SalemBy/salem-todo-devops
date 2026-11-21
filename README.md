@@ -98,7 +98,7 @@ manual sends, collection runs, and environment setup.
 | --- | --- | --- |
 | Accounts | `/auth` | Register, log in, read current account, log out, change password |
 | Projects | `/projects` | Create, list, read, update, archive |
-| Tasks | `/projects/{projectId}/tasks` | Manage tasks, filter results, browse pages |
+| Tasks | `/projects/{projectId}/tasks` | Manage tasks, assign them, filter results, browse pages |
 | Labels | `/projects/{projectId}/labels` | Manage project labels and associate them with tasks |
 | Members | `/projects/{projectId}/members` | List members, add by email, change roles, remove members, leave |
 
@@ -124,6 +124,22 @@ Owners add existing accounts by email, change roles, and remove members. Any
 member can leave a project by removing their own membership. A project always
 keeps at least one active owner, so removing, demoting, or leaving as the last
 owner returns 409. Adding an unknown or disabled email returns 422.
+
+A task can have one assignee, an active `OWNER` or `MEMBER` of its project.
+Assignment records responsibility only; it never grants access.
+
+| Request | Result |
+| --- | --- |
+| `PUT /projects/{projectId}/tasks/{id}/assignee` with `{"accountId": 42}` | 200 with the task; `assigneeId` is set |
+| `DELETE /projects/{projectId}/tasks/{id}/assignee` | 204; also when the task has no assignee |
+| `GET /projects/{projectId}/tasks?assigneeId=42` | that account's tasks; `assigneeId=none` lists unassigned tasks |
+
+Assigning needs the same role as editing tasks. Assigning a viewer, a
+non-member, or an unknown or disabled account returns 422. Every task response
+includes `assigneeId` (null when unassigned). Removing a member, a member
+leaving, or demoting one to `VIEWER` clears their assignments in that project.
+Archived tasks keep their assignee as history until that person loses edit
+rights in the project.
 
 Business endpoints require login. Sessions expire after 30 minutes of inactivity
 or 12 hours total. They are stored in Redis, so they survive API restarts and
