@@ -86,7 +86,8 @@ class PostgresEmailVerificationIT {
         jdbc.update("UPDATE accounts SET verification_token_expires_at = now() - interval '1 second' WHERE email = ?", email);
         assertDetail(verify(c, CapturedVerificationMail.sentTo(email).get(0)), 400, INVALID);
         assertDetail(verify(c, "nope"), 400, INVALID);
-        for (Object body : List.of(Map.of("token", ""), Map.of(), Map.of("token", 5), Map.of("token", "x".repeat(101))))
+        for (Object body : List.of(Map.of("token", "", "password", PASSWORD), Map.of(), Map.of("token", 5, "password", PASSWORD),
+                Map.of("token", "x".repeat(101), "password", PASSWORD), Map.of("token", "abc")))
             assertEquals(400, c.call("POST", "/auth/verify", body).statusCode(), String.valueOf(body));
         assertEquals(401, c.login(email, PASSWORD).statusCode(), "still unverified");
     }
@@ -162,7 +163,7 @@ class PostgresEmailVerificationIT {
         var sent = CapturedVerificationMail.sentTo(email);
         assertEquals(2, sent.size());
         assertDetail(verify(c, sent.get(0)), 400, INVALID);
-        assertEquals(204, verify(c, sent.get(1)).statusCode());
+        assertEquals(204, verify(c, sent.get(1), second).statusCode());
         assertEquals(401, c.login(email, PASSWORD).statusCode(), "the replaced password no longer works");
         var login = c.login(email, second);
         assertEquals(200, login.statusCode(), login.body());
@@ -202,6 +203,44 @@ class PostgresEmailVerificationIT {
         assertEquals(201, c.register(stale).statusCode(), "the email is free again");
     }
 
+    @Test
+    void verificationNeedsTheRegistrationPassword() throws Exception {
+        var c = client();
+        String email = unverifiedEmail();
+        c.register(email);
+        String token = CapturedVerificationMail.sentTo(email).get(0);
+        assertDetail(verify(c, token, "Somebody else's passphrase"), 400, INVALID);
+        assertEquals(401, c.login(email, PASSWORD).statusCode(), "a wrong password verifies nothing");
+        assertEquals(204, verify(c, token).statusCode(), "the token still works with the right password");
+    }
+
+    @Test
+    void aReplacedRegistrationCannotBeHijacked() throws Exception {
+        // The owner registers, an attacker re-registers the pending email with their own password, and the owner
+        // clicks the newest email: the account must not become the attacker's.
+        var c = client();
+        String email = unverifiedEmail(), attackers = "The attacker's own passphrase";
+        assertEquals(201, c.register(email).statusCode());
+        assertEquals(201, c.call("POST", "/auth/register", Map.of("email", email, "displayName", "Attacker",
+            "password", attackers)).statusCode());
+        var newest = CapturedVerificationMail.sentTo(email).get(1);
+        assertDetail(verify(c, newest, PASSWORD), 400, INVALID);
+        assertEquals(401, c.login(email, attackers).statusCode(), "the attacker cannot log in");
+
+        assertEquals(201, c.register(email).statusCode(), "the owner registers again");
+        assertEquals(204, verify(c, CapturedVerificationMail.sentTo(email).get(2)).statusCode());
+        assertEquals(200, c.login(email, PASSWORD).statusCode());
+        c.csrf(); // login rotates the token
+        assertEquals(401, c.login(email, attackers).statusCode());
+    }
+
+    @Test
+    void smtpCallsTimeOut(@Autowired org.springframework.mail.javamail.JavaMailSenderImpl sender) {
+        var properties = sender.getJavaMailProperties();
+        for (String key : List.of("mail.smtp.connectiontimeout", "mail.smtp.timeout", "mail.smtp.writetimeout"))
+            assertEquals("5000", properties.getProperty(key), key);
+    }
+
     // --- fixtures -------------------------------------------------------------------------------
 
     static HttpResponse<String> sendAgain(AuthClient c, String email) throws Exception {
@@ -225,8 +264,13 @@ class PostgresEmailVerificationIT {
         return "v-" + UUID.randomUUID() + CapturedVerificationMail.UNVERIFIED_DOMAIN;
     }
 
+    /** Verifies with the password AuthClient registers with. */
     static HttpResponse<String> verify(AuthClient c, String token) throws Exception {
-        return c.call("POST", "/auth/verify", Map.of("token", token));
+        return verify(c, token, PASSWORD);
+    }
+
+    static HttpResponse<String> verify(AuthClient c, String token, String password) throws Exception {
+        return c.call("POST", "/auth/verify", Map.of("token", token, "password", password));
     }
 
     private void assertDetail(HttpResponse<String> response, int status, String detail) throws Exception {

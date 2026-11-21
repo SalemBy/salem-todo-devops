@@ -54,7 +54,7 @@ public class AuthenticationController {
     @PostMapping("/verify")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void verify(@Valid @RequestBody github.salemby.tododevops.identity.application.dto.VerifyEmailRequest request) {
-        verification.verify(request.token());
+        verification.verify(request.token(), request.password());
     }
 
     /** Always 202 with no body, whether or not the email has a pending account (#71). */

@@ -7,20 +7,25 @@ import java.util.Optional;
 public interface AccountRepository extends JpaRepository<Account, Long> {
     Optional<Account> findByEmail(String normalizedEmail);
 
+    Optional<Account> findByVerificationTokenHash(String hash);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @org.springframework.data.jpa.repository.Query("select a from Account a where a.email = :email")
     Optional<Account> findLockedByEmail(@org.springframework.data.repository.query.Param("email") String normalizedEmail);
 
     /**
-     * Marks the account with this unexpired token verified and clears the token, in one UPDATE:
-     * of two concurrent uses only one matches. Returns how many accounts changed (0 or 1).
+     * Marks the account with this unexpired token and this password hash verified and clears the token, in one
+     * UPDATE: of two concurrent uses only one matches, and a registration replaced meanwhile matches neither.
+     * Returns how many accounts changed (0 or 1).
      */
     @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
     @org.springframework.data.jpa.repository.Query("""
         update Account a set a.emailVerifiedAt = :now, a.verificationTokenHash = null,
             a.verificationTokenExpiresAt = null, a.updatedAt = :now, a.version = a.version + 1
-        where a.verificationTokenHash = :hash and a.verificationTokenExpiresAt > :now""")
+        where a.verificationTokenHash = :hash and a.passwordHash = :passwordHash
+            and a.verificationTokenExpiresAt > :now""")
     int verify(@org.springframework.data.repository.query.Param("hash") String hash,
+               @org.springframework.data.repository.query.Param("passwordHash") String passwordHash,
                @org.springframework.data.repository.query.Param("now") java.time.Instant now);
 
     /** Deletes registrations that were never verified and have not changed since the cutoff. */

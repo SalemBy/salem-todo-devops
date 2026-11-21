@@ -25,11 +25,12 @@ public class EmailVerificationService {
     private final Throttle throttle;
     private final RateLimitProperties limits;
     private final java.time.Duration retention;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwords;
 
     public EmailVerificationService(AccountRepository accounts, VerificationTokens tokens, VerificationMailer mailer,
             TransactionOperations transactions, Throttle throttle, RateLimitProperties limits,
             @org.springframework.beans.factory.annotation.Value("${app.auth.unverified-account-retention:7d}")
-            java.time.Duration retention) {
+            java.time.Duration retention, org.springframework.security.crypto.password.PasswordEncoder passwords) {
         this.accounts = accounts;
         this.tokens = tokens;
         this.mailer = mailer;
@@ -37,6 +38,7 @@ public class EmailVerificationService {
         this.throttle = throttle;
         this.limits = limits;
         this.retention = retention;
+        this.passwords = passwords;
     }
 
     /**
@@ -68,10 +70,20 @@ public class EmailVerificationService {
         }
     }
 
-    /** Unknown, expired and used tokens are refused alike. */
-    @Transactional
-    public void verify(String token) {
-        if (accounts.verify(VerificationTokens.hash(token), Timestamps.now()) == 0)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, INVALID);
+    /**
+     * Verifies the account when the token is valid and the password is the one chosen at registration, so the
+     * person who controls the inbox must also be the person who registered. Unknown, expired and used tokens and
+     * wrong passwords are refused alike. Not transactional: the hash runs without a connection (#44).
+     */
+    public void verify(String token, String password) {
+        String hash = VerificationTokens.hash(token);
+        var account = accounts.findByVerificationTokenHash(hash).orElseThrow(EmailVerificationService::invalid);
+        if (!passwords.matches(password, account.getPasswordHash())) throw invalid();
+        Integer changed = transactions.execute(status -> accounts.verify(hash, account.getPasswordHash(), Timestamps.now()));
+        if (changed == null || changed == 0) throw invalid(); // used, expired or replaced meanwhile
+    }
+
+    private static ResponseStatusException invalid() {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, INVALID);
     }
 }

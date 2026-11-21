@@ -1,6 +1,6 @@
 package github.salemby.tododevops.support;
 
-import github.salemby.tododevops.identity.application.EmailVerificationService;
+import github.salemby.tododevops.identity.application.VerificationTokens;
 import github.salemby.tododevops.identity.application.VerificationMailer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Primary;
@@ -23,10 +23,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class CapturedVerificationMail implements VerificationMailer {
     public static final String UNVERIFIED_DOMAIN = "@unverified.example.com";
     private static final Map<String, List<String>> SENT = new ConcurrentHashMap<>();
-    private final ObjectProvider<EmailVerificationService> verification;
+    private final ObjectProvider<org.springframework.jdbc.core.JdbcTemplate> jdbc;
 
-    public CapturedVerificationMail(ObjectProvider<EmailVerificationService> verification) {
-        this.verification = verification;
+    public CapturedVerificationMail(ObjectProvider<org.springframework.jdbc.core.JdbcTemplate> jdbc) {
+        this.jdbc = jdbc;
     }
 
     /** The tokens sent to the address, oldest first; shared by every test context. */
@@ -37,6 +37,9 @@ public class CapturedVerificationMail implements VerificationMailer {
     @Override
     public void send(String email, String token) {
         SENT.computeIfAbsent(email, e -> new CopyOnWriteArrayList<>()).add(token);
-        if (!email.endsWith(UNVERIFIED_DOMAIN)) verification.getObject().verify(token);
+        // Verifying needs the registration password, which a mailer never sees, so mark the account directly.
+        if (!email.endsWith(UNVERIFIED_DOMAIN)) jdbc.getObject().update("UPDATE accounts SET email_verified_at = now(),"
+            + " verification_token_hash = NULL, verification_token_expires_at = NULL WHERE verification_token_hash = ?",
+            VerificationTokens.hash(token));
     }
 }
