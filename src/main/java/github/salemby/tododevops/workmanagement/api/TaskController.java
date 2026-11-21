@@ -35,9 +35,10 @@ public class TaskController {
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String status, @RequestParam(required = false) String type,
             @RequestParam(required = false) String priority, @RequestParam(required = false) String labelId,
-            @RequestParam(required = false) String dueFrom, @RequestParam(required = false) String dueTo) {
+            @RequestParam(required = false) String dueFrom, @RequestParam(required = false) String dueTo,
+            @RequestParam(required = false) String assigneeId) {
         return ResponseEntity.ok(taskService.findAllByProject(account, projectId, active, page, size,
-            TaskFilters.parse(status, type, priority, labelId, dueFrom, dueTo)));
+            TaskFilters.parse(status, type, priority, labelId, dueFrom, dueTo, assigneeId)));
     }
 
     @GetMapping("/{id}")
