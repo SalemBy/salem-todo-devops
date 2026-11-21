@@ -139,15 +139,19 @@ class PostgresTaskAssignmentIT {
     @Test
     void removingTheAssigneeClearsTheirTasksInThatProjectOnly() throws Exception {
         long a = project(), b = project();
-        long inA = task(a), inB = task(b);
+        long inA = task(a), inB = task(b), archivedInA = task(a);
         expect(Account.OWNER, "PUT", assignee(a, inA), body(Account.SECOND), 200);
         expect(Account.OWNER, "PUT", assignee(b, inB), body(Account.SECOND), 200);
+        expect(Account.OWNER, "PUT", assignee(a, archivedInA), body(Account.SECOND), 200);
+        expect(Account.OWNER, "DELETE", tasks(a) + "/" + archivedInA, null, 204);
         String before = read(Account.OWNER, a, inA).get("updatedAt").stringValue();
 
         expect(Account.OWNER, "DELETE", members(a, Account.SECOND), null, 204);
 
         var cleared = read(Account.OWNER, a, inA);
         assertTrue(cleared.get("assigneeId").isNull());
+        assertTrue(read(Account.OWNER, a, archivedInA).get("assigneeId").isNull(),
+            "archived tasks lose the assignee too: the membership it points at is gone");
         assertTrue(cleared.get("updatedAt").stringValue().compareTo(before) > 0, "clearing is a change to the task");
         assertEquals(id(Account.SECOND), read(Account.OWNER, b, inB).get("assigneeId").asLong(), "other projects keep it");
     }

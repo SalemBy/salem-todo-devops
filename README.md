@@ -138,7 +138,8 @@ Assigning needs the same role as editing tasks. Assigning a viewer, a
 non-member, or an unknown or disabled account returns 422. Every task response
 includes `assigneeId` (null when unassigned). Removing a member, a member
 leaving, or demoting one to `VIEWER` clears their assignments in that project.
-Archived tasks keep their assignee as history.
+Archived tasks keep their assignee as history until that person loses edit
+rights in the project.
 
 Business endpoints require login. Sessions expire after 30 minutes of inactivity
 or 12 hours total. They are stored in Redis, so they survive API restarts and
