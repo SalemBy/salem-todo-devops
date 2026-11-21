@@ -30,6 +30,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class PostgresStoredTimestampIT {
     @Autowired Environment environment;
     private final ObjectMapper json = new ObjectMapper();
+    /** Its own account: the shared default one must stay free of projects for PostgresProjectApiIT's empty-list checks. */
+    private TestHttp.Session owner;
 
     @Test
     void tasksReportStoredTimes() throws Exception {
@@ -116,7 +118,8 @@ class PostgresStoredTimestampIT {
     }
 
     private JsonNode call(String method, String path, String body, int status) throws Exception {
-        var request = TestHttp.request(uri(path)).header("Content-Type", "application/json")
+        if (owner == null) owner = TestHttp.newSession(uri("/"));
+        var request = owner.request(path).header("Content-Type", "application/json")
             .method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body)).build();
         var response = TestHttp.client().send(request, HttpResponse.BodyHandlers.ofString());
         assertEquals(status, response.statusCode(), method + " " + path + ": " + response.body());
