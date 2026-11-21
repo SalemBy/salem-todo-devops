@@ -176,6 +176,39 @@ the API to trust the proxy's forwarding headers
 (`server.forward-headers-strategy=native`, with the proxy listed as an internal
 proxy); otherwise all users share the proxy's address and its limits.
 
+## Monitoring
+
+Spring Boot Actuator runs on a separate management port, `127.0.0.1:8081` by
+default (`MANAGEMENT_PORT`). The public API on port 8080 serves no `/actuator`
+endpoints. Only processes on the same host can reach the management port, so its
+endpoints need no login.
+
+| Endpoint | Meaning |
+| --- | --- |
+| `GET /actuator/health/liveness` | The application is running. Never follows a dependency, so an outage never restarts it. |
+| `GET /actuator/health/readiness` | Ready for traffic: PostgreSQL and Redis respond. 503 `{"status":"DOWN"}` otherwise. |
+| `GET /actuator/health` | Overall status. Health responses never name components or details. |
+| `GET /actuator/info` | Build version and git commit, to match a running instance to a release. |
+| `GET /actuator/prometheus` | Metrics in Prometheus format: HTTP requests by route and status, the Hikari connection pool, JVM and process. |
+
+```bash
+curl -s http://127.0.0.1:8081/actuator/health/readiness
+curl -s http://127.0.0.1:8081/actuator/prometheus | grep hikaricp_connections_active
+```
+
+Metric tags never contain emails, account or session IDs, or URLs with IDs.
+Routes appear as templates such as `/projects/{id}`. Requests rejected by
+security before routing are tagged with their path only for the fixed `/auth/*`
+endpoints, and as `UNKNOWN` otherwise.
+
+- When probes or a scraper run outside the host (for example in containers),
+  set `MANAGEMENT_SERVER_ADDRESS` to an address on a private network. Never
+  expose the management port publicly.
+- Never set the management port equal to the server port: that would serve
+  these endpoints on the public API.
+- Dashboards (Prometheus and Grafana), tracing and structured logs are planned
+  as follow-ups.
+
 ## Tests
 
 Run the database-independent tests:
