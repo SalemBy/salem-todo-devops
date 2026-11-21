@@ -1,6 +1,7 @@
 package github.salemby.tododevops;
 
 import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import github.salemby.tododevops.support.TaskRows;
 import github.salemby.tododevops.support.TestHttp;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.*;
 import org.junit.jupiter.api.*;
@@ -21,14 +22,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class PostgresLabelApiIT {
     @Autowired Environment environment;
     @Autowired ProjectRepository projects;
-    @Autowired TaskRepository tasks;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired LabelRepository labels;
     final ObjectMapper json = new ObjectMapper();
     final List<Long> owners = new ArrayList<>();
 
     @AfterEach void cleanup() {
         for (long id : owners) {
-            tasks.deleteAll(tasks.findAllByProjectId(id));
+            TaskRows.delete(jdbc, id);
             labels.deleteAll(labels.findAllByProjectIdOrderById(id));
             projects.deleteById(id);
         }
@@ -70,7 +71,7 @@ class PostgresLabelApiIT {
         call("DELETE", taskPath + "/labels/" + id, null, 204);
         call("PUT", taskPath + "/labels/" + id, null, 409);
         assertEquals(0, call("GET", taskPath + "/labels", null, 200).size());
-        assertEquals(1, tasks.findAllByProjectId(p).size());
+        assertEquals(1, TaskRows.count(jdbc, p));
     }
 
     @Test void rejectsCrossProjectAndInvalidReplacementsAtomically() throws Exception {
@@ -87,7 +88,7 @@ class PostgresLabelApiIT {
         call("PUT", path, "{\"title\":\"Changed\",\"status\":\"COMPLETED\",\"priority\":\"CRITICAL\",\"labelIds\":[" + b + "," + foreign + "]}", 404);
         assertEquals(before, call("GET", path, null, 200));
         call("POST", base + "/tasks", "{\"title\":\"Invalid owner\",\"labelIds\":[" + foreign + "]}", 404);
-        assertEquals(1, tasks.findAllByProjectId(p).size());
+        assertEquals(1, TaskRows.count(jdbc, p));
         call("PUT", path + "/labels/" + foreign, null, 404);
         call("DELETE", path + "/labels/" + foreign, null, 404);
         call("GET", base + "/labels/" + foreign, null, 404);

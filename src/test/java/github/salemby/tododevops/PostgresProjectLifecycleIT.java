@@ -1,6 +1,7 @@
 package github.salemby.tododevops;
 
 import github.salemby.tododevops.support.IsolatedPostgresSchema;
+import github.salemby.tododevops.support.TaskRows;
 import github.salemby.tododevops.support.TestHttp;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskRepository;
@@ -33,6 +34,7 @@ class PostgresProjectLifecycleIT {
     @Autowired Environment environment;
     @Autowired DataSource dataSource;
     @Autowired ProjectRepository projects;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired TaskRepository tasks;
     @Autowired github.salemby.tododevops.workmanagement.infrastructure.persistence.LabelRepository labels;
     private final ObjectMapper json = new ObjectMapper();
@@ -61,7 +63,7 @@ class PostgresProjectLifecycleIT {
     @AfterEach
     void cleanup() {
         if (projectId != 0) {
-            tasks.deleteAll(tasks.findAllByProjectId(projectId));
+            TaskRows.delete(jdbc, projectId);
             labels.deleteAll(labels.findAllByProjectIdOrderById(projectId));
             projects.deleteById(projectId);
         }
@@ -98,7 +100,7 @@ class PostgresProjectLifecycleIT {
         assertEquals(204, responses.first().statusCode(), responses.first().body());
         assertProblem(responses.second(), 409);
         assertArchivedHistory();
-        assertEquals(2, tasks.findAllByProjectId(projectId).size());
+        assertEquals(2, TaskRows.count(jdbc, projectId));
     }
 
     @Test
@@ -117,7 +119,7 @@ class PostgresProjectLifecycleIT {
         }
         assertEquals(204, request("DELETE", taskPath, null).statusCode());
         assertEquals(after, read(taskPath), "Repeated delete must preserve all fields and timestamps");
-        assertEquals(2, tasks.findAllByProjectId(projectId).size());
+        assertEquals(2, TaskRows.count(jdbc, projectId));
     }
 
     @Test
@@ -138,7 +140,7 @@ class PostgresProjectLifecycleIT {
         assertEquals("COMPLETED", after.get("status").stringValue());
         assertEquals(before.get("projectId"), after.get("projectId"));
         assertEquals(before.get("createdAt"), after.get("createdAt"));
-        assertEquals(2, tasks.findAllByProjectId(projectId).size());
+        assertEquals(2, TaskRows.count(jdbc, projectId));
     }
 
     private JsonNode activeTask() {
