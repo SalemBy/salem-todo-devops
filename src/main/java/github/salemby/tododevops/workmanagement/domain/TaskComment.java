@@ -1,12 +1,12 @@
 package github.salemby.tododevops.workmanagement.domain;
 
+import github.salemby.tododevops.shared.persistence.Timestamps;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 /** A plain-text comment on a task. The author and creation time never change; deletion only hides it. */
@@ -54,17 +54,12 @@ public class TaskComment {
 
     @PrePersist
     private void onCreate() {
-        createdAt = now();
+        createdAt = Timestamps.now();
         updatedAt = createdAt;
     }
 
     @PreUpdate
     private void onUpdate() {
-        updatedAt = now();
-    }
-
-    /** PostgreSQL keeps microseconds; cutting here makes write responses report the stored instant. */
-    private static Instant now() {
-        return Instant.now().truncatedTo(ChronoUnit.MICROS);
+        updatedAt = Timestamps.now();
     }
 }

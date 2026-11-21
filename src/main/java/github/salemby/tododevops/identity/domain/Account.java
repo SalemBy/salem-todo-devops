@@ -1,5 +1,6 @@
 package github.salemby.tododevops.identity.domain;
 
+import github.salemby.tododevops.shared.persistence.Timestamps;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,11 +39,11 @@ public class Account {
     }
 
     @PrePersist
-    private void onCreate() { createdAt = updatedAt = Instant.now(); }
+    private void onCreate() { createdAt = updatedAt = Timestamps.now(); }
     public void changePassword(String encodedPassword) {
         passwordHash = Objects.requireNonNull(encodedPassword);
         credentialVersion = Math.incrementExact(credentialVersion);
     }
     @PreUpdate
-    private void onUpdate() { updatedAt = Instant.now(); }
+    private void onUpdate() { updatedAt = Timestamps.now(); }
 }

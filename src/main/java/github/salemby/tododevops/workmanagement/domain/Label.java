@@ -1,5 +1,6 @@
 package github.salemby.tododevops.workmanagement.domain;
 
+import github.salemby.tododevops.shared.persistence.Timestamps;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -39,8 +40,8 @@ public class Label {
     public void archive() { active = false; }
 
     @PrePersist
-    private void onCreate() { createdAt = updatedAt = Instant.now(); }
+    private void onCreate() { createdAt = updatedAt = Timestamps.now(); }
 
     @PreUpdate
-    private void onUpdate() { updatedAt = Instant.now(); }
+    private void onUpdate() { updatedAt = Timestamps.now(); }
 }

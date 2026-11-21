@@ -1,5 +1,6 @@
 package github.salemby.tododevops.workmanagement.domain;
 
+import github.salemby.tododevops.shared.persistence.Timestamps;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -49,12 +50,12 @@ public class ProjectMembership {
 
     @PrePersist
     private void onCreate() {
-        createdAt = Instant.now();
+        createdAt = Timestamps.now();
         updatedAt = createdAt;
     }
 
     @PreUpdate
     private void onUpdate() {
-        updatedAt = Instant.now();
+        updatedAt = Timestamps.now();
     }
 }
