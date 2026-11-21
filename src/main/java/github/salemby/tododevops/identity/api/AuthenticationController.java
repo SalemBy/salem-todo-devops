@@ -57,6 +57,14 @@ public class AuthenticationController {
         verification.verify(request.token());
     }
 
+    /** Always 202 with no body, whether or not the email has a pending account (#71). */
+    @PostMapping("/verification-email")
+    public ResponseEntity<Void> sendVerificationEmail(
+            @Valid @RequestBody github.salemby.tododevops.identity.application.dto.VerificationEmailRequest request) {
+        verification.sendAgain(request.email());
+        return ResponseEntity.accepted().build();
+    }
+
     @PostMapping("/login")
     public AccountResponse login(@Valid @RequestBody LoginRequest input, HttpServletRequest request, HttpServletResponse response) {
         org.springframework.security.core.Authentication auth;

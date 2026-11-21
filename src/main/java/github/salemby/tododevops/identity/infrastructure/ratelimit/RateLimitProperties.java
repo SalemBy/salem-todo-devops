@@ -19,7 +19,9 @@ public record RateLimitProperties(
     @Valid @NotNull Limit registerPerAddress,
     @Valid @NotNull Limit sessionsPerAddress,
     @Valid @NotNull Limit passwordChangePerLogin,
-    @Valid @NotNull Limit passwordChangePerAddress
+    @Valid @NotNull Limit passwordChangePerAddress,
+    @Valid @NotNull Limit verificationEmailPerAddress,
+    @Valid @NotNull Limit verificationEmailPerEmail
 ) {
     public record Limit(@Min(1) int max, @NotNull Duration window) {
         public Limit {

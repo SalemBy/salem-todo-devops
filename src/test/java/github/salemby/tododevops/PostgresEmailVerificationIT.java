@@ -115,7 +115,74 @@ class PostgresEmailVerificationIT {
         assertEquals(200, c.login(email, PASSWORD).statusCode());
     }
 
+    @Test
+    void sendingAgainReplacesTheToken() throws Exception {
+        var c = client();
+        String email = unverifiedEmail();
+        c.register(email);
+        var again = sendAgain(c, email);
+        assertEquals(202, again.statusCode(), again.body());
+        assertEquals("", again.body());
+        var sent = CapturedVerificationMail.sentTo(email);
+        assertEquals(2, sent.size());
+        assertDetail(verify(c, sent.get(0)), 400, INVALID);
+        assertEquals(204, verify(c, sent.get(1)).statusCode());
+        assertEquals(200, c.login(email, PASSWORD).statusCode());
+    }
+
+    @Test
+    void sendAgainLooksTheSameForEveryEmail() throws Exception {
+        var c = client();
+        String unknown = unverifiedEmail(), pending = unverifiedEmail(), verified = "done-" + UUID.randomUUID() + "@example.com";
+        c.register(pending);
+        c.register(verified); // verified at once by the test mailer
+        var responses = new java.util.ArrayList<HttpResponse<String>>();
+        for (String email : List.of(unknown, pending, verified)) responses.add(sendAgain(c, email));
+        for (var response : responses) {
+            assertEquals(202, response.statusCode(), response.body());
+            assertEquals("", response.body());
+            assertEquals(headers(responses.get(0)), headers(response));
+        }
+        assertEquals(0, CapturedVerificationMail.sentTo(unknown).size());
+        assertEquals(2, CapturedVerificationMail.sentTo(pending).size());
+        assertEquals(1, CapturedVerificationMail.sentTo(verified).size(), "a verified account gets no new email");
+        for (Object body : List.of(Map.of(), Map.of("email", "not an email"), Map.of("email", 5)))
+            assertEquals(400, c.call("POST", "/auth/verification-email", body).statusCode(), String.valueOf(body));
+    }
+
+    @Test
+    void reRegistrationReplacesOnlyPendingAccounts() throws Exception {
+        var c = client();
+        String email = unverifiedEmail();
+        assertEquals(201, c.call("POST", "/auth/register", Map.of("email", email, "displayName", "First", "password", PASSWORD)).statusCode());
+        String second = "A different passphrase entirely";
+        var replaced = c.call("POST", "/auth/register", Map.of("email", email, "displayName", "Second", "password", second));
+        assertEquals(201, replaced.statusCode(), replaced.body());
+        var sent = CapturedVerificationMail.sentTo(email);
+        assertEquals(2, sent.size());
+        assertDetail(verify(c, sent.get(0)), 400, INVALID);
+        assertEquals(204, verify(c, sent.get(1)).statusCode());
+        assertEquals(401, c.login(email, PASSWORD).statusCode(), "the replaced password no longer works");
+        var login = c.login(email, second);
+        assertEquals(200, login.statusCode(), login.body());
+        assertEquals("Second", json.readTree(login.body()).get("displayName").stringValue());
+        c.csrf(); // login rotates the token
+        var duplicate = c.call("POST", "/auth/register", Map.of("email", email, "displayName", "Third", "password", second));
+        assertDetail(duplicate, 409, "Email is already registered");
+    }
+
     // --- fixtures -------------------------------------------------------------------------------
+
+    static HttpResponse<String> sendAgain(AuthClient c, String email) throws Exception {
+        return c.call("POST", "/auth/verification-email", Map.of("email", email));
+    }
+
+    static Map<String, List<String>> headers(HttpResponse<String> response) {
+        var all = new java.util.TreeMap<>(response.headers().map());
+        all.remove("date");
+        all.remove("set-cookie");
+        return all;
+    }
 
     private AuthClient client() throws Exception {
         var c = new AuthClient(Integer.parseInt(environment.getRequiredProperty("local.server.port")));
