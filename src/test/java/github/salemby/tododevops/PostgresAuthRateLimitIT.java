@@ -18,6 +18,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -26,11 +27,12 @@ import java.util.concurrent.Executors;
 import static github.salemby.tododevops.support.AuthClient.PASSWORD;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Per-email login limit. Address, registration and session limits stay high (test profile). */
+/** Per-email login and per-login password-change limits. Address, registration and session limits stay high (test profile). */
 @SpringBootTest(classes = SalemTodoDevOpsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("postgres-test")
 @ContextConfiguration(initializers = IsolatedPostgresSchema.class)
-@TestPropertySource(properties = {"app.rate-limit.login-per-email.max=3", "app.rate-limit.login-per-email.window=60s"})
+@TestPropertySource(properties = {"app.rate-limit.login-per-email.max=3", "app.rate-limit.login-per-email.window=60s",
+    "app.rate-limit.password-change-per-login.max=3", "app.rate-limit.password-change-per-login.window=60s"})
 class PostgresAuthRateLimitIT {
     @Autowired RedisRateLimiter limiter;
     @Autowired JdbcTemplate jdbc;
@@ -120,10 +122,51 @@ class PostgresAuthRateLimitIT {
         assertEquals(7, statuses.stream().filter(s -> s == 429).count(), statuses.toString());
     }
 
+    @Test
+    void passwordChangeLimitReturns429EvenForTheCorrectPassword() throws Exception {
+        String email = email();
+        var client = loggedIn(email);
+        spendPasswordChanges(client);
+        assertThrottled(changePassword(client, PASSWORD));
+        assertEquals(200, client().login(email, PASSWORD).statusCode(), "the throttled attempt must not change the password");
+    }
+
+    @Test
+    void passwordChangeLimitIsPerLogin() throws Exception {
+        String email = email();
+        var stolen = loggedIn(email);
+        spendPasswordChanges(stolen);
+        assertEquals(429, changePassword(stolen, PASSWORD).statusCode());
+        var owner = client();
+        assertEquals(200, owner.login(email, PASSWORD).statusCode());
+        owner.csrf();
+        assertEquals(204, changePassword(owner, PASSWORD).statusCode(), "the owner's own login keeps its attempts");
+        assertEquals(401, stolen.call("GET", "/auth/me", null).statusCode(), "the change revokes the throttled session");
+    }
+
+    AuthClient loggedIn(String email) throws Exception {
+        var client = client();
+        assertEquals(201, client.register(email).statusCode());
+        assertEquals(200, client.login(email, PASSWORD).statusCode());
+        client.csrf();
+        return client;
+    }
+
+    static HttpResponse<String> changePassword(AuthClient client, String current) throws Exception {
+        return client.call("POST", "/auth/password", Map.of("currentPassword", current, "newPassword", "A replacement test passphrase!"));
+    }
+
+    static void spendPasswordChanges(AuthClient client) throws Exception {
+        for (int i = 0; i < 3; i++) assertEquals(400, changePassword(client, "A wrong current password").statusCode());
+    }
+
     /** Uses up the email's attempts and returns the first throttled response, checking its contract. */
     private HttpResponse<String> throttled(AuthClient client, String email) throws Exception {
         for (int i = 0; i < 3; i++) assertEquals(401, client.login(email, "wrong password!").statusCode());
-        var response = client.login(email, "wrong password!");
+        return assertThrottled(client.login(email, "wrong password!"));
+    }
+
+    private static HttpResponse<String> assertThrottled(HttpResponse<String> response) {
         assertEquals(429, response.statusCode());
         assertEquals("application/problem+json", response.headers().firstValue("Content-Type").orElseThrow());
         assertTrue(response.headers().firstValue("Cache-Control").orElseThrow().contains("no-store"));
