@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(classes = SalemTodoDevOpsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("postgres-test")
 @ContextConfiguration(initializers = IsolatedPostgresSchema.class)
-@TestPropertySource(properties = {"app.rate-limit.login-per-email.max=3", "app.rate-limit.login-per-email.window=5s"})
+@TestPropertySource(properties = {"app.rate-limit.login-per-email.max=3", "app.rate-limit.login-per-email.window=60s"})
 class PostgresAuthRateLimitIT {
     @Autowired RedisRateLimiter limiter;
     @Autowired JdbcTemplate jdbc;
@@ -45,19 +45,32 @@ class PostgresAuthRateLimitIT {
 
     @Test
     void limiterRejectsTheHitAfterMaxWithARetryAfter() {
-        var limit = new Limit(3, Duration.ofSeconds(2));
-        for (int i = 0; i < 3; i++) assertEquals(Optional.empty(), limiter.hit("k1", limit));
-        var retryAfter = limiter.hit("k1", limit).orElseThrow();
-        assertTrue(retryAfter.compareTo(Duration.ofSeconds(1)) >= 0 && retryAfter.compareTo(Duration.ofSeconds(2)) <= 0,
+        var limit = new Limit(3, Duration.ofSeconds(60));
+        String key = "k1";
+        for (int i = 0; i < 3; i++) assertEquals(Optional.empty(), limiter.hit(key, limit));
+        var retryAfter = limiter.hit(key, limit).orElseThrow();
+        assertTrue(retryAfter.compareTo(Duration.ofSeconds(59)) >= 0 && retryAfter.compareTo(Duration.ofSeconds(60)) <= 0,
             "Retry-After was " + retryAfter);
     }
 
     @Test
     void resetStartsANewWindow() {
-        var limit = new Limit(3, Duration.ofSeconds(2));
-        for (int i = 0; i < 4; i++) limiter.hit("k2", limit);
-        limiter.reset("k2");
-        assertEquals(Optional.empty(), limiter.hit("k2", limit));
+        var limit = new Limit(3, Duration.ofSeconds(60));
+        String key = "k2";
+        for (int i = 0; i < 4; i++) limiter.hit(key, limit);
+        limiter.reset(key);
+        assertEquals(Optional.empty(), limiter.hit(key, limit));
+    }
+
+    @Test
+    void windowExpiryLiftsTheLimit() throws Exception {
+        // Limiter level, so only two Redis round trips must fit in the 1s window. The email limit uses the same hit.
+        var limit = new Limit(1, Duration.ofSeconds(1));
+        String key = "k3";
+        assertEquals(Optional.empty(), limiter.hit(key, limit));
+        assertTrue(limiter.hit(key, limit).isPresent());
+        Thread.sleep(1200);
+        assertEquals(Optional.empty(), limiter.hit(key, limit));
     }
 
     @Test
@@ -77,16 +90,6 @@ class PostgresAuthRateLimitIT {
         assertEquals(201, client.register(email).statusCode());
         throttled(client, email);
         assertEquals(429, client.login(email, PASSWORD).statusCode());
-    }
-
-    @Test
-    void emailLimitLiftsAfterTheWindow() throws Exception {
-        var client = client();
-        String email = email();
-        assertEquals(201, client.register(email).statusCode());
-        long seconds = Long.parseLong(throttled(client, email).headers().firstValue("Retry-After").orElseThrow());
-        Thread.sleep(seconds * 1000 + 300);
-        assertEquals(200, client.login(email, PASSWORD).statusCode());
     }
 
     @Test
@@ -125,7 +128,7 @@ class PostgresAuthRateLimitIT {
         assertEquals("application/problem+json", response.headers().firstValue("Content-Type").orElseThrow());
         assertTrue(response.headers().firstValue("Cache-Control").orElseThrow().contains("no-store"));
         long retryAfter = Long.parseLong(response.headers().firstValue("Retry-After").orElseThrow());
-        assertTrue(retryAfter >= 1 && retryAfter <= 5, "Retry-After was " + retryAfter);
+        assertTrue(retryAfter >= 1 && retryAfter <= 60, "Retry-After was " + retryAfter);
         assertTrue(response.body().contains("\"detail\":\"Too many requests. Try again later.\""), response.body());
         return response;
     }
