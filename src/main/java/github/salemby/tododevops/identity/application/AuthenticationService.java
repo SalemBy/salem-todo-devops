@@ -51,7 +51,9 @@ public class AuthenticationService {
         throttle(emailKey, limits.loginPerEmail()); // before the lookup and the hash: a throttled attempt costs one Redis call
         var account = accounts.findByEmail(request.email()).orElse(null);
         boolean matches = passwords.matches(request.password(), account == null ? dummyHash : account.getPasswordHash());
-        if (account == null || !matches || !account.isActive()) throw new BadCredentialsException("Invalid credentials");
+        // Unverified accounts (#71) fail exactly like a wrong password, so login reveals nothing.
+        if (account == null || !matches || !account.isActive() || !account.isVerified())
+            throw new BadCredentialsException("Invalid credentials");
         try {
             limiter.reset(emailKey);
         } catch (DataAccessException ex) {

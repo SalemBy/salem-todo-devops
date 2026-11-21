@@ -1,6 +1,7 @@
 package github.salemby.tododevops;
 
 import github.salemby.tododevops.support.AuthClient;
+import github.salemby.tododevops.support.CapturedVerificationMail;
 import github.salemby.tododevops.support.IsolatedPostgresSchema;
 import github.salemby.tododevops.support.TestHttp;
 import github.salemby.tododevops.support.TestProjects;
@@ -29,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ContextConfiguration(initializers = IsolatedPostgresSchema.class)
 class PostgresStoredTimestampIT {
     @Autowired Environment environment;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     private final ObjectMapper json = new ObjectMapper();
     /** Its own account: the shared default one must stay free of projects for PostgresProjectApiIT's empty-list checks. */
     private TestHttp.Session owner;
@@ -88,13 +90,21 @@ class PostgresStoredTimestampIT {
         for (int i = 0; i < 4; i++) {
             var client = new AuthClient(port);
             client.csrf();
-            String email = "stamp-" + UUID.randomUUID() + "@example.com";
+            // Unverified, so nothing changes the row between the response and the read (#71).
+            String email = "stamp-" + UUID.randomUUID() + CapturedVerificationMail.UNVERIFIED_DOMAIN;
             var registered = client.register(email);
             assertEquals(201, registered.statusCode(), registered.body());
-            var loggedIn = client.login(email, AuthClient.PASSWORD);
-            assertEquals(200, loggedIn.statusCode(), loggedIn.body());
-            assertStored(json.readTree(registered.body()), json.readTree(loggedIn.body()), "createdAt", "updatedAt");
+            var stored = jdbc.queryForMap("SELECT created_at, updated_at FROM accounts WHERE email = ?", email);
+            var read = json.createObjectNode()
+                .put("createdAt", instant(stored.get("created_at")))
+                .put("updatedAt", instant(stored.get("updated_at")));
+            assertStored(json.readTree(registered.body()), read, "createdAt", "updatedAt");
         }
+    }
+
+    private static String instant(Object timestamp) {
+        return timestamp instanceof java.sql.Timestamp t ? t.toInstant().toString()
+            : ((java.time.OffsetDateTime) timestamp).toInstant().toString();
     }
 
     /** The write response and the next read agree on every named timestamp. */

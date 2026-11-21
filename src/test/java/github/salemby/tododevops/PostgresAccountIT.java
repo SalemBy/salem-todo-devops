@@ -33,7 +33,9 @@ class PostgresAccountIT {
             assertTrue(stored.isActive());
             assertEquals(0, stored.getCredentialVersion());
             assertNotNull(stored.getCreatedAt());
-            assertEquals(stored.getCreatedAt(), stored.getUpdatedAt());
+            // The postgres-test mailer verifies example.com accounts at once (#71), which updates the row.
+            assertTrue(stored.isVerified());
+            assertFalse(stored.getUpdatedAt().isBefore(stored.getCreatedAt()));
             assertNotEquals(raw, stored.getPasswordHash());
             assertTrue(passwords.matches(raw, stored.getPasswordHash()));
             String json = new tools.jackson.databind.ObjectMapper().writeValueAsString(response);

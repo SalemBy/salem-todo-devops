@@ -20,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/auth")
 public class AuthenticationController {
     private final AccountService accounts;
+    private final github.salemby.tododevops.identity.application.EmailVerificationService verification;
     private final AuthenticationService authentication;
     private final AuthenticationManager manager;
     private final SecurityContextRepository contexts;
@@ -28,8 +29,10 @@ public class AuthenticationController {
 
     public AuthenticationController(AccountService accounts, AuthenticationService authentication,
             SecurityContextRepository contexts, SessionAuthenticationStrategy sessions, AuthenticationManager manager,
-            @Value("${app.auth.registration-enabled:false}") boolean registrationEnabled) {
+            @Value("${app.auth.registration-enabled:false}") boolean registrationEnabled,
+            github.salemby.tododevops.identity.application.EmailVerificationService verification) {
         this.accounts = accounts; this.authentication = authentication; this.contexts = contexts;
+        this.verification = verification;
         this.manager = manager;
         this.sessions = sessions; this.registrationEnabled = registrationEnabled;
     }
@@ -45,6 +48,13 @@ public class AuthenticationController {
     public AccountResponse register(@Valid @RequestBody AccountRegistration request) {
         if (!registrationEnabled) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Registration is disabled");
         return accounts.create(request);
+    }
+
+    /** Marks the account verified when the emailed token is valid (#71). */
+    @PostMapping("/verify")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void verify(@Valid @RequestBody github.salemby.tododevops.identity.application.dto.VerifyEmailRequest request) {
+        verification.verify(request.token());
     }
 
     @PostMapping("/login")

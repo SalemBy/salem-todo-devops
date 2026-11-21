@@ -74,7 +74,7 @@ class AuthenticationServiceTests {
     @Test
     void successfulLoginResetsTheEmailCount() {
         when(limiter.hit(any(), any())).thenReturn(Optional.empty());
-        when(accounts.findByEmail(EMAIL)).thenReturn(Optional.of(new Account(EMAIL, "Ana", "stored")));
+        when(accounts.findByEmail(EMAIL)).thenReturn(Optional.of(verified(new Account(EMAIL, "Ana", "stored"))));
         when(passwords.matches("right", "stored")).thenReturn(true);
         service.authenticate(new LoginRequest(EMAIL, "right"));
         verify(limiter).reset(RedisRateLimiter.emailKey(EMAIL));
@@ -83,7 +83,7 @@ class AuthenticationServiceTests {
     @Test
     void failedLoginKeepsTheEmailCount() {
         when(limiter.hit(any(), any())).thenReturn(Optional.empty());
-        when(accounts.findByEmail(EMAIL)).thenReturn(Optional.of(new Account(EMAIL, "Ana", "stored")));
+        when(accounts.findByEmail(EMAIL)).thenReturn(Optional.of(verified(new Account(EMAIL, "Ana", "stored"))));
         assertThrows(BadCredentialsException.class, () -> service.authenticate(new LoginRequest(EMAIL, "wrong")));
         verify(limiter, never()).reset(any());
     }
@@ -91,7 +91,7 @@ class AuthenticationServiceTests {
     @Test
     void resetFailureDoesNotFailASuccessfulLogin() {
         when(limiter.hit(any(), any())).thenReturn(Optional.empty());
-        when(accounts.findByEmail(EMAIL)).thenReturn(Optional.of(new Account(EMAIL, "Ana", "stored")));
+        when(accounts.findByEmail(EMAIL)).thenReturn(Optional.of(verified(new Account(EMAIL, "Ana", "stored"))));
         when(passwords.matches("right", "stored")).thenReturn(true);
         doThrow(new RedisConnectionFailureException("down")).when(limiter).reset(eq(RedisRateLimiter.emailKey(EMAIL)));
         assertNotNull(service.authenticate(new LoginRequest(EMAIL, "right")));
@@ -135,5 +135,11 @@ class AuthenticationServiceTests {
         when(passwords.encode(any())).thenReturn("dummy");
         var limits = new RateLimitProperties("rl:", perEmail, perEmail, perEmail, perEmail, perLogin, perLogin);
         return new AuthenticationService(accounts, passwords, null, limiter, limits);
+    }
+
+    /** Accounts start unverified (#71); these tests are about logins of verified accounts. */
+    private static Account verified(Account account) {
+        org.springframework.test.util.ReflectionTestUtils.setField(account, "emailVerifiedAt", java.time.Instant.now());
+        return account;
     }
 }
