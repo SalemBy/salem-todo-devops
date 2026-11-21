@@ -11,6 +11,7 @@ import github.salemby.tododevops.workmanagement.domain.ProjectMembership;
 import github.salemby.tododevops.workmanagement.domain.ProjectPermission;
 import github.salemby.tododevops.workmanagement.domain.ProjectRole;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectMembershipRepository;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.PageRequest;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -38,8 +40,11 @@ public class ProjectMemberService {
     private final ProjectAccess access;
     private final ProjectMembershipRepository memberships;
     private final AccountDirectory directory;
+    private final TaskRepository tasks;
 
-    public ProjectMemberService(ProjectAccess access, ProjectMembershipRepository memberships, AccountDirectory directory) {
+    public ProjectMemberService(ProjectAccess access, ProjectMembershipRepository memberships, AccountDirectory directory,
+                                TaskRepository tasks) {
+        this.tasks = tasks;
         this.access = access;
         this.memberships = memberships;
         this.directory = directory;
@@ -83,6 +88,8 @@ public class ProjectMemberService {
         var membership = requireMembership(projectId, accountId);
         if (membership.getRole() != request.role()) {
             if (membership.getRole() == ProjectRole.OWNER) requireAnotherActiveOwner(projectId, accountId);
+            // Only roles that may write tasks can hold one (#10).
+            if (!request.role().allows(ProjectPermission.TASK_WRITE)) tasks.clearAssignee(projectId, accountId, Instant.now());
             membership.changeRole(request.role());
             membership = memberships.saveAndFlush(membership);
         }
@@ -97,6 +104,7 @@ public class ProjectMemberService {
         access.lock(projectId, account, leaving ? ProjectPermission.PROJECT_READ : ProjectPermission.MEMBERS_MANAGE);
         var membership = requireMembership(projectId, accountId);
         if (membership.getRole() == ProjectRole.OWNER) requireAnotherActiveOwner(projectId, accountId);
+        tasks.clearAssignee(projectId, accountId, Instant.now()); // the assignee FK refuses the delete otherwise (#10)
         memberships.delete(membership);
         memberships.flush();
     }

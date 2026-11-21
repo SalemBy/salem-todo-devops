@@ -24,6 +24,8 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -134,6 +136,69 @@ class PostgresTaskAssignmentIT {
         expect(Account.OWNER, "DELETE", assignee(p, t), null, 409);
     }
 
+    @Test
+    void removingTheAssigneeClearsTheirTasksInThatProjectOnly() throws Exception {
+        long a = project(), b = project();
+        long inA = task(a), inB = task(b);
+        expect(Account.OWNER, "PUT", assignee(a, inA), body(Account.SECOND), 200);
+        expect(Account.OWNER, "PUT", assignee(b, inB), body(Account.SECOND), 200);
+        String before = read(Account.OWNER, a, inA).get("updatedAt").stringValue();
+
+        expect(Account.OWNER, "DELETE", members(a, Account.SECOND), null, 204);
+
+        var cleared = read(Account.OWNER, a, inA);
+        assertTrue(cleared.get("assigneeId").isNull());
+        assertTrue(cleared.get("updatedAt").stringValue().compareTo(before) > 0, "clearing is a change to the task");
+        assertEquals(id(Account.SECOND), read(Account.OWNER, b, inB).get("assigneeId").asLong(), "other projects keep it");
+    }
+
+    @Test
+    void leavingClearsOwnAssignments() throws Exception {
+        long p = project();
+        long t = task(p);
+        expect(Account.SECOND, "PUT", assignee(p, t), body(Account.SECOND), 200);
+        expect(Account.SECOND, "DELETE", members(p, Account.SECOND), null, 204);
+        assertTrue(read(Account.OWNER, p, t).get("assigneeId").isNull());
+    }
+
+    @Test
+    void demotionToViewerClearsButOwnerToMemberKeeps() throws Exception {
+        long p = project();
+        long t = task(p);
+        expect(Account.OWNER, "PUT", members(p, Account.SECOND), "{\"role\":\"OWNER\"}", 200);
+        expect(Account.OWNER, "PUT", assignee(p, t), body(Account.SECOND), 200);
+
+        expect(Account.OWNER, "PUT", members(p, Account.SECOND), "{\"role\":\"MEMBER\"}", 200);
+        assertEquals(id(Account.SECOND), read(Account.OWNER, p, t).get("assigneeId").asLong(), "MEMBER may still write tasks");
+
+        expect(Account.OWNER, "PUT", members(p, Account.SECOND), "{\"role\":\"VIEWER\"}", 200);
+        assertTrue(read(Account.OWNER, p, t).get("assigneeId").isNull(), "a VIEWER cannot hold a task");
+    }
+
+    @Test
+    void concurrentAssignAndRemoveLeaveNoDanglingAssignee() throws Exception {
+        long p = project();
+        long t = task(p);
+        var pool = Executors.newFixedThreadPool(2);
+        try {
+            for (int round = 0; round < 5; round++) {
+                if (memberships.findByProjectIdAndAccountId(p, id(Account.SECOND)).isEmpty())
+                    member(p, Account.SECOND, ProjectRole.MEMBER);
+                var start = new CountDownLatch(1);
+                var assign = pool.submit(() -> { start.await(); return send(Account.OWNER, "PUT", assignee(p, t), body(Account.SECOND)); });
+                var remove = pool.submit(() -> { start.await(); return send(Account.OWNER, "DELETE", members(p, Account.SECOND), null); });
+                start.countDown();
+                int assigned = assign.get().statusCode(), removed = remove.get().statusCode();
+                assertTrue(assigned == 200 || assigned == 422, "assign answered " + assigned);
+                assertEquals(204, removed, "remove answered " + removed);
+                var task = read(Account.OWNER, p, t);
+                assertTrue(task.get("assigneeId").isNull(), "round " + round + ": the removed member still holds the task");
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     // --- fixtures -------------------------------------------------------------------------------
 
     long project() {
@@ -163,6 +228,10 @@ class PostgresTaskAssignmentIT {
 
     static String tasks(long projectId) {
         return "/projects/" + projectId + "/tasks";
+    }
+
+    String members(long projectId, Account account) {
+        return "/projects/" + projectId + "/members/" + id(account);
     }
 
     static String assignee(long projectId, long taskId) {
