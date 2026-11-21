@@ -1,0 +1,11 @@
+$kind: collection
+name: 11 Administration
+order: 11000
+description: |-
+  System administration (issue #67). Run after 00 Authentication.
+  The server must list the administrator email in ADMIN_EMAILS (adminEmail, default
+  postman-admin@example.com); the first run registers it, later runs reuse it.
+  Setup registers a disposable target account that creates a project. The administrator
+  deactivates it, gives the ownerless project an owner and reactivates it. The last
+  requests log in as the target to check the hidden routes, then log back in as the
+  original account, so later folders keep working.

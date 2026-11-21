@@ -1,0 +1,19 @@
+$kind: http-request
+order: 4000
+method: POST
+url: '{{baseUrl}}/admin/projects/{{adminProjectId}}/owners'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"accountId":{{adminAccountId}}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Administrator becomes the owner', () => {
+        pm.response.to.have.status(200);
+        const member = pm.response.json();
+        pm.expect(member.role).to.eql('OWNER');
+        pm.expect(String(member.accountId)).to.eql(pm.collectionVariables.get('adminAccountId'));
+      });

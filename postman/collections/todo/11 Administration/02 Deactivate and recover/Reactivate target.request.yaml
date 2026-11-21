@@ -1,0 +1,12 @@
+$kind: http-request
+order: 5000
+method: POST
+url: '{{baseUrl}}/admin/accounts/{{adminTargetId}}/reactivate'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Target is active again', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().active).to.eql(true);
+      });

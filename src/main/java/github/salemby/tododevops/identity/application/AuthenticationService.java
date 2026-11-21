@@ -104,7 +104,7 @@ public class AuthenticationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
         String encoded = passwords.encode(request.newPassword());
         transactions.executeWithoutResult(status -> {
-            var locked = accounts.findForPasswordChange(principal.id()).filter(a -> isCurrent(a, principal))
+            var locked = accounts.findLockedById(principal.id()).filter(a -> isCurrent(a, principal))
                 .orElseThrow(AuthenticationService::unauthorized); // concurrent change or disable
             locked.changePassword(encoded);
             accounts.flush();

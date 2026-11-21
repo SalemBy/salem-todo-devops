@@ -38,6 +38,15 @@ public class AccountDirectory {
             .collect(Collectors.toMap(AccountSummary::id, Function.identity()));
     }
 
+    /**
+     * Whether the account is active, holding a shared lock on its row until the transaction ends,
+     * so a concurrent deactivation runs entirely before or after the caller (#67).
+     */
+    @Transactional
+    public boolean isActiveLocked(Long accountId) {
+        return accounts.findShareLockedById(accountId).filter(Account::isActive).isPresent();
+    }
+
     private static AccountSummary summary(Account account) {
         return new AccountSummary(account.getId(), account.getEmail(), account.getDisplayName(), account.isActive());
     }

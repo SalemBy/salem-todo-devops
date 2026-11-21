@@ -1,0 +1,13 @@
+$kind: http-request
+order: 5000
+method: POST
+url: '{{baseUrl}}/admin/accounts/{{adminTargetId}}/reactivate'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Non-administrators see an unknown route', () => {
+        pm.response.to.have.status(404);
+        const path = 'admin/accounts/' + pm.collectionVariables.get('adminTargetId') + '/reactivate';
+        pm.expect(pm.response.json().detail).to.eql('No static resource ' + path + '.');
+      });

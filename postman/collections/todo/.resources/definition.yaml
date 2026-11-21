@@ -11,6 +11,7 @@ description: |-
   Archival retains records; archived project tasks are readable but cannot be written.  
   Use a disposable database: scenarios create records and archive only their own records.  
   For Validation, load postman/documents/required-fields-cases.json in Collection Runner.  
+  11 Administration needs ADMIN_EMAILS=postman-admin@example.com on a local server.  
   See postman/README.md for desktop and CLI instructions.
 variables:
   baseUrl: http://127.0.0.1:8080
@@ -41,6 +42,12 @@ variables:
   membershipProjectId: ""
   membershipOwnerId: ""
   membershipMemberId: ""
+  adminEmail: postman-admin@example.com
+  adminPassword: postman-admin-local-only
+  adminAccountId: ""
+  adminTargetId: ""
+  adminProjectId: ""
+  adminProjectKey: ""
 auth:
   type: noauth
 scripts:

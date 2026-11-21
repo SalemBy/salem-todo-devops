@@ -213,6 +213,42 @@ the API to trust the proxy's forwarding headers
 (`server.forward-headers-strategy=native`, with the proxy listed as an internal
 proxy); otherwise all users share the proxy's address and its limits.
 
+### Administration
+
+System administrators can turn accounts off and on and give a project with no
+active owner a new owner. They are the active accounts whose email is listed in
+`ADMIN_EMAILS` (comma-separated, case-insensitive; empty by default). Nothing is
+seeded, and a change needs a restart. Register each administrator account
+before opening registration: emails are not verified, so whoever registers a
+listed email first holds that role.
+
+| Route | Result |
+| --- | --- |
+| `POST /admin/accounts/{accountId}/deactivate` | 200, see below; 404 `Account not found`; 409 `At least one active administrator is required` |
+| `POST /admin/accounts/{accountId}/reactivate` | 200 with the account; 404 `Account not found` |
+| `POST /admin/projects/{projectId}/owners` with `{"accountId": 7}` | 200 with the new owner's membership; 404 `Project not found`; 409 `Project already has an active owner`; 422 `Account must be active` |
+
+```json
+{
+  "account": {"id": 7, "email": "dev@example.com", "displayName": "Dev", "active": false, "createdAt": "...", "updatedAt": "..."},
+  "unassignedTasks": 3,
+  "ownerlessProjectIds": [12]
+}
+```
+
+- Deactivation ends every session of the account on every instance, refuses its
+  logins, and clears its task assignments in all projects, archived ones
+  included. Memberships, comments and authorship are kept. `ownerlessProjectIds`
+  lists the projects it owned that now have no active owner.
+- Reactivation allows logins again. Old sessions and cleared assignments are not
+  restored. Both actions are idempotent.
+- Recovery promotes an existing member to `OWNER` or adds the account as one,
+  and only for a project with no active owner, archived or not.
+- Signed-in non-administrators get the same 404 an unknown route returns, for
+  any method or body. Anonymous callers get 401, and writes need a CSRF token.
+- Each action is logged at INFO with the administrator, the action and the
+  target, until activity history (#12) records them.
+
 ## Monitoring
 
 Spring Boot Actuator runs on a separate management port, `127.0.0.1:8081` by

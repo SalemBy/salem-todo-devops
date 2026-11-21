@@ -9,6 +9,8 @@ import lombok.Setter;
 import java.time.Instant;
 
 @Entity
+// Writes only changed columns: an edit loaded before a bulk unassign (#10, #67) must not write the old assignee back.
+@org.hibernate.annotations.DynamicUpdate
 @Table(name = "tasks")
 @Getter
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)

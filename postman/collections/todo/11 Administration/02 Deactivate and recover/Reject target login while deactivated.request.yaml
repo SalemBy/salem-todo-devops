@@ -1,0 +1,16 @@
+$kind: http-request
+order: 3000
+method: POST
+url: '{{baseUrl}}/auth/login'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{targetEmail}}","password":"{{targetPassword}}"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('A deactivated account cannot log in', () => {
+        pm.response.to.have.status(401);
+      });
