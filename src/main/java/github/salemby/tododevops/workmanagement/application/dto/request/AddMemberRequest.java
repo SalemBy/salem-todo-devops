@@ -1,9 +1,9 @@
 package github.salemby.tododevops.workmanagement.application.dto.request;
 
+import github.salemby.tododevops.shared.validation.Emails;
 import github.salemby.tododevops.workmanagement.domain.ProjectRole;
 import jakarta.validation.constraints.*;
 
-import java.util.Locale;
 
 /** Adds an existing active account by email. Email rules match account registration. */
 public record AddMemberRequest(
@@ -16,6 +16,6 @@ public record AddMemberRequest(
     ProjectRole role
 ) {
     public AddMemberRequest {
-        if (email != null) email = email.strip().toLowerCase(Locale.ROOT);
+        email = Emails.normalize(email);
     }
 }

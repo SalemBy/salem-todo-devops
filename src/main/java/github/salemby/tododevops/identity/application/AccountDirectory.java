@@ -1,5 +1,6 @@
 package github.salemby.tododevops.identity.application;
 
+import github.salemby.tododevops.shared.validation.Emails;
 import github.salemby.tododevops.identity.application.dto.AccountSummary;
 import github.salemby.tododevops.identity.domain.Account;
 import github.salemby.tododevops.identity.infrastructure.persistence.AccountRepository;
@@ -7,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -26,7 +26,7 @@ public class AccountDirectory {
     @Transactional(readOnly = true)
     public Optional<AccountSummary> findActiveByEmail(String email) {
         if (email == null) return Optional.empty();
-        return accounts.findByEmail(email.strip().toLowerCase(Locale.ROOT))
+        return accounts.findByEmail(Emails.normalize(email))
             .filter(Account::isActive).map(AccountDirectory::summary);
     }
 
