@@ -44,7 +44,7 @@ Built:
 - Projects: create, list, read, update, archive. Each project has a short uppercase key (2–10 characters, unique across the system). Archived projects stay readable but reject writes.
 - Tasks: they exist only inside a project. Each has a title, description, status (PENDING, IN_PROGRESS, COMPLETED), type (TASK, BUG, FEATURE, ENHANCEMENT, CHORE), priority (LOW, MEDIUM, HIGH, CRITICAL), a due date and labels. Task lists filter by status, type, priority, label and due-date range, in pages of up to 100.
 - Labels: one set per project, with names unique regardless of case, and archive instead of delete.
-- Membership: projects are private. Roles are OWNER, MEMBER and VIEWER, and permissions decide what each can do. A non-member sees "not found", never "forbidden". A project always keeps at least one active owner.
+- Membership: projects are private. Roles are OWNER, MANAGER, MEMBER and VIEWER, and permissions decide what each can do. A MANAGER runs the work and the team, while editing or archiving the project and managing owners and managers stay with OWNERs. A non-member sees "not found", never "forbidden". A project always keeps at least one active owner.
 
 Roadmap (not built): task assignment (#10), comments (#11), activity history (#12), parent-child tasks and dependencies (#13), iterations and estimates (#14), GitHub integration (#15–#17), progress reports (#18–#19), workflow automation (#20), profile pictures (#39), custom roles (#42). The AI capabilities still have to be designed and added to this roadmap.
 

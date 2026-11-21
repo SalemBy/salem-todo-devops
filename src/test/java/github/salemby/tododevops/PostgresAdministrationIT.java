@@ -320,7 +320,14 @@ class PostgresAdministrationIT {
         var u = user();
         long q2 = project(gone);
         assertEquals(204, gone.call("DELETE", "/projects/" + q2, null).statusCode());
-        assertEquals(List.of(q1, q2), ids(deactivate(admin, gone.id(), 200).get("ownerlessProjectIds")));
+        var lead = user();
+        long q3 = project(gone);
+        addMember(gone, q3, lead, "MANAGER");
+        assertEquals(List.of(q1, q2, q3), ids(deactivate(admin, gone.id(), 200).get("ownerlessProjectIds")));
+
+        var promotedManager = recover(admin, q3, Map.of("accountId", lead.id()));
+        assertEquals(200, promotedManager.statusCode(), promotedManager.body());
+        assertEquals("OWNER", JSON.readTree(promotedManager.body()).get("role").stringValue(), "a MANAGER becomes the owner (#69)");
 
         var promoted = recover(admin, q1, Map.of("accountId", m.id()));
         assertEquals(200, promoted.statusCode(), promoted.body());
