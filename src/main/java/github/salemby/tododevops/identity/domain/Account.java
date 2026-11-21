@@ -44,6 +44,12 @@ public class Account {
         passwordHash = Objects.requireNonNull(encodedPassword);
         credentialVersion = Math.incrementExact(credentialVersion);
     }
+    /** Ends every session (the credential version moves) and refuses new logins until reactivated. */
+    public void deactivate() {
+        active = false;
+        credentialVersion = Math.incrementExact(credentialVersion);
+    }
+    public void reactivate() { active = true; }
     @PreUpdate
     private void onUpdate() { updatedAt = Timestamps.now(); }
 }

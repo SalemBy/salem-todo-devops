@@ -24,4 +24,10 @@ public interface TaskRepository extends JpaRepository<Task, Long>, org.springfra
     int clearAssignee(@org.springframework.data.repository.query.Param("projectId") Long projectId,
                       @org.springframework.data.repository.query.Param("accountId") Long accountId,
                       @org.springframework.data.repository.query.Param("now") java.time.Instant now);
+
+    /** Unassigns the account from every task in every project, archived ones included; returns how many changed. */
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("update Task t set t.assigneeAccountId = null, t.updatedAt = :now where t.assigneeAccountId = :accountId")
+    int clearAssigneeEverywhere(@org.springframework.data.repository.query.Param("accountId") Long accountId,
+                                @org.springframework.data.repository.query.Param("now") java.time.Instant now);
 }

@@ -6,6 +6,7 @@ import github.salemby.tododevops.shared.persistence.Timestamps;
 import github.salemby.tododevops.shared.security.CurrentAccount;
 import github.salemby.tododevops.workmanagement.application.dto.request.AddMemberRequest;
 import github.salemby.tododevops.workmanagement.application.dto.request.ChangeMemberRoleRequest;
+import github.salemby.tododevops.workmanagement.application.dto.response.AccountRelease;
 import github.salemby.tododevops.workmanagement.application.dto.response.MemberResponse;
 import github.salemby.tododevops.workmanagement.application.dto.response.PageResponse;
 import github.salemby.tododevops.workmanagement.domain.ProjectMembership;
@@ -109,12 +110,29 @@ public class ProjectMemberService {
         memberships.flush();
     }
 
+    /**
+     * Clears a deactivated account's assignments in every project and reports, by ascending ID, the projects
+     * it owned that now have no active owner (#67). Runs inside the deactivation's transaction.
+     */
+    @Transactional
+    public AccountRelease release(Long accountId) {
+        int unassigned = tasks.clearAssigneeEverywhere(accountId, Timestamps.now());
+        var ownerless = memberships.findAllByAccountIdAndRole(accountId, ProjectRole.OWNER).stream()
+            .map(m -> m.getProject().getId()).filter(projectId -> !hasAnotherActiveOwner(projectId, accountId))
+            .sorted().toList();
+        return new AccountRelease(unassigned, ownerless);
+    }
+
     /** Callers hold the project lock, so no concurrent change can remove the remaining owner. */
     private void requireAnotherActiveOwner(Long projectId, Long changingAccountId) {
+        if (!hasAnotherActiveOwner(projectId, changingAccountId)) throw new ResponseStatusException(HttpStatus.CONFLICT, LAST_OWNER);
+    }
+
+    /** Whether an active account other than the given one is an OWNER of the project. */
+    boolean hasAnotherActiveOwner(Long projectId, Long accountId) {
         var otherOwners = memberships.findAllByProjectIdAndRole(projectId, ProjectRole.OWNER).stream()
-            .map(ProjectMembership::getAccountId).filter(id -> !id.equals(changingAccountId)).toList();
-        boolean anotherActive = directory.findByIds(otherOwners).values().stream().anyMatch(AccountSummary::active);
-        if (!anotherActive) throw new ResponseStatusException(HttpStatus.CONFLICT, LAST_OWNER);
+            .map(ProjectMembership::getAccountId).filter(id -> !id.equals(accountId)).toList();
+        return directory.findByIds(otherOwners).values().stream().anyMatch(AccountSummary::active);
     }
 
     private ProjectMembership requireMembership(Long projectId, Long accountId) {

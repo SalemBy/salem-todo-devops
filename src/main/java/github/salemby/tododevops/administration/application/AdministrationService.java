@@ -1,0 +1,42 @@
+package github.salemby.tododevops.administration.application;
+
+import github.salemby.tododevops.administration.application.dto.DeactivationResponse;
+import github.salemby.tododevops.identity.application.AccountAdministration;
+import github.salemby.tododevops.identity.application.dto.AccountResponse;
+import github.salemby.tododevops.shared.security.CurrentAccount;
+import github.salemby.tododevops.workmanagement.application.ProjectMemberService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * System administration across identity and work management (#67). The security filter has already
+ * confirmed the caller is an administrator. Until activity history (#12) exists, the INFO log is the audit trail.
+ */
+@Service
+public class AdministrationService {
+    private static final Logger log = LoggerFactory.getLogger(AdministrationService.class);
+    private final AccountAdministration accounts;
+    private final ProjectMemberService members;
+
+    public AdministrationService(AccountAdministration accounts, ProjectMemberService members) {
+        this.accounts = accounts;
+        this.members = members;
+    }
+
+    /** One transaction: the account is disabled and its assignments cleared together, or neither happens. */
+    @Transactional
+    public DeactivationResponse deactivate(CurrentAccount admin, Long accountId) {
+        var account = accounts.deactivate(accountId);
+        var release = members.release(accountId);
+        log.info("Administrator {} deactivated account {}", admin.id(), accountId);
+        return new DeactivationResponse(account, release.unassignedTasks(), release.ownerlessProjectIds());
+    }
+
+    public AccountResponse reactivate(CurrentAccount admin, Long accountId) {
+        var account = accounts.reactivate(accountId);
+        log.info("Administrator {} reactivated account {}", admin.id(), accountId);
+        return account;
+    }
+}

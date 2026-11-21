@@ -47,6 +47,7 @@ public class SecurityConfiguration {
         return registration;
     }
     @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationService accounts, ObjectMapper json,
+            github.salemby.tododevops.identity.application.Administrators administrators,
             RedisRateLimiter limiter, RateLimitProperties limits,
             SecurityContextRepository contexts, CsrfTokenRepository csrf,
             @Value("${app.auth.absolute-timeout:12h}") Duration absoluteTimeout) throws Exception {
@@ -65,7 +66,8 @@ public class SecurityConfiguration {
             .authorizeHttpRequests(c -> c.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers(publicRoutes).permitAll().anyRequest().authenticated())
             .addFilterBefore(new AuthRateLimitFilter(limiter, limits, problems), CsrfFilter.class)
-            .addFilterBefore(new AccountSessionFilter(accounts, publicRoutes, problems, absoluteTimeout, Clock.systemUTC()), CsrfFilter.class);
+            .addFilterBefore(new AccountSessionFilter(accounts, publicRoutes, problems, absoluteTimeout, Clock.systemUTC()), CsrfFilter.class)
+            .addFilterAfter(new AdministratorFilter(administrators, paths.matcher("/admin/**"), problems), CsrfFilter.class);
         return http.build();
     }
 }

@@ -4,7 +4,6 @@ import org.springframework.data.domain.Sort;
 import github.salemby.tododevops.workmanagement.application.dto.request.TaskFilters;
 import github.salemby.tododevops.workmanagement.application.dto.request.AssignTaskRequest;
 import github.salemby.tododevops.identity.application.AccountDirectory;
-import github.salemby.tododevops.identity.application.dto.AccountSummary;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectMembershipRepository;
 import org.springframework.http.HttpStatusCode;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskSpecifications;
@@ -181,7 +180,7 @@ public class TaskService {
     private void requireAssignable(Long projectId, Long accountId) {
         boolean member = memberships.findByProjectIdAndAccountId(projectId, accountId)
             .filter(m -> m.getRole().allows(ProjectPermission.TASK_WRITE)).isPresent();
-        boolean active = member && directory.findByIds(List.of(accountId)).values().stream().anyMatch(AccountSummary::active);
+        boolean active = member && directory.isActiveLocked(accountId); // serializes with deactivation (#67)
         if (!active) throw new ResponseStatusException(HttpStatusCode.valueOf(422),
             "Assignee must be an active owner or member of this project");
     }

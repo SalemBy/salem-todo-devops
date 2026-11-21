@@ -35,4 +35,6 @@ public interface ProjectMembershipRepository extends JpaRepository<ProjectMember
     Page<ProjectMembership> findPageByProjectId(@Param("projectId") Long projectId, Pageable pageable);
 
     List<ProjectMembership> findAllByProjectIdAndRole(Long projectId, ProjectRole role);
+
+    List<ProjectMembership> findAllByAccountIdAndRole(Long accountId, ProjectRole role);
 }
