@@ -48,7 +48,7 @@ public class AuthenticationService {
     // Not transactional: the hash must not run while a pooled connection is held (#44).
     public AccountPrincipal authenticate(@Valid LoginRequest request) {
         String emailKey = RedisRateLimiter.emailKey(request.email());
-        throttle(emailKey); // before the lookup and the hash: a throttled attempt costs one Redis call
+        throttle(emailKey, limits.loginPerEmail()); // before the lookup and the hash: a throttled attempt costs one Redis call
         var account = accounts.findByEmail(request.email()).orElse(null);
         boolean matches = passwords.matches(request.password(), account == null ? dummyHash : account.getPasswordHash());
         if (account == null || !matches || !account.isActive()) throw new BadCredentialsException("Invalid credentials");
@@ -61,10 +61,10 @@ public class AuthenticationService {
         return new AccountPrincipal(account.getId(), account.getCredentialVersion(), Instant.now());
     }
 
-    private void throttle(String emailKey) {
+    private void throttle(String key, RateLimitProperties.Limit limit) {
         Optional<Duration> retryAfter;
         try {
-            retryAfter = limiter.hit(emailKey, limits.loginPerEmail());
+            retryAfter = limiter.hit(key, limit);
         } catch (DataAccessException ex) {
             log.warn("Rate-limit store unavailable; failing closed: {}", ex.getMessage());
             log.debug("Rate-limit store failure", ex);
@@ -96,6 +96,8 @@ public class AuthenticationService {
 
     // Hashes run before the locking transaction, which then rechecks the account (#44).
     public void changePassword(AccountPrincipal principal, @Valid PasswordChangeRequest request) {
+        // Per login, not per account, so a stolen session cannot use up the owner's attempts to revoke it (#55).
+        throttle("password:" + principal.id() + ":" + principal.authenticatedAt(), limits.passwordChangePerLogin());
         var account = accounts.findById(principal.id()).filter(a -> isCurrent(a, principal))
             .orElseThrow(AuthenticationService::unauthorized);
         if (!passwords.matches(request.currentPassword(), account.getPasswordHash()))
