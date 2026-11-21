@@ -157,7 +157,8 @@ response is the same for existing and unknown emails. A throttled login never
 checks the password. If Redis is unavailable, these routes return 503.
 
 The limits are `app.rate-limit.*` properties in `application.properties`.
-`.env.example` relaxes the per-address limits for local development. To clear
+For repeated local Postman runs, uncomment the relaxed per-address limits in
+`.env`, copied from `.env.example`. To clear
 the local counters, run
 `docker compose exec redis sh -c "redis-cli --scan --pattern 'rl:*' | xargs -r redis-cli del"`.
 
