@@ -1,0 +1,4 @@
+$kind: collection
+order: 11000
+description: |-
+  Runs last in this folder, on the business-scenario login. Using up its password-change attempts blocks only password changes for that login, for 15 minutes; the business scenarios never change passwords.
