@@ -1,4 +1,4 @@
-# Local services for development and the PostgreSQL integration tests.
+# Local services for development and the PostgreSQL integration tests, plus a local mail inbox.
 # Start: docker compose up -d --wait   Stop: docker compose down   Reset: docker compose down -v
 # Compose reads the repository .env, so the database password follows DB_PASSWORD.
 name: salem-todo-devops
@@ -33,6 +33,19 @@ services:
       - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # A local mail server for the verification emails (#71); nothing reaches real inboxes.
+  # SMTP on 127.0.0.1:1025 (the app's default), inbox at http://127.0.0.1:8025.
+  mailpit:
+    image: axllent/mailpit:v1.33.1
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
       interval: 5s
       timeout: 5s
       retries: 10

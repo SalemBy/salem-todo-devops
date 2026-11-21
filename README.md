@@ -55,9 +55,11 @@ Reload Maven after dependency changes and restart the API after changing configu
 | Stop and keep data | `docker compose down` |
 | Reset all data | `docker compose down -v` |
 
-Both services listen on `127.0.0.1` only: PostgreSQL on 5432 and Redis on 6379.
-The API needs both: Redis holds the login sessions and the authentication
-rate-limit counters.
+The services listen on `127.0.0.1` only: PostgreSQL on 5432, Redis on 6379, and
+Mailpit on 1025 (SMTP) and 8025 (web inbox). The API needs PostgreSQL and Redis:
+Redis holds the login sessions and the authentication rate-limit counters.
+Mailpit receives the verification emails, so open http://127.0.0.1:8025 to read
+them; nothing reaches real inboxes.
 
 - **Port 5432 already in use:** another PostgreSQL is running on this machine.
   Stop it, or use the setup without Docker below.
@@ -87,8 +89,36 @@ return 503.
 
 Select **Salem Todo - Local Authentication** in Postman, then open
 **Salem Todo DevOps → 00 Authentication → 01 Session**. Send **Get CSRF token**,
-**Register account**, and **Login** in order. If the account already exists, log in
-with its credentials.
+**Register account**, **Verify account email**, and **Login** in order. The verify
+request reads the token from Mailpit. If the account already exists, log in with
+its credentials.
+
+### Email verification
+
+A new account must verify its email address before it can log in.
+
+| Request | Result |
+| --- | --- |
+| `POST /auth/register` | 201 with the account, `emailVerified: false`; sends an email with a link |
+| `POST /auth/verify` with `{"token": "..."}` | 204; the account can log in |
+| `POST /auth/verification-email` with `{"email": "..."}` | 202 with no body, for every email |
+
+- The link is `AUTH_VERIFICATION_URL?token=...`; the page behind it posts the
+  token to `/auth/verify`. A token works once and expires after 24 hours.
+  Unknown, expired, and used tokens get 400 `Verification link is invalid or has
+  expired`.
+- Until it is verified, an account cannot log in (401 `Invalid credentials`,
+  like a wrong password), cannot be added to a project, and is not an
+  administrator. Account responses include `emailVerified`.
+- Asking for the email again sends a new link to a pending account, and the old
+  link stops working. The response is the same for unknown and verified emails.
+- Registering a pending email again replaces that registration (name, password
+  and link), so nobody can hold someone else's address. A verified email still
+  gets 409. Registrations nobody verifies are deleted after 7 days.
+- If the email cannot be sent, registration still succeeds; ask for it again.
+- Mail goes over SMTP: `MAIL_HOST` (default `127.0.0.1`), `MAIL_PORT` (`1025`),
+  optional `MAIL_USERNAME` and `MAIL_PASSWORD`, and `MAIL_FROM`. Accounts that
+  existed before verification was added count as verified.
 
 The collection refreshes CSRF tokens automatically before writes. Keep the cookie
 jar enabled and use the same host for all requests. The Postman guide covers
@@ -96,7 +126,7 @@ manual sends, collection runs, and environment setup.
 
 | Resource | Base route | Capabilities |
 | --- | --- | --- |
-| Accounts | `/auth` | Register, log in, read current account, log out, change password |
+| Accounts | `/auth` | Register, verify the email, log in, read current account, log out, change password |
 | Projects | `/projects` | Create, list, read, update, archive |
 | Tasks | `/projects/{projectId}/tasks` | Manage tasks, assign them, discuss them in comments, filter results, browse pages |
 | Labels | `/projects/{projectId}/labels` | Manage project labels and associate them with tasks |
@@ -194,6 +224,8 @@ that every API instance shares:
 | New sessions (`GET /auth/csrf` without a session) per client address | 30 per minute |
 | Password changes per login | 5 per 15 minutes |
 | Password changes per client address | 10 per minute |
+| Verification emails per client address | 5 per hour |
+| Verification emails per email | 3 per hour |
 
 Over a limit, the API returns 429 with a `Retry-After` header (in seconds). The
 response is the same for existing and unknown emails. A throttled login never
@@ -222,9 +254,9 @@ proxy); otherwise all users share the proxy's address and its limits.
 System administrators can turn accounts off and on and give a project with no
 active owner a new owner. They are the active accounts whose email is listed in
 `ADMIN_EMAILS` (comma-separated, case-insensitive; empty by default). Nothing is
-seeded, and a change needs a restart. Register each administrator account
-before opening registration: emails are not verified, so whoever registers a
-listed email first holds that role.
+seeded, and a change needs a restart. A listed email counts only once its
+account is verified, so only the person who controls that address can hold the
+role.
 
 | Route | Result |
 | --- | --- |

@@ -1,0 +1,17 @@
+$kind: http-request
+order: 1600
+method: POST
+url: '{{baseUrl}}/auth/verification-email'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email":"{{authEmail}}"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('The answer never reveals whether the email has an account', () => {
+        pm.response.to.have.status(202);
+        pm.expect(pm.response.text()).to.eql('');
+      });

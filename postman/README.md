@@ -10,7 +10,10 @@ the desktop app. Expand **Salem Todo DevOps** and follow the numbered folders.
 2. Set the collection variable `baseUrl` (default: `http://127.0.0.1:8080`).
 3. Send **01 Status → Application status**. Expect HTTP 200 and `status: running`.
 4. Enable `AUTH_REGISTRATION_ENABLED=true` and, for local HTTP only,
-   `SESSION_COOKIE_SECURE=false` on the test server.
+   `SESSION_COOKIE_SECURE=false` on the test server. Start Mailpit with
+   `docker compose up -d --wait`: new accounts verify their email, and the
+   **Verify ... email** requests read the token from its API (`mailpitUrl`,
+   default `http://127.0.0.1:8025`).
 5. In Collection Runner, select **00 Authentication** followed by the desired
    feature folders in the same run. Leave the cookie jar enabled. Authentication
    generates temporary test credentials and CSRF values in run-local variables;

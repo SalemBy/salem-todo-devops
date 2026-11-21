@@ -1,0 +1,36 @@
+$kind: http-request
+order: 2500
+method: POST
+url: '{{baseUrl}}/auth/verify'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"token":"{{verificationToken}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Reads the newest verification email for this address from Mailpit (docker compose up) and takes its token.
+      const email = pm.variables.get('thirdEmail');
+      const mailpit = pm.variables.replaceIn('{{mailpitUrl}}').replace(/\/$/, '');
+      pm.sendRequest(mailpit + '/api/v1/search?query=' + encodeURIComponent('to:"' + email + '"'), (error, search) => {
+        if (error || search.code !== 200 || search.json().messages.length === 0) {
+          pm.execution.skipRequest();
+          throw new Error('No verification email for ' + email + ' in Mailpit. Start it with docker compose up -d.');
+        }
+        pm.sendRequest(mailpit + '/api/v1/message/' + search.json().messages[0].ID, (readError, message) => {
+          const match = !readError && message.code === 200 && message.json().Text.match(/token=([A-Za-z0-9_-]+)/);
+          if (!match) {
+            pm.execution.skipRequest();
+            throw new Error('The Mailpit message has no verification token.');
+          }
+          pm.variables.set('verificationToken', match[1]);
+        });
+      });
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Third account is verified', () => {
+        pm.response.to.have.status(204);
+      });

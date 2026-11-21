@@ -14,4 +14,5 @@ scripts:
       pm.test('Administrator account exists', () => {
         // 409: registered by an earlier run against this database.
         pm.expect(pm.response.code).to.be.oneOf([201, 409]);
+        pm.variables.set('adminRegistered', String(pm.response.code === 201));
       });
