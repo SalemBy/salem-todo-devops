@@ -1,8 +1,16 @@
-import { ComponentGallery } from './dev/ComponentGallery'
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { RouterProvider } from 'react-router'
+import { installUnauthorizedRedirect, type AppRouter } from './auth/unauthorizedRedirect'
+import { ToastProvider } from './components/Toast/Toast'
 
-// Replaced by the router and app shell (#75, Task 4).
-export function App() {
-  if (import.meta.env.DEV && window.location.pathname === '/dev/components')
-    return <ComponentGallery />
-  return <main>Salem Todo DevOps</main>
+export function App({ router, queryClient }: { router: AppRouter; queryClient: QueryClient }) {
+  useEffect(() => installUnauthorizedRedirect(router, queryClient), [router, queryClient])
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
+    </QueryClientProvider>
+  )
 }
