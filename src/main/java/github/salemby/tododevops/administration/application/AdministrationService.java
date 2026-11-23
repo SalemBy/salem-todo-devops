@@ -14,7 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * System administration across identity and work management (#67). The security filter has already
- * confirmed the caller is an administrator. Until activity history (#12) exists, the INFO log is the audit trail.
+ * confirmed the caller is an administrator. Project changes are recorded in activity history (#12) with the
+ * administrator as actor; account changes are logged at INFO.
  */
 @Service
 public class AdministrationService {
@@ -31,13 +32,13 @@ public class AdministrationService {
     @Transactional
     public DeactivationResponse deactivate(CurrentAccount admin, Long accountId) {
         var account = accounts.deactivate(accountId);
-        var release = members.release(accountId);
+        var release = members.release(accountId, admin.id());
         log.info("Administrator {} deactivated account {}", admin.id(), accountId);
         return new DeactivationResponse(account, release.unassignedTasks(), release.ownerlessProjectIds());
     }
 
     public MemberResponse recoverOwner(CurrentAccount admin, Long projectId, OwnerRequest request) {
-        var owner = members.recoverOwner(projectId, request.accountId());
+        var owner = members.recoverOwner(projectId, request.accountId(), admin.id());
         log.info("Administrator {} made account {} an owner of project {}", admin.id(), request.accountId(), projectId);
         return owner;
     }

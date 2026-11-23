@@ -16,6 +16,19 @@ public interface TaskRepository extends JpaRepository<Task, Long>, org.springfra
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "labels")
     Optional<Task> findByIdAndProjectIdAndActiveTrue(Long id, Long projectId);
 
+    /** The tasks {@link #clearAssignee} would change, archived ones included. */
+    @org.springframework.data.jpa.repository.Query("""
+        select new github.salemby.tododevops.workmanagement.infrastructure.persistence.AssignedTask(t.id, t.project.id)
+        from Task t where t.project.id = :projectId and t.assigneeAccountId = :accountId order by t.id""")
+    List<AssignedTask> findAssigned(@org.springframework.data.repository.query.Param("projectId") Long projectId,
+                                    @org.springframework.data.repository.query.Param("accountId") Long accountId);
+
+    /** The tasks {@link #clearAssigneeEverywhere} would change, archived ones included. */
+    @org.springframework.data.jpa.repository.Query("""
+        select new github.salemby.tododevops.workmanagement.infrastructure.persistence.AssignedTask(t.id, t.project.id)
+        from Task t where t.assigneeAccountId = :accountId order by t.id""")
+    List<AssignedTask> findAssignedEverywhere(@org.springframework.data.repository.query.Param("accountId") Long accountId);
+
     /** Unassigns the account from every task in the project, archived ones included; returns how many changed. */
     @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
     @org.springframework.data.jpa.repository.Query("""

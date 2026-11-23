@@ -261,6 +261,101 @@ class PostgresActivityIT {
         expect(Account.OWNER, "PUT", task(p, t) + "/activity", "{}", 405);
     }
 
+    // --- members, comments, labels --------------------------------------------------------------
+
+    @Test
+    void membershipChangesAreRecorded() throws Exception {
+        long p = project(), outsider = id(Account.OUTSIDER), fourth = id(Account.FOURTH);
+        expect(Account.OWNER, "POST", "/projects/" + p + "/members",
+            "{\"email\":\"" + session(Account.OUTSIDER).email() + "\",\"role\":\"MEMBER\"}", 201);
+        expect(Account.OWNER, "PUT", "/projects/" + p + "/members/" + outsider, "{\"role\":\"MANAGER\"}", 200);
+        expect(Account.OWNER, "PUT", "/projects/" + p + "/members/" + outsider, "{\"role\":\"MANAGER\"}", 200);
+        expect(Account.OWNER, "DELETE", "/projects/" + p + "/members/" + outsider, null, 204);
+        expect(Account.FOURTH, "DELETE", "/projects/" + p + "/members/" + fourth, null, 204);
+
+        var events = feed(Account.OWNER, p);
+        assertEquals(List.of("REMOVED", "REMOVED", "UPDATED", "ADDED"), actions(events));
+        assertEvent(events.get(0), "MEMBER", fourth, "REMOVED", Account.FOURTH);
+        assertEquals(List.of("role:MEMBER>null"), changes(events.get(0)), "leaving records the leaver as actor");
+        assertEvent(events.get(1), "MEMBER", outsider, "REMOVED", Account.OWNER);
+        assertEquals(List.of("role:MANAGER>null"), changes(events.get(1)));
+        assertEquals(List.of("role:MEMBER>MANAGER"), changes(events.get(2)));
+        assertEvent(events.get(3), "MEMBER", outsider, "ADDED", Account.OWNER);
+        assertEquals(List.of("role:null>MEMBER"), changes(events.get(3)));
+        assertTrue(events.get(3).get("taskId").isNull());
+    }
+
+    @Test
+    void removalAndDemotionUnassignWithActor() throws Exception {
+        long p = project(), second = id(Account.SECOND), fourth = id(Account.FOURTH);
+        long t1 = createTask(p, "{\"title\":\"One\"}"), t2 = createTask(p, "{\"title\":\"Two\"}"), t3 = createTask(p, "{\"title\":\"Three\"}");
+        for (long t : List.of(t1, t2)) expect(Account.OWNER, "PUT", task(p, t) + "/assignee", "{\"accountId\":" + second + "}", 200);
+        expect(Account.OWNER, "PUT", task(p, t3) + "/assignee", "{\"accountId\":" + fourth + "}", 200);
+
+        expect(Account.OWNER, "DELETE", "/projects/" + p + "/members/" + second, null, 204);
+        var removal = feed(Account.OWNER, p).subList(0, 3);
+        assertEvent(removal.get(0), "MEMBER", second, "REMOVED", Account.OWNER);
+        var unassigned = removal.subList(1, 3).stream().map(e -> e.get("resourceId").asLong()).sorted().toList();
+        assertEquals(List.of(t1, t2), unassigned);
+        for (JsonNode e : removal.subList(1, 3)) {
+            assertEvent(e, "TASK", e.get("resourceId").asLong(), "UPDATED", Account.OWNER);
+            assertEquals(List.of("assigneeId:" + second + ">null"), changes(e));
+        }
+
+        expect(Account.OWNER, "PUT", "/projects/" + p + "/members/" + fourth, "{\"role\":\"VIEWER\"}", 200);
+        var demotion = feed(Account.OWNER, p).subList(0, 2);
+        assertEquals(List.of("role:MEMBER>VIEWER"), changes(demotion.get(0)));
+        assertEvent(demotion.get(1), "TASK", t3, "UPDATED", Account.OWNER);
+        assertEquals(List.of("assigneeId:" + fourth + ">null"), changes(demotion.get(1)));
+    }
+
+    @Test
+    void leaverKeepsTheirHistory() throws Exception {
+        long p = project();
+        long t = json.readTree(expect(Account.SECOND, "POST", "/projects/" + p + "/tasks", "{\"title\":\"Mine\"}", 201).body())
+            .get("id").asLong();
+        expect(Account.SECOND, "DELETE", "/projects/" + p + "/members/" + id(Account.SECOND), null, 204);
+        var created = taskFeed(Account.OWNER, p, t).get(0);
+        assertEvent(created, "TASK", t, "CREATED", Account.SECOND);
+    }
+
+    @Test
+    void commentEventsCarryNoBody() throws Exception {
+        long p = project(), t = createTask(p, "{\"title\":\"Discuss\"}");
+        String comments = task(p, t) + "/comments";
+        long c = json.readTree(expect(Account.SECOND, "POST", comments, "{\"body\":\"comment-marker-1\"}", 201).body()).get("id").asLong();
+        expect(Account.SECOND, "PUT", comments + "/" + c, "{\"body\":\"comment-marker-2\"}", 200);
+        expect(Account.SECOND, "PUT", comments + "/" + c, "{\"body\":\"comment-marker-2\"}", 200);
+        expect(Account.OWNER, "DELETE", comments + "/" + c, null, 204);
+
+        var events = taskFeed(Account.THIRD, p, t);
+        assertEquals(List.of("DELETED", "UPDATED", "CREATED", "CREATED"), actions(events));
+        assertEvent(events.get(0), "COMMENT", c, "DELETED", Account.OWNER);
+        assertEvent(events.get(1), "COMMENT", c, "UPDATED", Account.SECOND);
+        assertEquals(List.of("body:null>null"), changes(events.get(1)));
+        assertEvent(events.get(2), "COMMENT", c, "CREATED", Account.SECOND);
+        assertEquals(List.of(), changes(events.get(2)));
+        for (JsonNode e : events) assertEquals(t, e.get("taskId").asLong());
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM activity_changes WHERE before_value LIKE '%comment-marker%' "
+            + "OR after_value LIKE '%comment-marker%'", Long.class));
+    }
+
+    @Test
+    void labelEventsAreRecorded() throws Exception {
+        long p = project(), l = label(p, "Bug");
+        expect(Account.OWNER, "PUT", "/projects/" + p + "/labels/" + l, "{\"name\":\"Defect\"}", 200);
+        expect(Account.OWNER, "PUT", "/projects/" + p + "/labels/" + l, "{\"name\":\" Defect \"}", 200);
+        expect(Account.OWNER, "DELETE", "/projects/" + p + "/labels/" + l, null, 204);
+        expect(Account.OWNER, "DELETE", "/projects/" + p + "/labels/" + l, null, 204);
+
+        var events = feed(Account.OWNER, p);
+        assertEquals(List.of("ARCHIVED", "UPDATED", "CREATED"), actions(events));
+        assertEvent(events.get(0), "LABEL", l, "ARCHIVED", Account.OWNER);
+        assertEquals(List.of("name:Bug>Defect"), changes(events.get(1)));
+        assertEquals(List.of("name:null>Bug"), changes(events.get(2)));
+        assertTrue(events.get(2).get("taskId").isNull());
+    }
+
     // --- fixtures -------------------------------------------------------------------------------
 
     long createTask(long projectId, String body) throws Exception {

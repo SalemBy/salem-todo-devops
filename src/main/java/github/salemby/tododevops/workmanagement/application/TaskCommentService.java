@@ -4,7 +4,9 @@ import github.salemby.tododevops.shared.security.CurrentAccount;
 import github.salemby.tododevops.workmanagement.application.dto.request.CommentRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.CommentResponse;
 import github.salemby.tododevops.workmanagement.application.dto.response.PageResponse;
+import github.salemby.tododevops.workmanagement.domain.ActivityAction;
 import github.salemby.tododevops.workmanagement.domain.ProjectPermission;
+import github.salemby.tododevops.workmanagement.domain.ResourceType;
 import github.salemby.tododevops.workmanagement.domain.Task;
 import github.salemby.tododevops.workmanagement.domain.TaskComment;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.TaskCommentRepository;
@@ -32,11 +34,13 @@ public class TaskCommentService {
     private final ProjectAccess access;
     private final TaskRepository tasks;
     private final TaskCommentRepository comments;
+    private final ActivityLog activity;
 
-    public TaskCommentService(ProjectAccess access, TaskRepository tasks, TaskCommentRepository comments) {
+    public TaskCommentService(ProjectAccess access, TaskRepository tasks, TaskCommentRepository comments, ActivityLog activity) {
         this.access = access;
         this.tasks = tasks;
         this.comments = comments;
+        this.activity = activity;
     }
 
     /** Active comments, oldest first. */
@@ -55,7 +59,9 @@ public class TaskCommentService {
                                   @NotNull @Valid CommentRequest request) {
         access.lockActive(projectId, account, ProjectPermission.COMMENT_WRITE);
         Task task = requireActiveTask(projectId, taskId);
-        return CommentResponse.from(comments.saveAndFlush(new TaskComment(task, account.id(), request.body())));
+        TaskComment saved = comments.saveAndFlush(new TaskComment(task, account.id(), request.body()));
+        record(account, projectId, taskId, saved, ActivityAction.CREATED, new Changes());
+        return CommentResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
@@ -75,8 +81,10 @@ public class TaskCommentService {
         if (!comment.getAuthorAccountId().equals(account.id()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, NOT_AUTHOR);
         if (!comment.getBody().equals(request.body())) {
+            var changes = new Changes().text("body", comment.getBody(), request.body());
             comment.edit(request.body());
             comments.saveAndFlush(comment);
+            record(account, projectId, taskId, comment, ActivityAction.UPDATED, changes);
         }
         return CommentResponse.from(comment);
     }
@@ -99,6 +107,12 @@ public class TaskCommentService {
         if (!author && !granted.role().allows(ProjectPermission.COMMENT_MODERATE))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, NOT_AUTHOR_OR_MODERATOR);
         comment.delete();
+        record(account, projectId, taskId, comment, ActivityAction.DELETED, new Changes());
+    }
+
+    private void record(CurrentAccount account, Long projectId, Long taskId, TaskComment comment, ActivityAction action,
+                        Changes changes) {
+        activity.record(account.id(), projectId, taskId, ResourceType.COMMENT, comment.getId(), action, changes);
     }
 
     private void requireTask(Long projectId, Long taskId) {
