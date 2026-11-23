@@ -18,3 +18,7 @@
 .action {
   margin-top: var(--space-3);
 }
+
+.illustration {
+  margin-bottom: var(--space-2);
+}

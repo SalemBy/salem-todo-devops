@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '../../api/client'
 import { Button } from '../Button/Button'
 import { ErrorMessage } from '../ErrorMessage/ErrorMessage'
+import { SalemCat } from '../../brand/SalemCat'
 import { EmptyState } from './EmptyState'
 
 describe('EmptyState', () => {
@@ -19,6 +20,19 @@ describe('EmptyState', () => {
     expect(screen.getByRole('heading', { name: 'No projects yet' })).toBeVisible()
     await userEvent.tab()
     expect(screen.getByRole('button', { name: 'New project' })).toHaveFocus()
+  })
+})
+
+describe('EmptyState illustration', () => {
+  it('is decorative and leaves the heading as the name', () => {
+    const { container } = render(
+      <EmptyState title="No projects yet" illustration={<SalemCat pose="asleep" />} />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'No projects yet' })).toBeVisible()
+    expect(
+      container.querySelector('[data-pose="asleep"]')?.closest('[aria-hidden="true"]'),
+    ).not.toBeNull()
   })
 })
 
