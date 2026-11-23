@@ -1,0 +1,80 @@
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.trigger:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+
+.trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.trigger[data-placeholder] {
+  color: var(--ink-muted);
+}
+
+.icon {
+  color: var(--ink-muted);
+}
+
+.content {
+  z-index: 50;
+  min-width: var(--radix-select-trigger-width);
+  max-height: var(--radix-select-content-available-height);
+  padding: var(--space-1);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-overlay);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--control-height);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.item[data-highlighted] {
+  background: var(--accent-soft);
+  outline: none;
+  /* A full ring, not only a tint: the highlight must reach 3:1 against the menu. */
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.item[data-disabled] {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+.check {
+  color: var(--accent);
+}

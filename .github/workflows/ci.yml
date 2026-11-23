@@ -82,3 +82,154 @@ jobs:
           path: target/*.jar
           if-no-files-found: error
           retention-days: 14
+
+  web:
+    name: Web checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Unit and component tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  e2e:
+    name: Web end-to-end
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: todo
+          POSTGRES_USER: todo
+          POSTGRES_PASSWORD: ci-e2e-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U todo -d todo"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8.10-alpine # keep in step with compose.yaml
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mailpit:
+        image: axllent/mailpit:v1.33.1 # keep in step with compose.yaml
+        ports:
+          - 1025:1025
+          - 8025:8025
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Download application JAR
+        uses: actions/download-artifact@v7
+        with:
+          name: salem-todo-devops-${{ github.sha }}
+          path: api
+
+      - name: Start the API
+        # Registration on, cookies over plain HTTP, and auth rate limits raised so test registrations are not throttled.
+        run: |
+          nohup java -jar api/*.jar \
+            --app.rate-limit.register-per-address.max=1000 \
+            --app.rate-limit.login-per-address.max=1000 \
+            --app.rate-limit.sessions-per-address.max=1000 \
+            > api.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8080/ > /dev/null && exit 0
+            sleep 1
+          done
+          echo "The API did not start within 60 seconds"
+          cat api.log
+          exit 1
+        env:
+          DB_URL: jdbc:postgresql://localhost:5432/todo
+          DB_USERNAME: todo
+          DB_PASSWORD: ci-e2e-only
+          AUTH_REGISTRATION_ENABLED: 'true'
+          SESSION_COOKIE_SECURE: 'false'
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Build the web UI
+        working-directory: web
+        run: npm run build
+
+      - name: Run Playwright against the API
+        working-directory: web
+        run: npm run e2e
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report and API log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-reports
+          path: |
+            web/playwright-report/
+            web/test-results/
+            api.log
+          if-no-files-found: ignore
+          retention-days: 14

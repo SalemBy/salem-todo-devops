@@ -1,0 +1,4 @@
+.body {
+  max-width: 65ch;
+  color: var(--ink-muted);
+}

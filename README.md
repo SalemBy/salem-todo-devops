@@ -1,7 +1,8 @@
 # Salem Todo DevOps
 
 A Spring Boot REST API for organizing projects and tasks, with account
-authentication, project labels, task filtering, and pagination.
+authentication, project labels, task filtering, and pagination, and a React
+web UI in `web/` that is being built on top of it.
 
 Built with Java 17, Spring Security, Spring Data JPA, PostgreSQL, and Flyway.
 The repository includes a Maven Wrapper and a runnable Postman collection.
@@ -84,6 +85,60 @@ Also install Redis and have it listen on `127.0.0.1:6379`, or point
 `spring.data.redis.host` and `spring.data.redis.port` at your Redis. Without
 Redis, login, registration, `GET /auth/csrf`, and every logged-in request
 return 503.
+
+## Web UI
+
+The web UI lives in `web/`: React, TypeScript and Vite. It is under construction
+(#74); for now it has its foundation only. You need Node 22 LTS (`web/.nvmrc`)
+and npm. With the API running:
+
+```powershell
+cd web
+npm ci
+npm run dev
+```
+
+The UI listens at `http://127.0.0.1:3000`, the address the verification emails
+link to. It calls the API under `/api`: the dev server forwards `/api/*` to
+`http://127.0.0.1:8080/*` without the prefix, so the browser sees one origin and
+the session cookie and CSRF token work without a CORS policy. Set `API_URL` to
+forward to another address. `npm run preview` serves the production build
+(`npm run build`) on the same port, with the same forwarding.
+
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Development server with hot reload |
+| `npm run build` | Typechecks, then builds into `web/dist` |
+| `npm run typecheck` | TypeScript in strict mode |
+| `npm run lint` | oxlint, warnings fail |
+| `npm run format` / `format:check` | Prettier |
+| `npm test` | Vitest unit and component tests |
+| `npm run e2e` | Playwright end-to-end tests (see below) |
+
+The look is defined in [DESIGN.md](DESIGN.md): every colour, size and duration
+is a token in `web/src/styles/tokens.css`, and the UI follows the system light
+or dark setting. In development, `/dev/components` shows every base component
+in its states.
+
+**End-to-end tests** run against the real API. Start the local services and the
+API as above (registration enabled and `SESSION_COOKIE_SECURE=false`, as in
+`.env.example`). Each run registers five accounts, and the default limit is five
+registrations per address per hour, so also uncomment the local-only
+`app.rate-limit.*` lines from `.env.example` in your `.env` before starting the
+API. Install Chromium once, then run them:
+
+```powershell
+cd web
+npx playwright install chromium
+npm run e2e
+```
+
+They reuse a running `npm run dev`, or start one. Registration reads the
+verification token from Mailpit, as the Postman collection does, so each run
+adds `e2e-…@example.com` accounts to the local database. In CI, the
+**Web checks** job runs typecheck, lint, format check, unit tests and the build,
+and **Web end-to-end** starts the API from the built JAR and runs Playwright
+against `vite preview`.
 
 ## Use the API
 
@@ -394,4 +449,5 @@ and uploads test reports and the application JAR.
 
 - [Postman guide](postman/README.md) — request examples, environments, and runnable scenarios.
 - [Architecture](docs/architecture.md) — module boundaries and persistence responsibilities.
+- [Design system](DESIGN.md) — the web UI's visual rules and tokens.
 - [Contributing](CONTRIBUTING.md) — branches, commit messages, pull requests, and checks.

@@ -1,0 +1,178 @@
+.shell {
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  grid-template-rows: var(--header-height) minmax(0, 1fr);
+  grid-template-areas:
+    'rail header'
+    'rail main';
+  min-height: 100dvh;
+}
+
+.skip {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 100;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--focus);
+  border-radius: var(--radius);
+  transform: translateY(-200%);
+}
+
+.skip:focus-visible {
+  transform: none;
+}
+
+.rail {
+  grid-area: rail;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  height: 100dvh;
+  padding: var(--space-5) var(--space-3);
+  overflow-y: auto;
+  background: var(--rail);
+  border-right: 1px solid var(--rail-rule);
+  color: var(--rail-ink);
+}
+
+.brand {
+  padding: 0 var(--space-2) var(--space-4);
+  color: var(--rail-ink-strong);
+  font-weight: var(--weight-bold);
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius);
+  color: var(--rail-ink);
+  text-decoration: none;
+}
+
+.link:hover {
+  background: var(--rail-active);
+  color: var(--rail-ink-strong);
+}
+
+.link:focus-visible {
+  outline-color: var(--rail-focus);
+}
+
+.link[aria-current='page'] {
+  background: var(--rail-active);
+  color: var(--rail-ink-strong);
+  font-weight: var(--weight-medium);
+}
+
+.header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  /* 40px: two grid cells, so the title and the page start on a grid line. */
+  padding: 0 var(--space-10);
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.crumb {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.title {
+  overflow: hidden;
+  font-size: var(--text-xl);
+  line-height: 2rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.name {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.main {
+  grid-area: main;
+  padding: var(--space-10);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: var(--grid) var(--grid);
+}
+
+.main:focus {
+  outline: none;
+}
+
+/* Narrow windows and 400% zoom: the rail becomes a bar above the page, so nothing scrolls sideways. */
+@media (max-width: 40rem) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      'rail'
+      'header'
+      'main';
+  }
+
+  .rail {
+    position: static;
+    flex-flow: row wrap;
+    align-items: center;
+    height: auto;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .brand {
+    padding: 0 var(--space-2);
+  }
+
+  .header {
+    padding: 0 var(--space-4);
+  }
+
+  .main {
+    padding: var(--space-5) var(--space-4);
+  }
+}
+
+.loading {
+  min-height: 100dvh;
+  background: var(--paper);
+}
+
+.failed {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: var(--space-4);
+  max-width: 32rem;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: var(--space-8);
+}

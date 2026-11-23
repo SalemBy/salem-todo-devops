@@ -8,8 +8,8 @@ web
 
 ## Stack
 
-- Backend (exists): Spring Boot 4 / Java 17 REST API, PostgreSQL, Flyway, Spring Security with server-side sessions.
-- Web UI (not built yet): React + TypeScript, built with Vite, as a separate single-page app that calls the REST API.
+- Backend: Spring Boot 4 / Java 17 REST API, PostgreSQL, Flyway, Spring Security with server-side sessions stored in Redis.
+- Web UI (being built, #74): React + TypeScript (strict) + Vite in `web/`, with React Router, TanStack Query, Radix primitives and CSS Modules on the design tokens in `DESIGN.md`. A single-page app that calls the API under `/api`; in development the Vite server forwards `/api` to the API, so the browser sees one origin.
 
 ## Users
 
@@ -34,24 +34,27 @@ AI-integrated and GitHub-native, built for large, complex delivery:
 ## Operating Context
 
 - Used alongside GitHub repositories, AI tools and a developer's normal coding workflow.
-- Today the API is used through the Postman collection at `postman/collections/todo`. No UI exists yet.
+- Today the API is used through the Postman collection at `postman/collections/todo`. The web UI has its foundation (design system, app shell, API layer); its screens arrive issue by issue under #74.
 - Today collaboration is small-scale: an owner invites a few people by email. The target is many people and many projects working at the same time.
 
 ## Capabilities and Constraints
 
 Built:
-- Accounts: register (off by default, controlled by configuration), log in, log out, change password, read the current account. Sessions expire after 30 minutes idle or 12 hours total. Changing a password ends every session.
+- Accounts: register (off by default, controlled by configuration), verify the email address before the account counts, log in, log out, change password, read the current account. Sessions expire after 30 minutes idle or 12 hours total. Changing a password ends every session. Public authentication endpoints and password changes are rate-limited.
+- Administration: administrators (configured by email) deactivate accounts and give ownerless projects a new owner.
 - Projects: create, list, read, update, archive. Each project has a short uppercase key (2–10 characters, unique across the system). Archived projects stay readable but reject writes.
-- Tasks: they exist only inside a project. Each has a title, description, status (PENDING, IN_PROGRESS, COMPLETED), type (TASK, BUG, FEATURE, ENHANCEMENT, CHORE), priority (LOW, MEDIUM, HIGH, CRITICAL), a due date and labels. Task lists filter by status, type, priority, label and due-date range, in pages of up to 100.
+- Tasks: they exist only inside a project. Each has a title, description, status (PENDING, IN_PROGRESS, COMPLETED), type (TASK, BUG, FEATURE, ENHANCEMENT, CHORE), priority (LOW, MEDIUM, HIGH, CRITICAL), a due date, labels and an assignee (a member whose role can write tasks). Task lists filter by status, type, priority, label, assignee and due-date range, in pages of up to 100.
+- Comments: members comment on tasks; authors edit their own, and owners and managers can delete any.
+- Activity history: every change to projects, tasks, members, comments and labels is recorded with who made it and what changed, readable per project and per task.
 - Labels: one set per project, with names unique regardless of case, and archive instead of delete.
 - Membership: projects are private. Roles are OWNER, MANAGER, MEMBER and VIEWER, and permissions decide what each can do. A MANAGER runs the work and the team, while editing or archiving the project and managing owners and managers stay with OWNERs. A non-member sees "not found", never "forbidden". A project always keeps at least one active owner.
 
-Roadmap (not built): task assignment (#10), comments (#11), activity history (#12), parent-child tasks and dependencies (#13), iterations and estimates (#14), GitHub integration (#15–#17), progress reports (#18–#19), workflow automation (#20), profile pictures (#39), custom roles (#42). The AI capabilities still have to be designed and added to this roadmap.
+Roadmap (not built): the web UI screens (#76–#79, then #80–#86), parent-child tasks and dependencies (#13), iterations and estimates (#14), GitHub integration (#15–#17), progress reports (#18–#19), workflow automation (#20), profile pictures (#39), custom roles (#42). The AI capabilities still have to be designed and added to this roadmap.
 
 Known limits on the way to large projects:
 - Every task, label and member write locks the project's database row, so writes inside one project happen one at a time. This is fine for small groups but becomes a bottleneck for large teams.
-- Sessions live in one server's memory, so the API cannot run on more than one server yet.
-- Public authentication endpoints have no rate limit (#45), and password hashing holds a database connection (#44).
+- Task lists sort by one key only, and there is no search yet (#66).
+- A task number is its global database ID, not a per-project number.
 
 Constraints the UI must respect:
 - Authentication uses session cookies with CSRF protection. The client fetches a token from `GET /auth/csrf` and sends it on every write, and fetches a new one after login or logout. The UI must never store tokens or session IDs in localStorage.
@@ -59,7 +62,7 @@ Constraints the UI must respect:
 - Errors come back as `application/problem+json`, with per-field validation errors in `errors`.
 - Records are archived, not deleted, and archived data stays visible.
 
-Terms: Project, project key, Task, Label, Member, Owner/Member/Viewer, archive.
+Terms: Project, project key, Task, Label, Member, Owner/Manager/Member/Viewer, assignee, comment, activity, archive.
 
 Open decisions:
 - whether new users can register publicly (it is a configuration switch today);
@@ -69,7 +72,8 @@ Open decisions:
 
 - API behavior: `README.md` and `docs/architecture.md`.
 - A working Postman collection: `postman/collections/todo`.
-- None of these exist yet: a UI, AI features, screenshots, a logo or brand assets, real users, testimonials or usage data. Future work must not invent them.
+- The visual system: `DESIGN.md` and the tokens in `web/src/styles/tokens.css`.
+- None of these exist yet: finished UI screens, AI features, screenshots, a logo or brand assets, real users, testimonials or usage data. Future work must not invent them.
 
 ## Product Principles
 
