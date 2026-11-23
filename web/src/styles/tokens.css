@@ -25,6 +25,11 @@
   --rail-rule: #33465f;
   --rail-focus: #8fb8f2;
 
+  /* Account disc: the rail ink on paper by day */
+  --avatar-bg: #21324a;
+  --avatar-ink: #ffffff;
+  --avatar-edge: #21324a;
+
   /* One blue pen: actions, selection and focus only */
   --accent: #1f5fbf;
   --accent-hover: #194f9f;
@@ -116,6 +121,11 @@
     --rail-ink-strong: #ffffff;
     --rail-rule: #1f2a38;
     --rail-focus: #79a9ee;
+
+    /* At night the rail colour would vanish into the paper, so the disc lifts and gets an edge. */
+    --avatar-bg: #1d2a3d;
+    --avatar-ink: #ffffff;
+    --avatar-edge: #6b7884;
 
     --accent: #79a9ee;
     --accent-hover: #9bbff3;

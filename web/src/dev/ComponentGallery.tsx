@@ -135,9 +135,10 @@ function Overlays() {
 function Marks() {
   return (
     <Section title="Badges, labels and people">
-      <Badge tone="accent">Owner</Badge>
+      <Badge>Owner</Badge>
       <Badge>Viewer</Badge>
-      <Badge tone="danger">Archived</Badge>
+      <Badge>Archived</Badge>
+      <Badge tone="danger">Overdue</Badge>
       <Badge tone="success">Completed</Badge>
       {['frontend', 'backend', 'infra', 'bug-bash', 'design', 'docs', 'security', 'release'].map(
         (name) => (
@@ -172,9 +173,7 @@ function Feedback() {
           }
         />
       </div>
-      <Button onClick={() => toast.show({ title: 'Task archived', tone: 'success' })}>
-        Show a toast
-      </Button>
+      <Button onClick={() => toast.show({ title: 'Task archived' })}>Show a toast</Button>
       <Button
         onClick={() =>
           toast.show({

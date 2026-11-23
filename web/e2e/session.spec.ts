@@ -1,16 +1,6 @@
-import { expect, test, type APIRequestContext } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { csrf, letters } from './account.ts'
 import { verificationToken } from './mailpit.ts'
-
-/** A fresh token for the request client's current session, sent the way the UI's API module sends it. */
-async function csrf(request: APIRequestContext): Promise<Record<string, string>> {
-  const response = await request.get('/api/auth/csrf')
-  expect(response.status()).toBe(200)
-  const { token, headerName } = (await response.json()) as { token: string; headerName: string }
-  return { [headerName]: token }
-}
-
-const letters = () =>
-  Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('')
 
 test('login and a write go through /api with the session cookie and csrf header', async ({
   request,

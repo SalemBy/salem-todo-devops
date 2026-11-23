@@ -40,6 +40,8 @@
 .item[data-highlighted] {
   background: var(--accent-soft);
   outline: none;
+  /* A full ring, not only a tint: the highlight must reach 3:1 against the menu. */
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .item[data-disabled] {
@@ -53,4 +55,5 @@
 
 .danger[data-highlighted] {
   background: var(--danger-soft);
+  box-shadow: inset 0 0 0 1px var(--danger);
 }

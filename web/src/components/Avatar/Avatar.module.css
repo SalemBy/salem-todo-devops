@@ -2,12 +2,11 @@
   display: inline-grid;
   flex: none;
   place-items: center;
-  background: var(--surface-sunken);
-  border: 1px solid var(--rule-strong);
+  background: var(--avatar-bg);
+  border: 1px solid var(--avatar-edge);
   border-radius: var(--radius-round);
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-weight: var(--weight-medium);
+  color: var(--avatar-ink);
+  font-weight: var(--weight-bold);
   line-height: 1;
 }
 

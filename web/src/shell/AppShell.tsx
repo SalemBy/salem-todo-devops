@@ -1,15 +1,21 @@
 import { LayoutGrid } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useMatches } from 'react-router'
 import { ApiError } from '../api/client'
 import { useCurrentAccount } from '../auth/useCurrentAccount'
 import { Avatar } from '../components/Avatar/Avatar'
 import { Button } from '../components/Button/Button'
 import { ErrorMessage } from '../components/ErrorMessage/ErrorMessage'
 import styles from './AppShell.module.css'
+import { usePageTitle, type PageHandle } from './usePageTitle'
 
-/** The signed-in frame: project rail, account header and the page. Later issues fill the rail. */
+/** The signed-in frame: project rail, a header with the page title and account, and the page. */
 export function AppShell() {
   const me = useCurrentAccount()
+  // The deepest route that names itself titles the page; routes declare it in their handle.
+  const page = useMatches()
+    .map((match) => match.handle as PageHandle | undefined)
+    .findLast((handle) => handle?.title)
+  usePageTitle(page?.title)
 
   if (me.isPending) return <div className={styles.loading} aria-busy="true" />
   if (me.isError) {
@@ -18,7 +24,11 @@ export function AppShell() {
     return (
       <main className={styles.failed}>
         <ErrorMessage
-          error={me.error instanceof ApiError ? me.error : 'Your account could not be loaded.'}
+          error={
+            me.error instanceof ApiError
+              ? me.error
+              : 'Your account could not be loaded. Try again in a moment.'
+          }
         />
         <Button onClick={() => void me.refetch()} loading={me.isFetching}>
           Try again
@@ -40,6 +50,10 @@ export function AppShell() {
         </NavLink>
       </nav>
       <header className={styles.header}>
+        <div className={styles.heading}>
+          {page?.crumb && <span className={styles.crumb}>{page.crumb} /</span>}
+          {page && <h1 className={styles.title}>{page.title}</h1>}
+        </div>
         <span className={styles.account}>
           <span className={styles.name}>{me.data.displayName}</span>
           <Avatar name={me.data.displayName} />

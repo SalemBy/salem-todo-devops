@@ -13,7 +13,7 @@ function Trigger() {
 }
 
 describe('Toast', () => {
-  it('shows a message in a live region and closes from the keyboard', async () => {
+  it('shows a message in the notifications region and closes from the keyboard', async () => {
     render(
       <ToastProvider>
         <Trigger />
@@ -22,9 +22,10 @@ describe('Toast', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Archive' }))
     expect(await screen.findByText('Task archived')).toBeVisible()
-    expect(screen.getByRole('status')).toHaveTextContent('Task archived')
+    // Radix announces it through its own short-lived live region; ours is the labelled viewport.
+    expect(screen.getByRole('region', { name: /Notifications/ })).toHaveTextContent('Task archived')
 
-    screen.getByRole('button', { name: 'Dismiss' }).focus()
+    screen.getByRole('button', { name: 'Dismiss notification' }).focus()
     await userEvent.keyboard('{Enter}')
 
     expect(screen.queryByText('Task archived')).not.toBeInTheDocument()

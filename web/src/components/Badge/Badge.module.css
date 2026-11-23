@@ -18,11 +18,6 @@
   color: var(--ink-muted);
 }
 
-.accent {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
 .danger {
   background: var(--danger-soft);
   color: var(--danger);

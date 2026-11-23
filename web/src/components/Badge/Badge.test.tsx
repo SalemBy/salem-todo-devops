@@ -7,8 +7,8 @@ import { Badge } from './Badge'
 
 describe('Badge', () => {
   it('says its meaning in words, not only colour', () => {
-    render(<Badge tone="danger">Archived</Badge>)
-    expect(screen.getByText('Archived')).toBeVisible()
+    render(<Badge tone="danger">Overdue</Badge>)
+    expect(screen.getByText('Overdue')).toBeVisible()
   })
 })
 

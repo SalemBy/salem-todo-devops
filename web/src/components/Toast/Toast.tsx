@@ -32,7 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 {toast.description}
               </Radix.Description>
             )}
-            <Radix.Close className={styles.close} aria-label="Dismiss">
+            <Radix.Close className={styles.close} aria-label="Dismiss notification">
               <X size={14} aria-hidden="true" />
             </Radix.Close>
           </Radix.Root>

@@ -106,7 +106,7 @@ async function toError(response: Response): Promise<ApiError> {
   const fallback = new ApiError(
     response.status,
     response.statusText || 'Error',
-    `The server returned an unexpected response (${response.status}).`,
+    `The server sent an unexpected response (${response.status}). Try again in a moment.`,
   )
   const type = response.headers.get('Content-Type') ?? ''
   if (!type.includes('json')) return fallback

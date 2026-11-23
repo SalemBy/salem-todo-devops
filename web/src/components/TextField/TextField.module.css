@@ -28,7 +28,8 @@
 }
 
 .input:disabled {
-  background: var(--surface-sunken);
+  background: transparent;
+  border-color: var(--rule);
   color: var(--ink-muted);
   cursor: not-allowed;
 }

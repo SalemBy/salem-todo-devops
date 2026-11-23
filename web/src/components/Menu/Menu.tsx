@@ -25,7 +25,7 @@ export function Menu({ label, items, icon }: MenuProps) {
         {icon ?? <MoreHorizontal size={16} aria-hidden="true" />}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className={styles.content} align="end" sideOffset={4}>
+        <DropdownMenu.Content className={styles.content} align="start" sideOffset={4}>
           {items.map((item) => (
             <DropdownMenu.Item
               key={item.label}
