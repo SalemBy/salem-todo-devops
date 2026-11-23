@@ -134,6 +134,7 @@ manual sends, collection runs, and environment setup.
 | Tasks | `/projects/{projectId}/tasks` | Manage tasks, assign them, discuss them in comments, filter results, browse pages |
 | Labels | `/projects/{projectId}/labels` | Manage project labels and associate them with tasks |
 | Members | `/projects/{projectId}/members` | List members, add by email, change roles, remove members, leave |
+| Activity | `/projects/{projectId}/activity` | Read who changed what and when, for the project or one task |
 
 Create a project before adding tasks. Tasks support status, type, priority,
 due date, and labels. Archival preserves records for later reads.
@@ -198,6 +199,44 @@ which stay visible. Deleting hides a comment from every endpoint (404) but
 keeps it in the database for audit; deleted comments cannot be read through the
 API. Archived projects (409) and archived tasks (404) are read-only, and their
 comments stay readable.
+
+### Activity history
+
+Every successful change to project work is recorded in the same transaction as
+the change, with the account that made it. Refused or rolled-back requests, and
+requests that change nothing (the same values again, archiving something already
+archived), record nothing. Any member, including a `VIEWER`, reads the history,
+newest first and paged (`?page=&size=`, size 1 to 100, default 20):
+
+| Request | Result |
+| --- | --- |
+| `GET /projects/{projectId}/activity` | 200 page of every event in the project |
+| `GET /projects/{projectId}/tasks/{taskId}/activity` | 200 page of the task's events and its comments' events; 404 `Task not found` for a task outside the project |
+
+Each event holds `id`, `projectId`, `taskId` (task and comment events),
+`actorId`, `resourceType`, `resourceId`, `action`, `occurredAt` (UTC), and
+`changes`, a list of `{field, before, after}`:
+
+| `resourceType` | `action` | Recorded fields |
+| --- | --- | --- |
+| `PROJECT` | `CREATED`, `UPDATED`, `ARCHIVED` | `name`, `key`, `description` |
+| `TASK` | `CREATED`, `UPDATED`, `ARCHIVED` | `title`, `description`, `status`, `type`, `priority`, `dueDate`, `labelIds`, `assigneeId` |
+| `MEMBER` | `ADDED`, `UPDATED`, `REMOVED` | `role` (`resourceId` is the member's account ID) |
+| `COMMENT` | `CREATED`, `UPDATED`, `DELETED` | `body` |
+| `LABEL` | `CREATED`, `UPDATED`, `ARCHIVED` | `name` |
+
+- Values are strings: enum names, `yyyy-MM-dd` dates, account IDs, and label IDs
+  ascending and comma-separated (`"3,7"`); `null` means none.
+- `description` and `body` are recorded only as changed: `before` and `after` are
+  always `null`, so the history never copies text people wrote. No passwords,
+  tokens or other secrets are recorded.
+- Status changes, label changes and assignments are `TASK` `UPDATED` events.
+  Removing a member or demoting them to `VIEWER` records an unassignment for each
+  of their tasks, by the account that removed them; an administrator's
+  deactivation or owner recovery records the administrator.
+- Events cannot be edited or deleted (other methods return 405). They stay
+  readable after the project or task is archived or the actor leaves, and are
+  kept indefinitely. Names come from `/members` and `/labels?active=all`.
 
 Business endpoints require login. Sessions expire after 30 minutes of inactivity
 or 12 hours total. They are stored in Redis, so they survive API restarts and

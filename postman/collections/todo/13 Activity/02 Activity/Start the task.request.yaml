@@ -1,0 +1,17 @@
+$kind: http-request
+order: 1000
+method: PUT
+url: '{{baseUrl}}/projects/{{activityProjectId}}/tasks/{{activityTaskId}}'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Tracked task","description":"Private details","status":"IN_PROGRESS"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('The task moves to in progress', () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().status).to.eql('IN_PROGRESS');
+      });

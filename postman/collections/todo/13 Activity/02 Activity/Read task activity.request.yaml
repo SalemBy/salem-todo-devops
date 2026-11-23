@@ -1,0 +1,14 @@
+$kind: http-request
+order: 3000
+method: GET
+url: '{{baseUrl}}/projects/{{activityProjectId}}/tasks/{{activityTaskId}}/activity'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('The task feed shows only this task, newest first', () => {
+        pm.response.to.have.status(200);
+        const items = pm.response.json().items;
+        pm.expect(items.map(e => e.action)).to.eql(['UPDATED', 'CREATED']);
+        items.forEach(e => pm.expect(String(e.taskId)).to.eql(pm.collectionVariables.get('activityTaskId')));
+      });
