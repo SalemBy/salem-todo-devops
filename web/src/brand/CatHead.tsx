@@ -2,18 +2,18 @@
 export const HEAD_PATH =
   'M4.2 3.4 8.7 7.3Q12 6.3 15.3 7.3L19.8 3.4 19.6 10.6Q21 13 20.4 15.7 19 20.6 12 20.8 5 20.6 3.6 15.7 3 13 4.4 10.6Z'
 
-export type CatEyes = 'open' | 'wide' | 'up' | 'closed' | 'squint'
+export type CatEyes = 'open' | 'closed'
 
 const EYES_X = [8.7, 15.3] as const
 const EYE_Y = 13.7
 
-/** The eyes carry the mood: slits at rest, round when curious, arcs when asleep or pleased. */
+/** The eyes carry the mood: slits when awake, arcs when asleep. */
 export function CatEyesShape({ eyes }: { eyes: CatEyes }) {
   return (
     <>
       {EYES_X.map((x) => {
-        if (eyes === 'closed' || eyes === 'squint') {
-          const lid = eyes === 'closed' ? EYE_Y + 1.3 : EYE_Y - 1.3
+        if (eyes === 'closed') {
+          const lid = EYE_Y + 1.3
           return (
             <path
               key={x}
@@ -25,19 +25,10 @@ export function CatEyesShape({ eyes }: { eyes: CatEyes }) {
             />
           )
         }
-        const round = eyes !== 'open'
-        const dx = eyes === 'up' ? 0.45 : 0
-        const dy = eyes === 'up' ? -0.45 : 0
         return (
           <g key={x}>
-            <ellipse cx={x} cy={EYE_Y} rx="1.8" ry={round ? 1.7 : 1.35} fill="var(--cat-eye)" />
-            <ellipse
-              cx={x + dx}
-              cy={EYE_Y + dy}
-              rx={round ? 0.75 : 0.42}
-              ry={round ? 0.85 : 1.05}
-              fill="var(--cat-body)"
-            />
+            <ellipse cx={x} cy={EYE_Y} rx="1.8" ry="1.35" fill="var(--cat-eye)" />
+            <ellipse cx={x} cy={EYE_Y} rx="0.42" ry="1.05" fill="var(--cat-body)" />
           </g>
         )
       })}

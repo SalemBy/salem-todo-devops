@@ -13,8 +13,8 @@ describe('SalemCat', () => {
     expect(svg).toHaveAttribute('data-pose', pose)
   })
 
-  it('has the four poses of the character', () => {
-    expect([...CAT_POSES].sort()).toEqual(['asleep', 'peeking', 'playing', 'pleased'])
+  it('ships only the poses the owner approved', () => {
+    expect(CAT_POSES).toEqual(['asleep'])
   })
 
   it('several cats on one page share no ids', () => {
