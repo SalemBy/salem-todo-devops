@@ -364,7 +364,62 @@ class PostgresAdministrationIT {
         assertDetail(recover(admin, q1, Map.of("accountId", u.id())), 409, "Project already has an active owner");
     }
 
+    @Test
+    void deactivationRecordsUnassignsWithAdminActor() throws Exception {
+        var admin = admin();
+        var t = user();
+        var o = user();
+        long p1 = project(o), p2 = project(o);
+        addMember(o, p1, t, "MEMBER");
+        addMember(o, p2, t, "MEMBER");
+        long k1 = task(o, p1), k2 = task(o, p2);
+        assign(o, p1, k1, t.id());
+        assign(o, p2, k2, t.id());
+
+        deactivate(admin, t.id(), 200);
+        for (long[] pair : new long[][]{{p1, k1}, {p2, k2}}) {
+            var newest = read(o, "/projects/" + pair[0] + "/activity").get("items").get(0);
+            assertEquals("TASK", newest.get("resourceType").stringValue());
+            assertEquals(pair[1], newest.get("resourceId").asLong());
+            assertEquals("UPDATED", newest.get("action").stringValue());
+            assertEquals(admin.id(), newest.get("actorId").asLong(), "the administrator is the actor");
+            assertEquals(List.of("assigneeId:" + t.id() + ">null"), changes(newest));
+        }
+    }
+
+    @Test
+    void ownerRecoveryIsRecorded() throws Exception {
+        var admin = admin();
+        var gone = user();
+        var m = user();
+        var u = user();
+        long q1 = project(gone), q2 = project(gone);
+        addMember(gone, q1, m, "MEMBER");
+        deactivate(admin, gone.id(), 200);
+
+        assertEquals(200, recover(admin, q1, Map.of("accountId", m.id())).statusCode());
+        var promoted = read(m, "/projects/" + q1 + "/activity").get("items").get(0);
+        assertEquals(List.of("MEMBER", "UPDATED"), List.of(promoted.get("resourceType").stringValue(), promoted.get("action").stringValue()));
+        assertEquals(m.id(), promoted.get("resourceId").asLong());
+        assertEquals(admin.id(), promoted.get("actorId").asLong());
+        assertEquals(List.of("role:MEMBER>OWNER"), changes(promoted));
+
+        assertEquals(200, recover(admin, q2, Map.of("accountId", u.id())).statusCode());
+        var added = read(u, "/projects/" + q2 + "/activity").get("items").get(0);
+        assertEquals(List.of("MEMBER", "ADDED"), List.of(added.get("resourceType").stringValue(), added.get("action").stringValue()));
+        assertEquals(u.id(), added.get("resourceId").asLong());
+        assertEquals(admin.id(), added.get("actorId").asLong());
+        assertEquals(List.of("role:null>OWNER"), changes(added));
+    }
+
     // --- fixtures -------------------------------------------------------------------------------
+
+    /** Each change of an activity event as "field:before>after", with null for no value. */
+    static List<String> changes(JsonNode event) {
+        return event.get("changes").valueStream().map(c -> c.get("field").stringValue() + ":"
+            + (c.get("before").isNull() ? "null" : c.get("before").stringValue()) + ">"
+            + (c.get("after").isNull() ? "null" : c.get("after").stringValue())).toList();
+    }
 
     static Map<String, List<String>> headers(HttpResponse<String> response) {
         var all = new java.util.TreeMap<>(response.headers().map());

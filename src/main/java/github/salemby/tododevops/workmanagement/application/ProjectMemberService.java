@@ -9,7 +9,10 @@ import github.salemby.tododevops.workmanagement.application.dto.request.ChangeMe
 import github.salemby.tododevops.workmanagement.application.dto.response.AccountRelease;
 import github.salemby.tododevops.workmanagement.application.dto.response.MemberResponse;
 import github.salemby.tododevops.workmanagement.application.dto.response.PageResponse;
+import github.salemby.tododevops.workmanagement.domain.ActivityAction;
 import github.salemby.tododevops.workmanagement.domain.ProjectMembership;
+import github.salemby.tododevops.workmanagement.domain.ResourceType;
+import github.salemby.tododevops.workmanagement.infrastructure.persistence.AssignedTask;
 import github.salemby.tododevops.workmanagement.domain.ProjectPermission;
 import github.salemby.tododevops.workmanagement.domain.ProjectRole;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectMembershipRepository;
@@ -45,9 +48,11 @@ public class ProjectMemberService {
     private final AccountDirectory directory;
     private final TaskRepository tasks;
     private final ProjectRepository projects;
+    private final ActivityLog activity;
 
     public ProjectMemberService(ProjectAccess access, ProjectMembershipRepository memberships, AccountDirectory directory,
-                                TaskRepository tasks, ProjectRepository projects) {
+                                TaskRepository tasks, ProjectRepository projects, ActivityLog activity) {
+        this.activity = activity;
         this.tasks = tasks;
         this.projects = projects;
         this.access = access;
@@ -83,6 +88,7 @@ public class ProjectMemberService {
         if (memberships.findByProjectIdAndAccountId(projectId, target.id()).isPresent())
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Account is already a member");
         var saved = memberships.saveAndFlush(new ProjectMembership(granted.project(), target.id(), request.role()));
+        recordMember(account.id(), projectId, target.id(), ActivityAction.ADDED, null, request.role());
         return toResponse(saved, Map.of(target.id(), target));
     }
 
@@ -94,11 +100,13 @@ public class ProjectMemberService {
         var membership = requireMembership(projectId, accountId);
         requireRank(granted.role(), membership.getRole(), request.role());
         if (membership.getRole() != request.role()) {
-            if (membership.getRole() == ProjectRole.OWNER) requireAnotherActiveOwner(projectId, accountId);
+            ProjectRole previous = membership.getRole();
+            if (previous == ProjectRole.OWNER) requireAnotherActiveOwner(projectId, accountId);
             // Only roles that may write tasks can hold one (#10).
-            if (!request.role().allows(ProjectPermission.TASK_WRITE)) tasks.clearAssignee(projectId, accountId, Timestamps.now());
+            if (!request.role().allows(ProjectPermission.TASK_WRITE)) unassignAll(account.id(), projectId, accountId);
             membership.changeRole(request.role());
             membership = memberships.saveAndFlush(membership);
+            recordMember(account.id(), projectId, accountId, ActivityAction.UPDATED, previous, request.role());
         }
         return toResponse(membership, directory.findByIds(List.of(accountId)));
     }
@@ -111,19 +119,24 @@ public class ProjectMemberService {
         var granted = access.lock(projectId, account, leaving ? ProjectPermission.PROJECT_READ : ProjectPermission.MEMBERS_MANAGE);
         var membership = requireMembership(projectId, accountId);
         if (!leaving) requireRank(granted.role(), membership.getRole());
-        if (membership.getRole() == ProjectRole.OWNER) requireAnotherActiveOwner(projectId, accountId);
-        tasks.clearAssignee(projectId, accountId, Timestamps.now()); // the assignee FK refuses the delete otherwise (#10)
+        ProjectRole role = membership.getRole();
+        if (role == ProjectRole.OWNER) requireAnotherActiveOwner(projectId, accountId);
+        unassignAll(account.id(), projectId, accountId); // the assignee FK refuses the delete otherwise (#10)
         memberships.delete(membership);
         memberships.flush();
+        recordMember(account.id(), projectId, accountId, ActivityAction.REMOVED, role, null);
     }
 
     /**
      * Clears a deactivated account's assignments in every project and reports, by ascending ID, the projects
-     * it owned that now have no active owner (#67). Runs inside the deactivation's transaction.
+     * it owned that now have no active owner (#67). Runs inside the deactivation's transaction; the
+     * administrator is recorded as the actor of each unassignment (#12).
      */
     @Transactional
-    public AccountRelease release(Long accountId) {
+    public AccountRelease release(Long accountId, Long actorId) {
+        var assigned = tasks.findAssignedEverywhere(accountId);
         int unassigned = tasks.clearAssigneeEverywhere(accountId, Timestamps.now());
+        recordUnassigned(actorId, accountId, assigned);
         var ownerless = memberships.findAllByAccountIdAndRole(accountId, ProjectRole.OWNER).stream()
             .map(m -> m.getProject().getId()).filter(projectId -> !hasAnotherActiveOwner(projectId, accountId))
             .sorted().toList();
@@ -135,7 +148,7 @@ public class ProjectMemberService {
      * promoted, otherwise one is created. Archived projects qualify, like other membership changes.
      */
     @Transactional
-    public MemberResponse recoverOwner(Long projectId, Long accountId) {
+    public MemberResponse recoverOwner(Long projectId, Long accountId, Long actorId) {
         var project = projects.findLockedById(projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
         if (hasAnotherActiveOwner(projectId, null))
@@ -144,10 +157,33 @@ public class ProjectMemberService {
         if (!directory.isActiveLocked(accountId))
             throw new ResponseStatusException(HttpStatusCode.valueOf(422), "Account must be active");
         var accounts = directory.findByIds(List.of(accountId));
-        var membership = memberships.findByProjectIdAndAccountId(projectId, accountId)
-            .orElseGet(() -> new ProjectMembership(project, accountId, ProjectRole.OWNER));
+        var existing = memberships.findByProjectIdAndAccountId(projectId, accountId);
+        ProjectRole previous = existing.map(ProjectMembership::getRole).orElse(null);
+        var membership = existing.orElseGet(() -> new ProjectMembership(project, accountId, ProjectRole.OWNER));
         membership.changeRole(ProjectRole.OWNER);
-        return toResponse(memberships.saveAndFlush(membership), accounts);
+        var saved = memberships.saveAndFlush(membership);
+        recordMember(actorId, projectId, accountId, previous == null ? ActivityAction.ADDED : ActivityAction.UPDATED,
+            previous, ProjectRole.OWNER);
+        return toResponse(saved, accounts);
+    }
+
+    /** Clears the account's assignments in the project, recording each one with the caller as actor (#12). */
+    private void unassignAll(long actorId, Long projectId, Long accountId) {
+        var assigned = tasks.findAssigned(projectId, accountId);
+        tasks.clearAssignee(projectId, accountId, Timestamps.now());
+        recordUnassigned(actorId, accountId, assigned);
+    }
+
+    private void recordUnassigned(long actorId, Long accountId, List<AssignedTask> assigned) {
+        for (var task : assigned)
+            activity.record(actorId, task.getProjectId(), task.getId(), ResourceType.TASK, task.getId(), ActivityAction.UPDATED,
+                new Changes().value("assigneeId", accountId, null));
+    }
+
+    private void recordMember(long actorId, Long projectId, Long accountId, ActivityAction action,
+                              ProjectRole before, ProjectRole after) {
+        activity.record(actorId, projectId, null, ResourceType.MEMBER, accountId, action,
+            new Changes().value("role", before, after));
     }
 
     /** Only callers with PRIVILEGED_MEMBERS_MANAGE may add, change, remove or grant an OWNER or MANAGER (#69). */

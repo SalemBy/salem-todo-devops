@@ -5,7 +5,9 @@ import github.salemby.tododevops.workmanagement.application.dto.response.LabelRe
 import github.salemby.tododevops.workmanagement.domain.Label;
 import github.salemby.tododevops.shared.security.CurrentAccount;
 import github.salemby.tododevops.workmanagement.domain.Project;
+import github.salemby.tododevops.workmanagement.domain.ActivityAction;
 import github.salemby.tododevops.workmanagement.domain.ProjectPermission;
+import github.salemby.tododevops.workmanagement.domain.ResourceType;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.LabelRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -21,10 +23,12 @@ import java.util.List;
 public class LabelService {
     private final ProjectAccess access;
     private final LabelRepository labels;
+    private final ActivityLog activity;
 
-    public LabelService(ProjectAccess access, LabelRepository labels) {
+    public LabelService(ProjectAccess access, LabelRepository labels, ActivityLog activity) {
         this.access = access;
         this.labels = labels;
+        this.activity = activity;
     }
 
     @Transactional
@@ -32,7 +36,9 @@ public class LabelService {
         Project project = access.lockActive(projectId, account, ProjectPermission.LABEL_WRITE);
         String name = request.name().strip();
         requireUniqueName(projectId, name, null);
-        return LabelResponse.from(labels.saveAndFlush(new Label(project, name)));
+        Label saved = labels.saveAndFlush(new Label(project, name));
+        record(account, projectId, saved, ActivityAction.CREATED, new Changes().value("name", null, name));
+        return LabelResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
@@ -63,14 +69,24 @@ public class LabelService {
         if (!label.isActive()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Label not found");
         String name = request.name().strip();
         requireUniqueName(projectId, name, id);
+        var changes = new Changes().value("name", label.getName(), name);
         label.rename(name);
-        return LabelResponse.from(labels.saveAndFlush(label));
+        Label saved = labels.saveAndFlush(label);
+        record(account, projectId, saved, ActivityAction.UPDATED, changes);
+        return LabelResponse.from(saved);
     }
 
     @Transactional
     public void archive(@NotNull CurrentAccount account, Long projectId, Long id) {
         access.lockActive(projectId, account, ProjectPermission.LABEL_WRITE);
-        requireLabel(projectId, id).archive();
+        Label label = requireLabel(projectId, id);
+        if (!label.isActive()) return; // archiving again changes nothing and is not recorded
+        label.archive();
+        record(account, projectId, label, ActivityAction.ARCHIVED, new Changes());
+    }
+
+    private void record(CurrentAccount account, Long projectId, Label label, ActivityAction action, Changes changes) {
+        activity.record(account.id(), projectId, null, ResourceType.LABEL, label.getId(), action, changes);
     }
 
     private void requireUniqueName(Long projectId, String name, Long excluded) {

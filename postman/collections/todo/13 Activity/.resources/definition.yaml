@@ -1,0 +1,7 @@
+$kind: collection
+name: 13 Activity
+order: 13000
+description: |-
+  Activity history (issue #12). Runs with the current login and creates its own project and task.
+  Every change to projects, tasks, members, comments and labels is recorded with its actor, newest
+  first; descriptions and comment bodies are recorded as changed, without their text.

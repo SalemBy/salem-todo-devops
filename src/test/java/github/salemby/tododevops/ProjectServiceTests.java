@@ -17,7 +17,8 @@ import static org.mockito.Mockito.*;
 class ProjectServiceTests {
     private final ProjectRepository repository = mock(ProjectRepository.class);
     private final ProjectService service =
-        new ProjectService(repository, mock(ProjectMembershipRepository.class), mock(ProjectAccess.class));
+        new ProjectService(repository, mock(ProjectMembershipRepository.class), mock(ProjectAccess.class),
+            mock(github.salemby.tododevops.workmanagement.application.ActivityLog.class));
     private final CreateProjectRequest request = new CreateProjectRequest("Valid", "OK", null);
 
     @Test

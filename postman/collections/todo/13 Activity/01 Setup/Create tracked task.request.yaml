@@ -1,0 +1,17 @@
+$kind: http-request
+order: 2000
+method: POST
+url: '{{baseUrl}}/projects/{{activityProjectId}}/tasks'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"title":"Tracked task","description":"Private details"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Task is created', () => {
+        pm.response.to.have.status(201);
+        pm.collectionVariables.set('activityTaskId', String(pm.response.json().id));
+      });

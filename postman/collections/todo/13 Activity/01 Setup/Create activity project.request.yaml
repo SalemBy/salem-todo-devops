@@ -1,0 +1,23 @@
+$kind: http-request
+order: 1000
+method: POST
+url: '{{baseUrl}}/projects'
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"name":"Activity checks","key":"{{activityKey}}"}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('activityKey', 'H' + pm.variables.replaceIn('{{$randomUUID}}').replace(/-/g, '').slice(0, 8).toUpperCase());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Activity project is created', () => {
+        pm.response.to.have.status(201);
+        const project = pm.response.json();
+        pm.collectionVariables.set('activityProjectId', String(project.id));
+        pm.collectionVariables.set('activityActorId', String(project.createdByAccountId));
+      });

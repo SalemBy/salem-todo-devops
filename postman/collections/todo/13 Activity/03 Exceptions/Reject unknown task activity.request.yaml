@@ -1,0 +1,13 @@
+$kind: http-request
+order: 2000
+method: GET
+url: '{{baseUrl}}/projects/{{activityProjectId}}/tasks/999999999/activity'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('An unknown task has no activity', () => {
+        pm.response.to.have.status(404);
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');
+        pm.expect(pm.response.json().detail).to.eql('Task not found');
+      });

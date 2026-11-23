@@ -1,0 +1,25 @@
+$kind: http-request
+order: 2000
+method: GET
+url: '{{baseUrl}}/projects/{{activityProjectId}}/activity'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('The newest event is the status change, with only that field', () => {
+        pm.response.to.have.status(200);
+        const page = pm.response.json();
+        pm.expect(page.totalElements).to.eql(3);
+        const [newest, created, project] = page.items;
+        pm.expect(newest.resourceType).to.eql('TASK');
+        pm.expect(newest.action).to.eql('UPDATED');
+        pm.expect(String(newest.resourceId)).to.eql(pm.collectionVariables.get('activityTaskId'));
+        pm.expect(String(newest.actorId)).to.eql(pm.collectionVariables.get('activityActorId'));
+        pm.expect(newest.changes).to.eql([{ field: 'status', before: 'PENDING', after: 'IN_PROGRESS' }]);
+        pm.expect(created.action).to.eql('CREATED');
+        pm.expect(project.resourceType).to.eql('PROJECT');
+      });
+      pm.test('Description text is never recorded', () => {
+        const description = pm.response.json().items[1].changes.find(c => c.field === 'description');
+        pm.expect(description).to.eql({ field: 'description', before: null, after: null });
+      });
