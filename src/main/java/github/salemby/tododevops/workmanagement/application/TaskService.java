@@ -13,7 +13,9 @@ import github.salemby.tododevops.workmanagement.application.dto.request.CreateTa
 import github.salemby.tododevops.workmanagement.application.dto.request.UpdateTaskRequest;
 import github.salemby.tododevops.workmanagement.application.dto.response.TaskResponse;
 import github.salemby.tododevops.shared.security.CurrentAccount;
+import github.salemby.tododevops.workmanagement.domain.ActivityAction;
 import github.salemby.tododevops.workmanagement.domain.ProjectPermission;
+import github.salemby.tododevops.workmanagement.domain.ResourceType;
 import github.salemby.tododevops.workmanagement.domain.Task;
 import github.salemby.tododevops.workmanagement.domain.Label;
 import github.salemby.tododevops.workmanagement.application.dto.response.LabelResponse;
@@ -37,9 +39,11 @@ public class TaskService {
     private final ProjectAccess access;
     private final ProjectMembershipRepository memberships;
     private final AccountDirectory directory;
+    private final ActivityLog activity;
 
     public TaskService(TaskRepository taskRepository, ProjectAccess access, LabelRepository labels,
-                       ProjectMembershipRepository memberships, AccountDirectory directory) {
+                       ProjectMembershipRepository memberships, AccountDirectory directory, ActivityLog activity) {
+        this.activity = activity;
         this.memberships = memberships;
         this.directory = directory;
         this.taskRepository = taskRepository;
@@ -77,6 +81,7 @@ public class TaskService {
         task.setDescription(request.description());
         applyMetadata(task, request);
         Task saved = taskRepository.save(task);
+        record(account, saved, ActivityAction.CREATED, TaskState.NONE.diff(TaskState.of(saved)));
         return toResponse(saved);
     }
 
@@ -86,11 +91,13 @@ public class TaskService {
         access.lockActive(projectId, account, ProjectPermission.TASK_WRITE);
         Task task = taskRepository.findByIdAndProjectIdAndActiveTrue(id, projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+        var before = TaskState.of(task);
         task.setTitle(request.title());
         task.setDescription(request.description());
         task.setStatus(request.status());
         applyMetadata(task, request);
         Task saved = taskRepository.saveAndFlush(task);
+        record(account, saved, ActivityAction.UPDATED, before.diff(TaskState.of(saved)));
         return toResponse(saved);
     }
 
@@ -99,7 +106,13 @@ public class TaskService {
         access.lockActive(projectId, account, ProjectPermission.TASK_WRITE);
         Task task = taskRepository.findByIdAndProjectId(id, projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+        if (!task.isActive()) return; // archiving again changes nothing and is not recorded
         task.archive();
+        record(account, task, ActivityAction.ARCHIVED, new Changes());
+    }
+
+    private void record(CurrentAccount account, Task task, ActivityAction action, Changes changes) {
+        activity.record(account.id(), task.getProject().getId(), task.getId(), ResourceType.TASK, task.getId(), action, changes);
     }
 
 
@@ -141,6 +154,7 @@ public class TaskService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
         Label label = labels.findByIdAndProjectId(labelId, projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Label not found"));
+        var before = TaskState.of(task);
         if (attach) {
             if (!label.isActive() && !task.getLabels().contains(label))
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Label is archived");
@@ -148,6 +162,7 @@ public class TaskService {
         } else {
             task.getLabels().remove(label);
         }
+        record(account, task, ActivityAction.UPDATED, before.diff(TaskState.of(task)));
     }
 
     /** Makes an active owner or member of the project responsible for the task (#10). */
@@ -159,8 +174,10 @@ public class TaskService {
         Long target = request.accountId();
         requireAssignable(projectId, target);
         if (!target.equals(task.getAssigneeAccountId())) {
+            var changes = new Changes().value("assigneeId", task.getAssigneeAccountId(), target);
             task.assign(target);
             taskRepository.saveAndFlush(task);
+            record(account, task, ActivityAction.UPDATED, changes);
         }
         return toResponse(task);
     }
@@ -168,7 +185,10 @@ public class TaskService {
     @Transactional
     public void unassign(@NotNull CurrentAccount account, Long projectId, Long id) {
         access.lockActive(projectId, account, ProjectPermission.TASK_WRITE);
-        requireActiveTask(projectId, id).unassign();
+        Task task = requireActiveTask(projectId, id);
+        var changes = new Changes().value("assigneeId", task.getAssigneeAccountId(), null);
+        task.unassign();
+        record(account, task, ActivityAction.UPDATED, changes);
     }
 
     private Task requireActiveTask(Long projectId, Long id) {

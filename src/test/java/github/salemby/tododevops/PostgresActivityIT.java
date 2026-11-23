@@ -3,7 +3,12 @@ package github.salemby.tododevops;
 import github.salemby.tododevops.support.IsolatedPostgresSchema;
 import github.salemby.tododevops.support.TestHttp;
 import github.salemby.tododevops.support.TestProjects;
+import github.salemby.tododevops.shared.security.CurrentAccount;
+import github.salemby.tododevops.workmanagement.application.TaskService;
+import github.salemby.tododevops.workmanagement.application.dto.request.UpdateTaskRequest;
 import github.salemby.tododevops.workmanagement.domain.ProjectMembership;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import github.salemby.tododevops.workmanagement.domain.ProjectRole;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectMembershipRepository;
 import github.salemby.tododevops.workmanagement.infrastructure.persistence.ProjectRepository;
@@ -42,6 +47,8 @@ class PostgresActivityIT {
     @Autowired ProjectRepository projects;
     @Autowired ProjectMembershipRepository memberships;
     @Autowired JdbcTemplate jdbc;
+    @Autowired TaskService taskService;
+    @Autowired PlatformTransactionManager transactionManager;
     private final ObjectMapper json = new ObjectMapper();
 
     // --- projects -------------------------------------------------------------------------------
@@ -125,7 +132,154 @@ class PostgresActivityIT {
         assertEquals(after.get(0), feed(Account.THIRD, p).get(0), "archived projects keep their history readable");
     }
 
+    // --- tasks ----------------------------------------------------------------------------------
+
+    @Test
+    void taskCreateRecordsInitialValues() throws Exception {
+        long p = project(), a = label(p, "Alpha"), b = label(p, "Beta");
+        long t = createTask(p, "{\"title\":\"T\",\"description\":\"Details\",\"priority\":\"HIGH\","
+            + "\"dueDate\":\"2026-12-01\",\"labelIds\":[" + b + "," + a + "]}");
+        var events = taskFeed(Account.OWNER, p, t);
+        assertEquals(1, events.size());
+        assertEvent(events.get(0), "TASK", t, "CREATED", Account.OWNER);
+        assertEquals(t, events.get(0).get("taskId").asLong());
+        assertEquals(List.of("title:null>T", "description:null>null", "status:null>PENDING", "type:null>TASK",
+            "priority:null>HIGH", "dueDate:null>2026-12-01", "labelIds:null>" + a + "," + b), changes(events.get(0)));
+    }
+
+    @Test
+    void boardMoveRecordsOnlyStatus() throws Exception {
+        long p = project(), t = createTask(p, "{\"title\":\"Move\",\"description\":\"Keep\"}");
+        expect(Account.SECOND, "PUT", task(p, t), "{\"title\":\"Move\",\"description\":\"Keep\",\"status\":\"IN_PROGRESS\"}", 200);
+        var events = taskFeed(Account.OWNER, p, t);
+        assertEquals(2, events.size());
+        assertEvent(events.get(0), "TASK", t, "UPDATED", Account.SECOND);
+        assertEquals(List.of("status:PENDING>IN_PROGRESS"), changes(events.get(0)));
+    }
+
+    @Test
+    void identicalPutWritesNothing() throws Exception {
+        long p = project(), a = label(p, "Alpha"), b = label(p, "Beta");
+        long t = createTask(p, "{\"title\":\"Same\",\"labelIds\":[" + a + "," + b + "]}");
+        expect(Account.OWNER, "PUT", task(p, t), "{\"title\":\"Same\",\"description\":null,\"status\":\"PENDING\",\"type\":\"TASK\","
+            + "\"priority\":\"MEDIUM\",\"dueDate\":null,\"labelIds\":[" + a + "," + b + "]}", 200);
+        expect(Account.OWNER, "PUT", task(p, t), "{\"title\":\"Same\",\"status\":\"PENDING\",\"labelIds\":[" + b + "," + a + "]}", 200);
+        assertEquals(List.of("CREATED"), actions(taskFeed(Account.OWNER, p, t)));
+    }
+
+    @Test
+    void dueDateOmittedVersusNull() throws Exception {
+        long p = project(), t = createTask(p, "{\"title\":\"Due\",\"dueDate\":\"2026-12-01\"}");
+        expect(Account.OWNER, "PUT", task(p, t), "{\"title\":\"Due\",\"status\":\"PENDING\"}", 200);
+        assertEquals(1, taskFeed(Account.OWNER, p, t).size(), "an omitted due date is kept and not recorded");
+        expect(Account.OWNER, "PUT", task(p, t), "{\"title\":\"Due\",\"status\":\"PENDING\",\"dueDate\":null}", 200);
+        var events = taskFeed(Account.OWNER, p, t);
+        assertEquals(List.of("dueDate:2026-12-01>null"), changes(events.get(0)));
+    }
+
+    @Test
+    void labelsAssignAndArchiveAreRecorded() throws Exception {
+        long p = project(), a = label(p, "Alpha"), b = label(p, "Beta");
+        long t = createTask(p, "{\"title\":\"Labels\",\"labelIds\":[" + a + "]}");
+        String second = String.valueOf(id(Account.SECOND));
+        expect(Account.OWNER, "PUT", task(p, t) + "/labels/" + b, null, 204);
+        expect(Account.OWNER, "PUT", task(p, t) + "/labels/" + b, null, 204);
+        expect(Account.OWNER, "DELETE", task(p, t) + "/labels/" + b, null, 204);
+        expect(Account.OWNER, "DELETE", task(p, t) + "/labels/" + b, null, 204);
+        expect(Account.OWNER, "PUT", task(p, t) + "/assignee", "{\"accountId\":" + second + "}", 200);
+        expect(Account.OWNER, "PUT", task(p, t) + "/assignee", "{\"accountId\":" + second + "}", 200);
+        expect(Account.OWNER, "DELETE", task(p, t) + "/assignee", null, 204);
+        expect(Account.OWNER, "DELETE", task(p, t) + "/assignee", null, 204);
+        expect(Account.OWNER, "DELETE", task(p, t), null, 204);
+        expect(Account.OWNER, "DELETE", task(p, t), null, 204);
+
+        var events = taskFeed(Account.OWNER, p, t);
+        assertEquals(List.of("ARCHIVED", "UPDATED", "UPDATED", "UPDATED", "UPDATED", "CREATED"), actions(events));
+        assertEquals(List.of(), changes(events.get(0)));
+        assertEquals(List.of("assigneeId:" + second + ">null"), changes(events.get(1)));
+        assertEquals(List.of("assigneeId:null>" + second), changes(events.get(2)));
+        assertEquals(List.of("labelIds:" + a + "," + b + ">" + a), changes(events.get(3)));
+        assertEquals(List.of("labelIds:" + a + ">" + a + "," + b), changes(events.get(4)));
+    }
+
+    @Test
+    void refusedWritesRecordNothing() throws Exception {
+        long p = project(), t = createTask(p, "{\"title\":\"Refused\"}");
+        expect(Account.OWNER, "PUT", task(p, t) + "/assignee", "{\"accountId\":" + id(Account.THIRD) + "}", 422);
+        expect(Account.OWNER, "PUT", task(p, t), "{\"title\":\"Changed\",\"status\":\"PENDING\",\"labelIds\":[999999999]}", 404);
+        expect(Account.THIRD, "PUT", task(p, t), "{\"title\":\"Changed\",\"status\":\"PENDING\"}", 403);
+        expect(Account.OWNER, "DELETE", "/projects/" + p, null, 204);
+        expect(Account.OWNER, "PUT", task(p, t), "{\"title\":\"Changed\",\"status\":\"PENDING\"}", 409);
+        expect(Account.OWNER, "DELETE", task(p, t), null, 409);
+        assertEquals(List.of("CREATED"), actions(taskFeed(Account.OWNER, p, t)));
+        assertEquals("Refused", json.readTree(expect(Account.OWNER, "GET", task(p, t), null, 200).body()).get("title").stringValue());
+    }
+
+    @Test
+    void rollbackAfterRecordingLeavesNoEvent() throws Exception {
+        long p = project(), t = createTask(p, "{\"title\":\"Before\"}");
+        String count = "SELECT count(*) FROM activity_events WHERE task_id = ?";
+        var request = json.readValue("{\"title\":\"After\",\"status\":\"COMPLETED\"}", UpdateTaskRequest.class);
+        var transactions = new TransactionTemplate(transactionManager);
+        var failure = assertThrows(IllegalStateException.class, () -> transactions.executeWithoutResult(status -> {
+            taskService.update(new CurrentAccount(id(Account.OWNER)), p, t, request);
+            assertEquals(2, jdbc.queryForObject(count, Long.class, t), "the event is written inside the transaction");
+            throw new IllegalStateException("roll back");
+        }));
+        assertEquals("roll back", failure.getMessage());
+        assertEquals(1, jdbc.queryForObject(count, Long.class, t));
+        assertEquals("Before", json.readTree(expect(Account.OWNER, "GET", task(p, t), null, 200).body()).get("title").stringValue());
+    }
+
+    @Test
+    void descriptionTextNeverStored() throws Exception {
+        long p = project(), t = createTask(p, "{\"title\":\"Secret\",\"description\":\"secret-marker-123\"}");
+        expect(Account.OWNER, "PUT", task(p, t), "{\"title\":\"Secret\",\"description\":\"secret-marker-456\",\"status\":\"PENDING\"}", 200);
+        expect(Account.OWNER, "PUT", "/projects/" + p, "{\"name\":\"Renamed\",\"description\":\"secret-marker-789\"}", 200);
+        assertEquals(List.of("description:null>null"), changes(taskFeed(Account.OWNER, p, t).get(0)));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM activity_changes WHERE before_value LIKE '%secret-marker%' "
+            + "OR after_value LIKE '%secret-marker%'", Long.class));
+    }
+
+    @Test
+    void taskFeedShowsOnlyThatTask() throws Exception {
+        long p = project(), t = createTask(p, "{\"title\":\"One\"}"), u = createTask(p, "{\"title\":\"Two\"}");
+        expect(Account.OWNER, "PUT", task(p, t), "{\"title\":\"One\",\"status\":\"COMPLETED\"}", 200);
+        var events = taskFeed(Account.THIRD, p, t);
+        assertEquals(2, events.size());
+        for (JsonNode event : events) assertEquals(t, event.get("taskId").asLong());
+        assertEquals(1, taskFeed(Account.THIRD, p, u).size());
+
+        expect(Account.OWNER, "DELETE", task(p, u), null, 204);
+        assertEquals(List.of("ARCHIVED", "CREATED"), actions(taskFeed(Account.THIRD, p, u)), "archived tasks keep their history");
+
+        long q = project(), v = createTask(q, "{\"title\":\"Elsewhere\"}");
+        assertDetail(expect(Account.OWNER, "GET", task(p, v) + "/activity", null, 404), "Task not found");
+        assertDetail(expect(Account.OWNER, "GET", task(p, 999999999) + "/activity", null, 404), "Task not found");
+        assertDetail(expect(Account.OUTSIDER, "GET", task(p, t) + "/activity", null, 404), "Project not found");
+        expect(Account.OWNER, "GET", task(p, t) + "/activity?size=101", null, 400);
+        expect(Account.OWNER, "PUT", task(p, t) + "/activity", "{}", 405);
+    }
+
     // --- fixtures -------------------------------------------------------------------------------
+
+    long createTask(long projectId, String body) throws Exception {
+        return json.readTree(expect(Account.OWNER, "POST", "/projects/" + projectId + "/tasks", body, 201).body()).get("id").asLong();
+    }
+
+    long label(long projectId, String name) throws Exception {
+        return json.readTree(expect(Account.OWNER, "POST", "/projects/" + projectId + "/labels",
+            "{\"name\":\"" + name + "\"}", 201).body()).get("id").asLong();
+    }
+
+    static String task(long projectId, long taskId) {
+        return "/projects/" + projectId + "/tasks/" + taskId;
+    }
+
+    /** Every event of the task feed, newest first. */
+    List<JsonNode> taskFeed(Account who, long projectId, long taskId) throws Exception {
+        return items(expect(who, "GET", task(projectId, taskId) + "/activity?size=100", null, 200));
+    }
 
     /** A project saved directly (no events), with the standard members. */
     long project() {

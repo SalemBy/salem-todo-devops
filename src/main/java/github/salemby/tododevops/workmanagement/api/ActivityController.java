@@ -21,4 +21,10 @@ public class ActivityController {
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         return activity.projectFeed(account, projectId, page, size);
     }
+
+    @GetMapping("/tasks/{taskId}/activity")
+    public PageResponse<ActivityResponse> task(CurrentAccount account, @PathVariable Long projectId, @PathVariable Long taskId,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return activity.taskFeed(account, projectId, taskId, page, size);
+    }
 }
