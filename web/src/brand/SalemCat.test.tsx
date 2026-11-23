@@ -46,6 +46,12 @@ describe('SalemCat', () => {
     for (const colour of colours) expect(colour).toMatch(/^(var\(--cat-[a-z-]+\)|none)$/)
   })
 
+  it('scales the head outline with the drawing, like the rest of it', () => {
+    const { container } = render(<SalemCat pose="asleep" size={120} />)
+
+    expect(container.querySelector('[vector-effect]')).toBeNull()
+  })
+
   it('scales to the size asked for', () => {
     const { container } = render(<SalemCat pose="asleep" size={96} />)
 

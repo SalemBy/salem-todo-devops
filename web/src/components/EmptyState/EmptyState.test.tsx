@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '../../api/client'
 import { Button } from '../Button/Button'
 import { ErrorMessage } from '../ErrorMessage/ErrorMessage'
-import { SalemCat } from '../../brand/SalemCat'
 import { EmptyState } from './EmptyState'
 
 describe('EmptyState', () => {
@@ -24,15 +23,25 @@ describe('EmptyState', () => {
 })
 
 describe('EmptyState illustration', () => {
-  it('is decorative and leaves the heading as the name', () => {
+  it('shows the illustration and hides it from screen readers', () => {
     const { container } = render(
-      <EmptyState title="No projects yet" illustration={<SalemCat pose="asleep" />} />,
+      <EmptyState
+        title="No projects yet"
+        illustration={<span data-testid="art">Sleeping cat</span>}
+      />,
     )
 
+    const art = screen.getByTestId('art')
+    expect(art.parentElement).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByText('Sleeping cat', { ignore: '[aria-hidden="true"] *' })).toBeNull()
     expect(screen.getByRole('heading', { name: 'No projects yet' })).toBeVisible()
-    expect(
-      container.querySelector('[data-pose="asleep"]')?.closest('[aria-hidden="true"]'),
-    ).not.toBeNull()
+    expect(container.querySelector('h2')?.previousElementSibling).toBe(art.parentElement)
+  })
+
+  it('renders no wrapper without an illustration', () => {
+    const { container } = render(<EmptyState title="No projects yet" />)
+
+    expect(container.querySelector('[aria-hidden]')).toBeNull()
   })
 })
 

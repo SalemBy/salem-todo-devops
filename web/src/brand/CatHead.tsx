@@ -36,7 +36,7 @@ export function CatEyesShape({ eyes }: { eyes: CatEyes }) {
   )
 }
 
-/** The head placed in a larger drawing; the outline keeps the same width at any scale. */
+/** The head placed in a larger drawing; its outline matches the drawing's other outlines. */
 export function CatHead({
   x,
   y,
@@ -58,9 +58,9 @@ export function CatHead({
         d={HEAD_PATH}
         fill="var(--cat-body)"
         stroke="var(--cat-line)"
-        strokeWidth="2"
+        // 2 units of the drawing, like its body and tail, at whatever size the drawing is shown.
+        strokeWidth={2 / scale}
         strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
       />
       <CatEyesShape eyes={eyes} />
     </g>
