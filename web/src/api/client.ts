@@ -93,7 +93,10 @@ async function send<T>(method: string, path: string, body?: unknown, retried = f
     csrf = null
     return send<T>(method, path, body, true)
   }
-  if (error.status === 401 && !PUBLIC_AUTH.has(route)) onUnauthorized()
+  if (error.status === 401 && !PUBLIC_AUTH.has(route)) {
+    csrf = null // the token belonged to the session that just ended
+    onUnauthorized()
+  }
   throw error
 }
 

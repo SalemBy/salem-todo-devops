@@ -289,6 +289,20 @@ describe('unauthorized', () => {
     expect(handler).toHaveBeenCalledOnce()
   })
 
+  it('a 401 drops the csrf token of the session that ended', async () => {
+    const http = fakeFetch({
+      'GET /api/auth/csrf': [() => csrfToken('t1'), () => csrfToken('t2')],
+      'POST /api/projects': [() => problem(401, 'Authentication required')],
+      'POST /api/auth/login': [() => json(200, { id: 1 })],
+    })
+
+    await client.api.post('/projects', {}).catch(() => undefined)
+    await client.api.post('/auth/login', { email: 'a@b.c', password: 'x' })
+
+    expect(http.count('GET /api/auth/csrf')).toBe(2)
+    expect(http.calls.at(-1)?.headers.get('X-CSRF-TOKEN')).toBe('t2')
+  })
+
   it('401 from /auth/login does not call the handler', async () => {
     const handler = vi.fn<() => void>()
     client.setUnauthorizedHandler(handler)

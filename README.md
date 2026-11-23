@@ -122,7 +122,10 @@ in its states.
 
 **End-to-end tests** run against the real API. Start the local services and the
 API as above (registration enabled and `SESSION_COOKIE_SECURE=false`, as in
-`.env.example`), install Chromium once, then run them:
+`.env.example`). Each run registers five accounts, and the default limit is five
+registrations per address per hour, so also uncomment the local-only
+`app.rate-limit.*` lines from `.env.example` in your `.env` before starting the
+API. Install Chromium once, then run them:
 
 ```powershell
 cd web
