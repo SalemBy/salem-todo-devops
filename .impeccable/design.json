@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-23T18:29:51.542Z",
+  "generatedAt": "2026-11-23T20:10:57.242Z",
   "title": "Design System: Salem Todo DevOps",
   "extensions": {
     "colorMeta": {
@@ -659,6 +659,30 @@
           "oklch(84% 0.044 111)",
           "oklch(95% 0.029 111)"
         ]
+      },
+      "cat-body": {
+        "role": "tertiary",
+        "displayName": "Cat Body",
+        "canonical": "#1b1e22",
+        "dark": "#0b0e12"
+      },
+      "cat-line": {
+        "role": "tertiary",
+        "displayName": "Cat Line",
+        "canonical": "#1b1e22",
+        "dark": "#dfe5ea"
+      },
+      "cat-line-on-rail": {
+        "role": "tertiary",
+        "displayName": "Cat Line on Rail",
+        "canonical": "#d3dcea",
+        "dark": "#c2cddc"
+      },
+      "cat-eye": {
+        "role": "tertiary",
+        "displayName": "Cat Eye",
+        "canonical": "#e0a82e",
+        "dark": "#f0c25a"
       }
     },
     "typographyMeta": {

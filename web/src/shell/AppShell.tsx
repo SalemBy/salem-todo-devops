@@ -2,6 +2,7 @@ import { LayoutGrid } from 'lucide-react'
 import { NavLink, Outlet, useMatches } from 'react-router'
 import { ApiError } from '../api/client'
 import { useCurrentAccount } from '../auth/useCurrentAccount'
+import { CatMark } from '../brand/CatMark'
 import { Avatar } from '../components/Avatar/Avatar'
 import { Button } from '../components/Button/Button'
 import { ErrorMessage } from '../components/ErrorMessage/ErrorMessage'
@@ -43,7 +44,10 @@ export function AppShell() {
         Skip to content
       </a>
       <nav className={styles.rail} aria-label="Projects">
-        <span className={styles.brand}>Salem Todo DevOps</span>
+        <span className={styles.brand}>
+          <CatMark />
+          Salem Todo DevOps
+        </span>
         <NavLink to="/" end className={styles.link}>
           <LayoutGrid size={16} aria-hidden="true" />
           All projects

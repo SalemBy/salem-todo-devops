@@ -57,6 +57,10 @@ const PAIRS: Array<[string, string, number]> = [
   ['--focus', '--surface', 3],
   ['--focus', '--paper', 3],
   ['--rail-focus', '--rail', 3],
+  ['--cat-line', '--paper', 3],
+  ['--cat-line', '--surface', 3],
+  ['--cat-line-on-rail', '--rail', 3],
+  ['--cat-eye', '--cat-body', 3],
 ]
 
 describe.each(['light', 'dark'] as const)('%s theme', (which) => {

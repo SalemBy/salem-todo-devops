@@ -73,7 +73,8 @@ Open decisions:
 - API behavior: `README.md` and `docs/architecture.md`.
 - A working Postman collection: `postman/collections/todo`.
 - The visual system: `DESIGN.md` and the tokens in `web/src/styles/tokens.css`.
-- None of these exist yet: finished UI screens, AI features, screenshots, a logo or brand assets, real users, testimonials or usage data. Future work must not invent them.
+- Brand: Salem, a black cat, is the product's mark and mascot (`DESIGN.md`, section Salem). New poses ship only once the owner approves them.
+- None of these exist yet: finished UI screens, AI features, screenshots, real users, testimonials or usage data. Future work must not invent them.
 
 ## Product Principles
 

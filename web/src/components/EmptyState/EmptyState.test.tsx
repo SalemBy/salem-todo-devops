@@ -22,6 +22,29 @@ describe('EmptyState', () => {
   })
 })
 
+describe('EmptyState illustration', () => {
+  it('shows the illustration and hides it from screen readers', () => {
+    const { container } = render(
+      <EmptyState
+        title="No projects yet"
+        illustration={<span data-testid="art">Sleeping cat</span>}
+      />,
+    )
+
+    const art = screen.getByTestId('art')
+    expect(art.parentElement).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByText('Sleeping cat', { ignore: '[aria-hidden="true"] *' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'No projects yet' })).toBeVisible()
+    expect(container.querySelector('h2')?.previousElementSibling).toBe(art.parentElement)
+  })
+
+  it('renders no wrapper without an illustration', () => {
+    const { container } = render(<EmptyState title="No projects yet" />)
+
+    expect(container.querySelector('[aria-hidden]')).toBeNull()
+  })
+})
+
 describe('ErrorMessage', () => {
   it('announces a plain message', () => {
     render(<ErrorMessage error="Could not load projects." />)

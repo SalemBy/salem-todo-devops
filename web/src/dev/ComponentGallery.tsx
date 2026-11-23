@@ -13,6 +13,9 @@ import { TextField } from '../components/TextField/TextField'
 import { ToastProvider } from '../components/Toast/Toast'
 import { useToast } from '../components/Toast/useToast'
 import { formatDate } from '../format/date'
+import { CatMark } from '../brand/CatMark'
+import { CAT_POSES } from '../brand/catPoses'
+import { SalemCat } from '../brand/SalemCat'
 import styles from './ComponentGallery.module.css'
 
 /** Development only: every base component in its states, for design critique and accessibility review. */
@@ -29,6 +32,7 @@ export function ComponentGallery() {
         <Overlays />
         <Marks />
         <Feedback />
+        <Salem />
       </main>
     </ToastProvider>
   )
@@ -149,6 +153,30 @@ function Marks() {
       <Avatar name="Grace Hopper" size="sm" />
       <span className={styles.date}>Due {formatDate('2026-12-11')}</span>
       <span className={styles.date}>Created {formatDate('2025-03-02T10:15:00Z')}</span>
+    </Section>
+  )
+}
+
+function Salem() {
+  return (
+    <Section title="Salem">
+      <div className={styles.marks}>
+        <CatMark size={16} />
+        <CatMark size={20} />
+        <CatMark size={32} label="Salem Todo DevOps" />
+      </div>
+      {CAT_POSES.map((pose) => (
+        <figure key={pose} className={styles.pose}>
+          <SalemCat pose={pose} />
+          <figcaption>{pose}</figcaption>
+        </figure>
+      ))}
+      <EmptyState
+        title="No projects yet"
+        body="Salem is napping until there is work to do."
+        illustration={<SalemCat pose="asleep" size={120} />}
+        action={<Button variant="primary">Create project</Button>}
+      />
     </Section>
   )
 }
