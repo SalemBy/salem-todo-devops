@@ -30,6 +30,12 @@
   --avatar-ink: #ffffff;
   --avatar-edge: #21324a;
 
+  /* Salem the cat: a black cat in ink, with amber eyes */
+  --cat-body: #1b1e22;
+  --cat-line: #1b1e22;
+  --cat-line-on-rail: #d3dcea;
+  --cat-eye: #e0a82e;
+
   /* One blue pen: actions, selection and focus only */
   --accent: #1f5fbf;
   --accent-hover: #194f9f;
@@ -126,6 +132,12 @@
     --avatar-bg: #1d2a3d;
     --avatar-ink: #ffffff;
     --avatar-edge: #6b7884;
+
+    /* At night the black cat keeps its shape with a chalk outline. */
+    --cat-body: #0b0e12;
+    --cat-line: #dfe5ea;
+    --cat-line-on-rail: #c2cddc;
+    --cat-eye: #f0c25a;
 
     --accent: #79a9ee;
     --accent-hover: #9bbff3;

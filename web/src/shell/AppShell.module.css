@@ -40,6 +40,12 @@
 }
 
 .brand {
+  /* On the navy rail the cat keeps a light outline so it does not sink into the ground. */
+  --cat-line: var(--cat-line-on-rail);
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: 0 var(--space-2) var(--space-4);
   color: var(--rail-ink-strong);
   font-weight: var(--weight-bold);

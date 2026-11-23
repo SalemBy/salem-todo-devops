@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryRouter } from 'react-router'
 import { api } from './api/client'
@@ -61,6 +61,14 @@ describe('App', () => {
       'href',
       '#content',
     )
+  })
+
+  it('names the product once in the rail', async () => {
+    setup('/', () => json(200, ada))
+
+    const nav = await screen.findByRole('navigation', { name: 'Projects' })
+    expect(within(nav).getAllByText('Salem Todo DevOps')).toHaveLength(1)
+    expect(nav.querySelector('svg[data-mark]')).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('clears cached data on a 401', async () => {
