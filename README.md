@@ -85,6 +85,34 @@ Also install Redis and have it listen on `127.0.0.1:6379`, or point
 Redis, login, registration, `GET /auth/csrf`, and every logged-in request
 return 503.
 
+## Web UI
+
+The web UI lives in `web/`: React, TypeScript and Vite. It is under construction
+(#74); for now it has its foundation only. You need Node 22 LTS (`web/.nvmrc`)
+and npm. With the API running:
+
+```powershell
+cd web
+npm ci
+npm run dev
+```
+
+The UI listens at `http://127.0.0.1:3000`, the address the verification emails
+link to. It calls the API under `/api`: the dev server forwards `/api/*` to
+`http://127.0.0.1:8080/*` without the prefix, so the browser sees one origin and
+the session cookie and CSRF token work without a CORS policy. Set `API_URL` to
+forward to another address. `npm run preview` serves the production build
+(`npm run build`) on the same port, with the same forwarding.
+
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Development server with hot reload |
+| `npm run build` | Typechecks, then builds into `web/dist` |
+| `npm run typecheck` | TypeScript in strict mode |
+| `npm run lint` | oxlint, warnings fail |
+| `npm run format` / `format:check` | Prettier |
+| `npm test` | Vitest unit and component tests |
+
 ## Use the API
 
 Select **Salem Todo - Local Authentication** in Postman, then open
