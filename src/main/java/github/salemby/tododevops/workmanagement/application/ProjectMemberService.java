@@ -176,7 +176,7 @@ public class ProjectMemberService {
 
     private void recordUnassigned(long actorId, Long accountId, List<AssignedTask> assigned) {
         for (var task : assigned)
-            activity.record(actorId, task.projectId(), task.id(), ResourceType.TASK, task.id(), ActivityAction.UPDATED,
+            activity.record(actorId, task.getProjectId(), task.getId(), ResourceType.TASK, task.getId(), ActivityAction.UPDATED,
                 new Changes().value("assigneeId", accountId, null));
     }
 

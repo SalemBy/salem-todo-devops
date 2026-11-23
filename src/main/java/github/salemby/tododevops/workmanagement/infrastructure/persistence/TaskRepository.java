@@ -16,17 +16,19 @@ public interface TaskRepository extends JpaRepository<Task, Long>, org.springfra
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "labels")
     Optional<Task> findByIdAndProjectIdAndActiveTrue(Long id, Long projectId);
 
-    /** The tasks {@link #clearAssignee} would change, archived ones included. */
-    @org.springframework.data.jpa.repository.Query("""
-        select new github.salemby.tododevops.workmanagement.infrastructure.persistence.AssignedTask(t.id, t.project.id)
-        from Task t where t.project.id = :projectId and t.assigneeAccountId = :accountId order by t.id""")
+    /**
+     * Locks and returns the tasks {@link #clearAssignee} will change, archived ones included. FOR UPDATE makes
+     * PostgreSQL re-check rows a concurrent write changed, so the result is exactly the rows then cleared (#12).
+     */
+    @org.springframework.data.jpa.repository.Query(nativeQuery = true, value = """
+        SELECT id, project_id AS projectId FROM tasks
+        WHERE project_id = :projectId AND assignee_account_id = :accountId ORDER BY id FOR UPDATE""")
     List<AssignedTask> findAssigned(@org.springframework.data.repository.query.Param("projectId") Long projectId,
                                     @org.springframework.data.repository.query.Param("accountId") Long accountId);
 
-    /** The tasks {@link #clearAssigneeEverywhere} would change, archived ones included. */
-    @org.springframework.data.jpa.repository.Query("""
-        select new github.salemby.tododevops.workmanagement.infrastructure.persistence.AssignedTask(t.id, t.project.id)
-        from Task t where t.assigneeAccountId = :accountId order by t.id""")
+    /** Locks and returns the tasks {@link #clearAssigneeEverywhere} will change, like {@link #findAssigned}. */
+    @org.springframework.data.jpa.repository.Query(nativeQuery = true, value = """
+        SELECT id, project_id AS projectId FROM tasks WHERE assignee_account_id = :accountId ORDER BY id FOR UPDATE""")
     List<AssignedTask> findAssignedEverywhere(@org.springframework.data.repository.query.Param("accountId") Long accountId);
 
     /** Unassigns the account from every task in the project, archived ones included; returns how many changed. */

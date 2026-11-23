@@ -4,7 +4,9 @@ import github.salemby.tododevops.support.IsolatedPostgresSchema;
 import github.salemby.tododevops.support.TestHttp;
 import github.salemby.tododevops.support.TestProjects;
 import github.salemby.tododevops.shared.security.CurrentAccount;
+import github.salemby.tododevops.workmanagement.application.ProjectMemberService;
 import github.salemby.tododevops.workmanagement.application.TaskService;
+import github.salemby.tododevops.workmanagement.application.dto.request.AssignTaskRequest;
 import github.salemby.tododevops.workmanagement.application.dto.request.UpdateTaskRequest;
 import github.salemby.tododevops.workmanagement.domain.ProjectMembership;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -48,6 +50,7 @@ class PostgresActivityIT {
     @Autowired ProjectMembershipRepository memberships;
     @Autowired JdbcTemplate jdbc;
     @Autowired TaskService taskService;
+    @Autowired ProjectMemberService projectMembers;
     @Autowired PlatformTransactionManager transactionManager;
     private final ObjectMapper json = new ObjectMapper();
 
@@ -354,6 +357,44 @@ class PostgresActivityIT {
         assertEquals(List.of("name:Bug>Defect"), changes(events.get(1)));
         assertEquals(List.of("name:null>Bug"), changes(events.get(2)));
         assertTrue(events.get(2).get("taskId").isNull());
+    }
+
+    /** Review of #12: a bulk unassign records only rows it really changed, even when a reassignment races it. */
+    @Test
+    void concurrentReassignDuringReleaseRecordsNoFalseUnassign() throws Exception {
+        long p = project(), t = createTask(p, "{\"title\":\"Raced\"}");
+        long second = id(Account.SECOND), fourth = id(Account.FOURTH);
+        expect(Account.OWNER, "PUT", task(p, t) + "/assignee", "{\"accountId\":" + second + "}", 200);
+        var transactions = new TransactionTemplate(transactionManager);
+        var flushed = new java.util.concurrent.CountDownLatch(1);
+        var commit = new java.util.concurrent.CountDownLatch(1);
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var reassign = pool.submit(() -> transactions.executeWithoutResult(status -> {
+                taskService.assign(new CurrentAccount(id(Account.OWNER)), p, t, new AssignTaskRequest(fourth));
+                flushed.countDown();
+                try { commit.await(); } catch (InterruptedException e) { throw new IllegalStateException(e); }
+            }));
+            assertTrue(flushed.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            var release = pool.submit(() -> projectMembers.release(second, id(Account.OWNER)));
+            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+            while (jdbc.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() "
+                    + "AND wait_event_type = 'Lock'", Long.class) == 0) {
+                assertTrue(System.nanoTime() < deadline, "the release never waited for the reassignment's row lock");
+                Thread.sleep(20);
+            }
+            commit.countDown();
+            reassign.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            assertEquals(0, release.get(10, java.util.concurrent.TimeUnit.SECONDS).unassignedTasks());
+        } finally {
+            commit.countDown();
+            pool.shutdownNow();
+        }
+        assertEquals(fourth, json.readTree(expect(Account.OWNER, "GET", task(p, t), null, 200).body()).get("assigneeId").asLong());
+        var events = taskFeed(Account.OWNER, p, t);
+        assertEquals(List.of("assigneeId:" + second + ">" + fourth), changes(events.get(0)), "the reassignment is the newest event");
+        for (JsonNode e : events)
+            assertNotEquals(List.of("assigneeId:" + second + ">null"), changes(e), "no unassignment was recorded: " + e);
     }
 
     // --- fixtures -------------------------------------------------------------------------------
