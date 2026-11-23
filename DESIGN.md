@@ -17,6 +17,10 @@ colors:
   rail-ink-strong: "#ffffff"
   rail-rule: "#33465f"
   rail-focus: "#8fb8f2"
+  cat-body: "#1b1e22"
+  cat-line: "#1b1e22"
+  cat-line-on-rail: "#d3dcea"
+  cat-eye: "#e0a82e"
   accent: "#1f5fbf"
   accent-hover: "#194f9f"
   accent-soft: "#e4edf9"
@@ -188,7 +192,7 @@ components:
 
 **Creative North Star: "The Engineering Notebook"**
 
-A calm engineering-notebook page. Everything snaps to one quiet grid, is written in graphite, and carries one blue pen for what you can act on. The page is the working surface of a developer who manages projects and tasks every day next to GitHub and an editor: dense enough to scan many tasks fast, quiet enough to live in all day. It is Operate mode: standard controls, plain words, nothing playful.
+A calm engineering-notebook page. Everything snaps to one quiet grid, is written in graphite, and carries one blue pen for what you can act on. The page is the working surface of a developer who manages projects and tasks every day next to GitHub and an editor: dense enough to scan many tasks fast, quiet enough to live in all day. It is Operate mode while people work: standard controls, plain words. Personality lives in the margins: Salem, a happy black cat, appears around the work and never inside it (see Salem below).
 
 The world refuses the category default of grey trays, pill chips and soft-shadow cards. Resting surfaces are flat and separated by hairline rules; corners are nearly square; shadows exist only for things that float. Colour has four jobs and no others: the blue pen for actions, selection and focus; red for critical, overdue and destructive; muted label chips from a fixed palette; and a mono face for data such as #ids, keys and dates.
 
@@ -201,6 +205,7 @@ Light is the notebook by day: near-white paper, graphite ink, an ink-navy rail. 
 - One blue pen; red only for what is critical or destructive.
 - Martian Mono for data, Public Sans for everything people read as words.
 - Light and dark follow the system setting; every text pair is contrast-tested.
+- Salem the black cat: a quiet mark in the tab and the rail, and a drawn pose only in the moments around the work.
 
 ## Colors
 
@@ -330,7 +335,7 @@ Bottom-right stack, max 24rem. Sheet white with a strong rule border and overlay
 Errors are written plainly next to where they happen: a danger-soft panel with a red border and red alert icon, graphite text, and per-field problems listed below. Empty states are left-aligned, max 28rem: a 16px title, muted body, and one action.
 
 ### Navigation (Project Rail)
-Ink-navy, 240px, sticky full height, with the product name in bold strong rail ink at the top. Links are 32px rows with a 16px icon; hover and the current page (`aria-current`) take `rail-active` and strong rail ink, the current page also medium weight. Focus uses the lighter rail-focus blue.
+Ink-navy, 240px, sticky full height, with Salem's mark (hidden from screen readers) and the product name in bold strong rail ink at the top. Links are 32px rows with a 16px icon; hover and the current page (`aria-current`) take `rail-active` and strong rail ink, the current page also medium weight. Focus uses the lighter rail-focus blue.
 
 ### Avatar
 A round disc with initials in bold sans (never mono), 22px or 32px. Rail navy by day; at night it lifts to `rail-active` with a `rule-strong` edge so it does not vanish into the ground.
@@ -340,6 +345,22 @@ lucide-react only, 14 to 16px, `aria-hidden` next to text.
 
 ### Motion
 Short and quiet: 120ms for control state changes, 200ms for overlays, all on `cubic-bezier(0.16, 1, 0.3, 1)`. Reduced motion collapses every animation and transition.
+
+## Salem
+
+**The Margins Rule.** Sober while working, personality in the margins.
+- **Quiet mark only:** the board, the task page, filters, forms, confirmations, and any error that blocks the person's work. When something goes wrong, the cat stays out of the way.
+- **The drawn cat, with a light touch of humour in the words:** sign-in pages, empty states, page not found, the expired-session page, small rewards (such as clearing a column) and loading moments that take a while.
+
+**Character.** Salem is a happy, playful black cat that plays whenever it can and sleeps a lot. The words next to it stay short and warm, with at most one light joke ("Salem is napping until there is work to do.").
+
+**The mark** (`CatMark`, `web/public/favicon.svg`): a black cat's head in ink with amber eyes, on a 24×24 grid. It is the tab icon, sits in the rail next to the product name, and is ready for the sign-in pages. Sizes: 16px (tab), 20px (rail), 32px and up where it stands alone. Standing alone it is an image named "Salem Todo DevOps"; next to the written name it is hidden from screen readers. The favicon cannot read CSS variables, so it mirrors the cat tokens, and a test keeps them equal.
+
+**Poses** (`SalemCat`): only poses the owner has approved ship. Today that is **asleep** (curled up, tail around the front, a small "z z"), for empty and quiet places, also through `EmptyState`'s `illustration` slot. Poses are always decorative (hidden from screen readers) and never carry information the words do not. New poses are drawn with the same head (`CatHead`) and the same tokens, shown to the owner in both themes, and ship only once approved. Playing, peeking and pleased were drafted and set aside; if they return, the flat-silhouette style is the recommended one.
+
+**Colour.** Four tokens: `cat-body` (black ink), `cat-line` (the outline: the same ink by day, a chalk tone at night so the black cat never sinks into the dark paper), `cat-line-on-rail` (the outline on the navy rail) and `cat-eye` (amber). The drawings use nothing else, and the outline is contrast-tested against paper, surface and rail.
+
+**Never:** anything that reads as a known cat character (the black cat from *Sabrina the Teenage Witch*, the cat from *Kiki's Delivery Service*); cartoon gloss, gradients, emoji or clip-art; the cat next to a blocking error or inside a confirmation; animation loops.
 
 ## Do's and Don'ts
 
