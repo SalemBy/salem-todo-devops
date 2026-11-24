@@ -27,17 +27,20 @@ const SPLIT_CSS = `
  */
 export function AuthLayout({
   title,
+  screen = title,
   children,
   footer,
 }: {
   title: string
+  /** Names what the form half shows, when it changes under the same title (a refused link). */
+  screen?: string
   children: ReactNode
   footer?: ReactNode
 }) {
   usePageTitle(title)
-  // Keyed by its title: when the page changes in place (registered, link refused), the form half
-  // remounts and takes focus, so keyboard and screen-reader users start from the new content. It is
-  // not a control, so it draws no focus ring.
+  // Keyed by its screen (the title unless named): when the page changes in place (registered, link
+  // refused), the form half remounts and takes focus, so keyboard and screen-reader users start from
+  // the new content. It is not a control, so it draws no focus ring.
   const focusOnMount = useCallback(
     (half: HTMLElement | null) => half?.focus({ preventScroll: true }),
     [],
@@ -52,7 +55,7 @@ export function AuthLayout({
           align="stretch"
           className="auth-split"
         >
-          <VStack key={title} ref={focusOnMount} tabIndex={-1} gap={6} style={{ outline: 'none' }}>
+          <VStack key={screen} ref={focusOnMount} tabIndex={-1} gap={6} style={{ outline: 'none' }}>
             <HStack gap={2} vAlign="center">
               <CatMark size={24} />
               <Text weight="bold">Salem Todo DevOps</Text>

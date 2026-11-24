@@ -1,6 +1,7 @@
 import type { RouteObject } from 'react-router'
 import { LoginPage } from './auth/LoginPage'
 import { RegisterPage } from './auth/RegisterPage'
+import { VerifyEmailPage } from './auth/VerifyEmailPage'
 import { AppShell } from './shell/AppShell'
 import { AllProjectsPage, NotFoundPage } from './shell/Pages'
 import type { PageHandle } from './shell/usePageTitle'
@@ -20,6 +21,7 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
+  { path: '/verify-email', element: <VerifyEmailPage /> },
   ...devRoutes,
   {
     // Unknown paths sit inside the signed-in shell, so an anonymous visitor is sent to login first.
