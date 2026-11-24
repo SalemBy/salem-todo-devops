@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { createQueryClient } from '../queryClient'
 import { routes } from '../routes'
+import { live } from '../test/renderApp'
 
 const ada = {
   id: 1,
@@ -50,14 +51,6 @@ async function fillAndSubmit() {
   await userEvent.type(screen.getByLabelText('Password'), 'a long enough password')
   await userEvent.click(screen.getByRole('button', { name: 'Log in' }))
 }
-
-/** Astryx renders empty live regions of its own; the page's message is the one with words in it. */
-const live = (role: 'status' | 'alert') =>
-  waitFor(() => {
-    const found = screen.queryAllByRole(role).filter((el) => el.textContent?.trim())
-    expect(found).toHaveLength(1)
-    return found[0] as HTMLElement
-  })
 
 afterEach(() => {
   vi.unstubAllGlobals()

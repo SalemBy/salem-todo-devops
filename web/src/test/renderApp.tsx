@@ -1,6 +1,6 @@
-import { render } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter } from 'react-router'
-import { vi } from 'vitest'
+import { expect, vi } from 'vitest'
 import { App } from '../App'
 import { createQueryClient } from '../queryClient'
 import { routes } from '../routes'
@@ -49,3 +49,11 @@ export function renderApp(
     sent: (key: string) => requests.filter((r) => r.key === key),
   }
 }
+
+/** The page's one message in a live region. Astryx renders empty live regions of its own. */
+export const live = (role: 'status' | 'alert') =>
+  waitFor(() => {
+    const found = screen.queryAllByRole(role).filter((el) => el.textContent?.trim())
+    expect(found).toHaveLength(1)
+    return found[0] as HTMLElement
+  })

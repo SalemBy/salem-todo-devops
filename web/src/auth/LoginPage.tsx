@@ -1,4 +1,3 @@
-import { Banner } from '@astryxdesign/core/Banner'
 import { Button } from '@astryxdesign/core/Button'
 import { VStack } from '@astryxdesign/core/Layout'
 import { Link } from '@astryxdesign/core/Link'
@@ -12,6 +11,8 @@ import { retryText } from '../api/fieldErrors'
 import type { AccountResponse, LoginRequest } from '../api/types'
 import { ApiErrorBanner } from '../components/ApiErrorBanner'
 import { AuthLayout } from './AuthLayout'
+import { fieldStatus } from './fieldStatus'
+import { Notice } from './formParts'
 import { safeNext } from './safeNext'
 
 export type SignInNotice = 'verified' | 'loggedOut' | 'returning'
@@ -30,12 +31,6 @@ function loginError(error: unknown): string {
   if (error.status === 429) return `Too many sign-in attempts. ${retryText(error)}`
   if (error.status === 503) return 'Signing in is unavailable right now. Try again in a moment.'
   return error.detail
-}
-
-/** A notice for the person, announced politely. */
-export function Notice({ text }: { text: string }) {
-  // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Banner's own role prop: Astryx puts it on the banner, there is no output element to use
-  return <Banner role="status" status="success" title={text} collapsible={false} />
 }
 
 export function LoginPage() {
@@ -72,8 +67,6 @@ export function LoginPage() {
     login.mutate({ email: address, password })
   }
 
-  const error = (message?: string) => (message ? { type: 'error' as const, message } : undefined)
-
   return (
     <AuthLayout
       title="Log in"
@@ -93,7 +86,7 @@ export function LoginPage() {
             autoComplete="username"
             value={email}
             onChange={setEmail}
-            status={error(missing.email)}
+            status={fieldStatus(missing.email)}
           />
           <TextInput
             label="Password"
@@ -102,7 +95,7 @@ export function LoginPage() {
             autoComplete="current-password"
             value={password}
             onChange={setPassword}
-            status={error(missing.password)}
+            status={fieldStatus(missing.password)}
           />
           {login.isError && <ApiErrorBanner error={loginError(login.error)} />}
           <Button type="submit" variant="primary" label="Log in" isLoading={login.isPending} />
