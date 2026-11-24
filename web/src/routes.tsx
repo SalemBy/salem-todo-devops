@@ -8,10 +8,6 @@ import type { PageHandle } from './shell/usePageTitle'
 const devRoutes: RouteObject[] = import.meta.env.DEV
   ? [
       {
-        path: '/dev/astryx',
-        lazy: async () => ({ Component: (await import('./dev/AstryxPreview')).AstryxPreview }),
-      },
-      {
         path: '/dev/components',
         lazy: async () => ({
           Component: (await import('./dev/ComponentGallery')).ComponentGallery,

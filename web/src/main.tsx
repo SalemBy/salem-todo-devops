@@ -8,7 +8,7 @@ import { App } from './App'
 import { defaultThemeSlug, themes } from './astryx-themes'
 import { createQueryClient } from './queryClient'
 import { routes } from './routes'
-import './styles/global.css'
+import './styles/tokens.css'
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing #root element')

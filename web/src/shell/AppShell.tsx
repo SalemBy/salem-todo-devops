@@ -3,9 +3,9 @@ import { NavLink, Outlet, useMatches } from 'react-router'
 import { ApiError } from '../api/client'
 import { useCurrentAccount } from '../auth/useCurrentAccount'
 import { CatMark } from '../brand/CatMark'
-import { Avatar } from '../components/Avatar/Avatar'
-import { Button } from '../components/Button/Button'
-import { ErrorMessage } from '../components/ErrorMessage/ErrorMessage'
+import { Avatar } from '@astryxdesign/core/Avatar'
+import { Button } from '@astryxdesign/core/Button'
+import { ApiErrorBanner } from '../components/ApiErrorBanner'
 import styles from './AppShell.module.css'
 import { usePageTitle, type PageHandle } from './usePageTitle'
 
@@ -24,16 +24,14 @@ export function AppShell() {
     if (me.error instanceof ApiError && me.error.status === 401) return null
     return (
       <main className={styles.failed}>
-        <ErrorMessage
+        <ApiErrorBanner
           error={
             me.error instanceof ApiError
               ? me.error
               : 'Your account could not be loaded. Try again in a moment.'
           }
         />
-        <Button onClick={() => void me.refetch()} loading={me.isFetching}>
-          Try again
-        </Button>
+        <Button label="Try again" onClick={() => void me.refetch()} isLoading={me.isFetching} />
       </main>
     )
   }
