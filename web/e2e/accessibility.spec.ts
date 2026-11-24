@@ -24,6 +24,67 @@ for (const colorScheme of ['light', 'dark'] as const) {
       expect(await violations(page)).toEqual([])
     })
 
+    test('the sign-in screens have no automatic accessibility violations', async ({ page }) => {
+      // Answers that would cost a real account or a rate-limit slot are made in the browser.
+      await page.route('**/api/auth/register', (route) =>
+        route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ email: 'ada@example.com', displayName: 'Ada Lovelace' }),
+        }),
+      )
+      await page.route('**/api/auth/login', (route) =>
+        route.fulfill({
+          status: 401,
+          contentType: 'application/problem+json',
+          body: JSON.stringify({
+            title: 'Unauthorized',
+            status: 401,
+            detail: 'Invalid credentials',
+          }),
+        }),
+      )
+      const screens: Record<string, string[]> = {}
+      const check = async (name: string) => {
+        screens[name] = await violations(page)
+      }
+
+      await page.goto('/login')
+      await page.getByLabel('Email').fill('ada@example.com')
+      await page.getByLabel('Password').fill('not the right password')
+      await page.getByRole('button', { name: 'Log in' }).click()
+      await expect(page.getByText(/^Invalid email or password/).first()).toBeVisible()
+      await check('login refused')
+
+      await page.goto('/register')
+      await page.getByRole('button', { name: 'Create account' }).click()
+      await expect(page.getByText('Enter your email.', { exact: true })).toBeVisible()
+      await check('register with errors')
+
+      await page.getByLabel('Email').fill('ada@example.com')
+      await page.getByLabel('Display name').fill('Ada Lovelace')
+      await page.getByLabel('Password').fill('a long enough password')
+      await page.getByRole('button', { name: 'Create account' }).click()
+      await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
+      await check('check your email')
+
+      await page.goto('/verify-email?token=abc')
+      await expect(page.getByLabel('Password')).toBeVisible()
+      await check('verify')
+
+      await page.goto('/verify-email')
+      await expect(page.getByRole('button', { name: 'Send a new link' })).toBeVisible()
+      await check('link refused')
+
+      expect(screens).toEqual({
+        'login refused': [],
+        'register with errors': [],
+        'check your email': [],
+        verify: [],
+        'link refused': [],
+      })
+    })
+
     test('the signed-in shell has no automatic accessibility violations', async ({ page }) => {
       await signIn(page.request, 'Grace Hopper')
       await page.goto('/')
