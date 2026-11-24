@@ -30,29 +30,43 @@ export function VerifyEmailPage() {
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
   const [missing, setMissing] = useState<string>()
+  // Once refused, the screen stays the refused one, so retrying does not move focus again.
+  const [refused, setRefused] = useState(false)
   const verify = useMutation({
     mutationFn: (body: VerifyEmailRequest) => api.post('/auth/verify', body),
     onSuccess: () => void navigate('/login', { replace: true, state: { notice: 'verified' } }),
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 400) setRefused(true)
+    },
   })
 
-  if (!token || (verify.error instanceof ApiError && verify.error.status === 400))
+  const newLink = (
+    <>
+      <Text>Enter your email to get a new link.</Text>
+      <ResendVerification label="Send a new link" />
+    </>
+  )
+
+  if (!token)
     return (
       <AuthLayout title="Verify your email" screen="refused" footer={loginLink}>
         <ApiErrorBanner error={INVALID} />
-        <Text>Enter your email to get a new link.</Text>
-        <ResendVerification label="Send a new link" />
+        {newLink}
       </AuthLayout>
     )
 
   const error = verify.error
+  // A wrong password does not use up the link, so the form stays to try again, with a new link below.
   const formError =
-    error instanceof ApiError && error.status === 429
-      ? `Too many attempts. ${retryText(error)}`
-      : error instanceof ApiError
-        ? error.detail
-        : error
-          ? 'Something went wrong. Try again in a moment.'
-          : undefined
+    error instanceof ApiError && error.status === 400
+      ? INVALID
+      : error instanceof ApiError && error.status === 429
+        ? `Too many attempts. ${retryText(error)}`
+        : error instanceof ApiError
+          ? error.detail
+          : error
+            ? 'Something went wrong. Try again in a moment.'
+            : undefined
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -62,7 +76,11 @@ export function VerifyEmailPage() {
   }
 
   return (
-    <AuthLayout title="Verify your email" footer={loginLink}>
+    <AuthLayout
+      title="Verify your email"
+      screen={refused ? 'refused' : undefined}
+      footer={loginLink}
+    >
       <Text>Enter the password you chose when you registered.</Text>
       <form onSubmit={submit} noValidate>
         <VStack gap={4}>
@@ -84,6 +102,7 @@ export function VerifyEmailPage() {
           />
         </VStack>
       </form>
+      {refused && newLink}
     </AuthLayout>
   )
 }

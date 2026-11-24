@@ -1,7 +1,7 @@
 import { useToast } from '@astryxdesign/core/Toast'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
-import { api } from '../api/client'
+import { ApiError, api } from '../api/client'
 
 /**
  * Ends the session, forgets every cached response and goes to the login page. If the server cannot
@@ -13,7 +13,11 @@ export function useLogout() {
   const navigate = useNavigate()
   const showToast = useToast()
   return useMutation({
-    mutationFn: () => api.post('/auth/logout'),
+    // A 401 means the session had already ended (idle, or revoked elsewhere): that is logged out too.
+    mutationFn: () =>
+      api.post('/auth/logout').catch((error: unknown) => {
+        if (!(error instanceof ApiError && error.status === 401)) throw error
+      }),
     onSuccess: async () => {
       // Leave the signed-in pages first, so none of them refetches what is about to be forgotten.
       await navigate('/login', { replace: true, state: { notice: 'loggedOut' } })

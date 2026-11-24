@@ -79,4 +79,26 @@ describe('log out', () => {
     expect(told.some((el) => el.closest('[popover]'))).toBe(true)
     expect(router.state.location.pathname).toBe('/')
   })
+
+  it('logging out after the session already ended still says logged out', async () => {
+    // The session ended before the click (idle, or revoked elsewhere); the page has not noticed yet.
+    let ended = false
+    const { router, queryClient } = renderApp('/', {
+      'GET /api/auth/me': () => (ended ? problem(401, 'Authentication required') : json(200, ada)),
+      'POST /api/auth/logout': () => {
+        ended = true
+        return problem(401, 'Authentication required')
+      },
+    })
+
+    await chooseLogOut()
+
+    expect(await live('status')).toHaveTextContent('You are logged out.')
+    expect(router.state.location.pathname).toBe('/login')
+    expect(router.state.location.search).toBe('')
+    // No toast. (Astryx's page-wide announcer keeps the previous test's words, so look at toasts only.)
+    const toasts = screen.queryAllByText('Could not log out. Try again in a moment.')
+    expect(toasts.filter((el) => el.closest('[popover]'))).toEqual([])
+    await waitFor(() => expect(queryClient.getQueryData(['me'])).toBeUndefined())
+  })
 })

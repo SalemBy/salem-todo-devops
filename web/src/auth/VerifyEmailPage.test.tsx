@@ -100,4 +100,44 @@ describe('VerifyEmailPage', () => {
       'current-password',
     )
   })
+
+  it('an email the API refuses is marked on the Email field', async () => {
+    renderApp('/verify-email', {
+      'POST /api/auth/verification-email': () =>
+        problem(400, 'Request validation failed', [
+          { field: 'email', message: 'must be a well-formed email address' },
+        ]),
+    })
+
+    await userEvent.type(await screen.findByLabelText('Email'), 'ada@')
+    await userEvent.click(screen.getByRole('button', { name: 'Send a new link' }))
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Email')).toHaveAccessibleDescription(
+        'Enter an email address like name@example.com.',
+      ),
+    )
+    expect(screen.queryByText('Request validation failed')).toBeNull()
+  })
+
+  it('a mistyped password can be tried again with the same link', async () => {
+    let attempts = 0
+    const { router, sent } = renderApp('/verify-email?token=abc', {
+      'POST /api/auth/verify': () =>
+        ++attempts === 1 ? problem(400, 'Verification link is invalid or has expired') : json(204),
+    })
+
+    await userEvent.type(await screen.findByLabelText('Password'), 'a mistyped password{Enter}')
+    expect(await screen.findByText(INVALID)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Send a new link' })).toBeVisible()
+
+    await userEvent.clear(screen.getByLabelText('Password'))
+    await userEvent.type(screen.getByLabelText('Password'), 'the right password{Enter}')
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+    expect(sent('POST /api/auth/verify').map((r) => r.body)).toEqual([
+      { token: 'abc', password: 'a mistyped password' },
+      { token: 'abc', password: 'the right password' },
+    ])
+  })
 })

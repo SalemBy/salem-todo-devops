@@ -10,7 +10,7 @@ import { fieldErrors, retryText } from '../api/fieldErrors'
 import type { AccountRegistration, AccountResponse } from '../api/types'
 import { ApiErrorBanner } from '../components/ApiErrorBanner'
 import { AuthLayout } from './AuthLayout'
-import { fieldStatus } from './fieldStatus'
+import { fieldStatus, INVALID_EMAIL } from './fieldStatus'
 import { ResendVerification } from './ResendVerification'
 
 const FIELDS = ['email', 'displayName', 'password'] as const
@@ -23,7 +23,7 @@ const REQUIRED: Record<Field, string> = {
 
 /** The page's own words for a field the API refused; the API's wording is technical. */
 const INVALID: Record<Field, string> = {
-  email: 'Enter an email address like name@example.com.',
+  email: INVALID_EMAIL,
   displayName: 'Use 1 to 100 characters.',
   password: 'Use 15 to 128 characters.',
 }

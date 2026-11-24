@@ -6,7 +6,7 @@ import { useState, type FormEvent } from 'react'
 import { ApiError, api } from '../api/client'
 import { retryText } from '../api/fieldErrors'
 import { ApiErrorBanner } from '../components/ApiErrorBanner'
-import { fieldStatus } from './fieldStatus'
+import { fieldStatus, INVALID_EMAIL, refusedEmail } from './fieldStatus'
 import { Notice } from './formParts'
 
 function resendError(error: unknown): string {
@@ -45,11 +45,15 @@ export function ResendVerification({ email, label }: { email?: string; label: st
             autoComplete="email"
             value={typed}
             onChange={setTyped}
-            status={fieldStatus(missing)}
+            status={fieldStatus(
+              missing ?? (refusedEmail(resend.error) ? INVALID_EMAIL : undefined),
+            )}
           />
         )}
         {resend.isSuccess && <Notice text="Sent. Check your inbox and spam folder." />}
-        {resend.isError && <ApiErrorBanner error={resendError(resend.error)} />}
+        {resend.isError && !refusedEmail(resend.error) && (
+          <ApiErrorBanner error={resendError(resend.error)} />
+        )}
         <Button type="submit" label={label} isLoading={resend.isPending} />
       </VStack>
     </form>

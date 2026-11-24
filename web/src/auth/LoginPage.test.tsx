@@ -191,4 +191,23 @@ describe('LoginPage', () => {
     expect(alert.querySelector('[data-pose]')).toBeNull()
     expect(screen.getByRole('main')).toContainElement(alert)
   })
+
+  it('an email the API refuses is marked on the Email field', async () => {
+    setup('/login', () =>
+      json(400, {
+        title: 'Bad Request',
+        detail: 'Request validation failed',
+        errors: [{ field: 'email', message: 'must be a well-formed email address' }],
+      }),
+    )
+
+    await fillAndSubmit()
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Email')).toHaveAccessibleDescription(
+        'Enter an email address like name@example.com.',
+      ),
+    )
+    expect(screen.queryByText('Request validation failed')).toBeNull()
+  })
 })

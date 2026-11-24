@@ -11,7 +11,7 @@ import { retryText } from '../api/fieldErrors'
 import type { AccountResponse, LoginRequest } from '../api/types'
 import { ApiErrorBanner } from '../components/ApiErrorBanner'
 import { AuthLayout } from './AuthLayout'
-import { fieldStatus } from './fieldStatus'
+import { fieldStatus, INVALID_EMAIL, refusedEmail } from './fieldStatus'
 import { Notice } from './formParts'
 import { safeNext } from './safeNext'
 
@@ -86,7 +86,9 @@ export function LoginPage() {
             autoComplete="username"
             value={email}
             onChange={setEmail}
-            status={fieldStatus(missing.email)}
+            status={fieldStatus(
+              missing.email ?? (refusedEmail(login.error) ? INVALID_EMAIL : undefined),
+            )}
           />
           <TextInput
             label="Password"
@@ -97,7 +99,9 @@ export function LoginPage() {
             onChange={setPassword}
             status={fieldStatus(missing.password)}
           />
-          {login.isError && <ApiErrorBanner error={loginError(login.error)} />}
+          {login.isError && !refusedEmail(login.error) && (
+            <ApiErrorBanner error={loginError(login.error)} />
+          )}
           <Button type="submit" variant="primary" label="Log in" isLoading={login.isPending} />
         </VStack>
       </form>
