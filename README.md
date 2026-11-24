@@ -115,10 +115,12 @@ forward to another address. `npm run preview` serves the production build
 | `npm test` | Vitest unit and component tests |
 | `npm run e2e` | Playwright end-to-end tests (see below) |
 
-The look is defined in [DESIGN.md](DESIGN.md): every colour, size and duration
-is a token in `web/src/styles/tokens.css`, and the UI follows the system light
-or dark setting. In development, `/dev/components` shows every base component
-in its states.
+The UI is built on [Astryx](https://github.com/meta/astryx) with its Neutral
+theme; [DESIGN.md](DESIGN.md) has this product's own rules on top (Salem, label
+colours, dates, accessibility) and `web/AGENTS.md` the Astryx conventions. It
+follows the system light or dark setting. In development, `/dev/components`
+shows the components this app uses in their states. Run `npx astryx doctor` in
+`web/` to check the setup.
 
 **End-to-end tests** run against the real API. Start the local services and the
 API as above (registration enabled and `SESSION_COOKIE_SECURE=false`, as in
@@ -449,5 +451,5 @@ and uploads test reports and the application JAR.
 
 - [Postman guide](postman/README.md) — request examples, environments, and runnable scenarios.
 - [Architecture](docs/architecture.md) — module boundaries and persistence responsibilities.
-- [Design system](DESIGN.md) — the web UI's visual rules and tokens.
+- [Design system](DESIGN.md) — the web UI on Astryx, and this product's own rules on top.
 - [Contributing](CONTRIBUTING.md) — branches, commit messages, pull requests, and checks.
