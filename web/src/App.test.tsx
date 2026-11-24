@@ -1,4 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryRouter } from 'react-router'
 import { api } from './api/client'
@@ -47,6 +48,9 @@ describe('App', () => {
     const { router } = setup('/projects/SALEM/board?type=BUG', unauthorized)
 
     expect(await screen.findByRole('heading', { name: 'Log in' })).toBeVisible()
+    expect(screen.getByRole('main')).toContainElement(
+      screen.getByRole('heading', { name: 'Log in' }),
+    )
     expect(router.state.location.pathname).toBe('/login')
     expect(router.state.location.search).toBe('?next=%2Fprojects%2FSALEM%2Fboard%3Ftype%3DBUG')
   })
@@ -54,19 +58,25 @@ describe('App', () => {
   it('shows the signed-in account the shell', async () => {
     setup('/', () => json(200, ada))
 
-    expect(await screen.findByRole('navigation', { name: 'Projects' })).toBeVisible()
+    expect(await screen.findByRole('navigation', { name: 'Side navigation' })).toBeVisible()
     expect(screen.getByRole('main')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Ada Lovelace' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute(
-      'href',
-      '#content',
-    )
+    expect(screen.getByRole('link', { name: 'Skip to content' })).toBeInTheDocument()
+  })
+
+  it('nav links route inside the app instead of loading a new page', async () => {
+    const { router } = setup('/no-such-page', () => json(200, ada))
+
+    await userEvent.click(await screen.findByRole('link', { name: 'All projects' }))
+
+    // jsdom cannot load a new page, so only the router moving proves the link went through it.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
   })
 
   it('names the product once in the rail', async () => {
     setup('/', () => json(200, ada))
 
-    const nav = await screen.findByRole('navigation', { name: 'Projects' })
+    const nav = await screen.findByRole('navigation', { name: 'Side navigation' })
     expect(within(nav).getAllByText('Salem Todo DevOps')).toHaveLength(1)
     expect(nav.querySelector('svg[data-mark]')).toHaveAttribute('aria-hidden', 'true')
   })
@@ -82,7 +92,7 @@ describe('App', () => {
 
   it('redirects once when several requests fail with 401', async () => {
     const { router, navigate } = setup('/', () => json(200, ada))
-    await screen.findByRole('navigation', { name: 'Projects' })
+    await screen.findByRole('navigation', { name: 'Side navigation' })
 
     await Promise.allSettled([api.get('/projects'), api.get('/projects?active=false')])
 
@@ -115,5 +125,6 @@ describe('App', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Session store unavailable')
     expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible()
+    expect(screen.getByRole('main')).toContainElement(screen.getByRole('alert'))
   })
 })

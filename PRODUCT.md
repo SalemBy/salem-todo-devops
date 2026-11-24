@@ -9,7 +9,7 @@ web
 ## Stack
 
 - Backend: Spring Boot 4 / Java 17 REST API, PostgreSQL, Flyway, Spring Security with server-side sessions stored in Redis.
-- Web UI (being built, #74): React + TypeScript (strict) + Vite in `web/`, with React Router, TanStack Query, Radix primitives and CSS Modules on the design tokens in `DESIGN.md`. A single-page app that calls the API under `/api`; in development the Vite server forwards `/api` to the API, so the browser sees one origin.
+- Web UI (being built, #74): React + TypeScript (strict) + Vite in `web/`, with React Router, TanStack Query and the Astryx component library (Neutral theme; see `DESIGN.md`). A single-page app that calls the API under `/api`; in development the Vite server forwards `/api` to the API, so the browser sees one origin.
 
 ## Users
 
@@ -72,7 +72,7 @@ Open decisions:
 
 - API behavior: `README.md` and `docs/architecture.md`.
 - A working Postman collection: `postman/collections/todo`.
-- The visual system: `DESIGN.md` and the tokens in `web/src/styles/tokens.css`.
+- The visual system: Astryx with its Neutral theme, and this product's rules in `DESIGN.md`.
 - Brand: Salem, a black cat, is the product's mark and mascot (`DESIGN.md`, section Salem). New poses ship only once the owner approves them.
 - None of these exist yet: finished UI screens, AI features, screenshots, real users, testimonials or usage data. Future work must not invent them.
 

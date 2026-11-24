@@ -1,5 +1,5 @@
-import { Link } from 'react-router'
-import styles from './Pages.module.css'
+import { Link } from '@astryxdesign/core/Link'
+import { Text } from '@astryxdesign/core/Text'
 
 /** The project list arrives with #77; until then the page under the "All projects" header is empty. */
 export function AllProjectsPage() {
@@ -8,8 +8,8 @@ export function AllProjectsPage() {
 
 export function NotFoundPage() {
   return (
-    <p className={styles.body}>
-      This address does not match any page. <Link to="/">Go to all projects</Link>
-    </p>
+    <Text as="p" color="secondary">
+      This address does not match any page. <Link href="/">Go to all projects</Link>
+    </Text>
   )
 }

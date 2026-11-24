@@ -3,3 +3,6 @@ coverage
 playwright-report
 test-results
 package-lock.json
+src/astryx-themes.ts
+AGENTS.md
+GEMINI.md

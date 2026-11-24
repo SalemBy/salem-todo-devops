@@ -1,90 +1,90 @@
-import { useState } from 'react'
+import { Avatar } from '@astryxdesign/core/Avatar'
+import { Badge } from '@astryxdesign/core/Badge'
+import { Button } from '@astryxdesign/core/Button'
+import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog'
+import { DropdownMenu } from '@astryxdesign/core/DropdownMenu'
+import { EmptyState } from '@astryxdesign/core/EmptyState'
+import { Heading } from '@astryxdesign/core/Heading'
+import { Selector } from '@astryxdesign/core/Selector'
+import { Stack } from '@astryxdesign/core/Stack'
+import { Text } from '@astryxdesign/core/Text'
+import { TextInput } from '@astryxdesign/core/TextInput'
+import { useToast } from '@astryxdesign/core/Toast'
+import { useState, type ReactNode } from 'react'
 import { ApiError } from '../api/client'
-import { Avatar } from '../components/Avatar/Avatar'
-import { Badge } from '../components/Badge/Badge'
-import { Button } from '../components/Button/Button'
-import { Dialog } from '../components/Dialog/Dialog'
-import { EmptyState } from '../components/EmptyState/EmptyState'
-import { ErrorMessage } from '../components/ErrorMessage/ErrorMessage'
-import { LabelChip } from '../components/LabelChip/LabelChip'
-import { Menu } from '../components/Menu/Menu'
-import { Select } from '../components/Select/Select'
-import { TextField } from '../components/TextField/TextField'
-import { ToastProvider } from '../components/Toast/Toast'
-import { useToast } from '../components/Toast/useToast'
-import { formatDate } from '../format/date'
 import { CatMark } from '../brand/CatMark'
 import { CAT_POSES } from '../brand/catPoses'
+import { labelVariant } from '../brand/labelVariant'
 import { SalemCat } from '../brand/SalemCat'
-import styles from './ComponentGallery.module.css'
+import { ApiErrorBanner } from '../components/ApiErrorBanner'
+import { formatDate } from '../format/date'
 
-/** Development only: every base component in its states, for design critique and accessibility review. */
+/** Development only: the Astryx components this app uses, in their states, with this product's content. */
 export function ComponentGallery() {
   return (
-    <ToastProvider>
-      <main className={styles.page}>
-        <h1 className={styles.heading}>Components</h1>
-        <p className={styles.lead}>
-          Every base component of the web UI in its states. Development builds only.
-        </p>
-        <Buttons />
-        <Fields />
-        <Overlays />
-        <Marks />
-        <Feedback />
-        <Salem />
-      </main>
-    </ToastProvider>
+    <Stack padding={10} gap={8} maxWidth={1100}>
+      <Stack gap={1}>
+        <Heading level={1}>Components</Heading>
+        <Text color="secondary">
+          Astryx (Neutral theme) with this product&apos;s content. Development builds only.
+        </Text>
+      </Stack>
+      <Buttons />
+      <Fields />
+      <Overlays />
+      <Marks />
+      <Feedback />
+      <Salem />
+    </Stack>
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className={styles.section}>
-      <h2 className={styles.title}>{title}</h2>
-      <div className={styles.row}>{children}</div>
-    </section>
+    <Stack gap={3}>
+      <Heading level={2}>{title}</Heading>
+      {children}
+    </Stack>
   )
 }
 
 function Buttons() {
   return (
     <Section title="Buttons">
-      <Button variant="primary">Create project</Button>
-      <Button>Cancel</Button>
-      <Button variant="ghost">Show more</Button>
-      <Button variant="danger">Archive project</Button>
-      <Button variant="primary" loading>
-        Saving
-      </Button>
-      <Button disabled>Disabled</Button>
+      <Stack direction="horizontal" gap={2}>
+        <Button variant="primary" label="Create project" />
+        <Button label="Cancel" />
+        <Button variant="ghost" label="Show more" />
+        <Button variant="destructive" label="Archive project" />
+        <Button variant="primary" label="Saving" isLoading />
+        <Button label="Disabled" isDisabled />
+      </Stack>
     </Section>
   )
 }
 
 function Fields() {
+  const [name, setName] = useState('')
+  const [key, setKey] = useState('salem')
   const [priority, setPriority] = useState('HIGH')
   return (
     <Section title="Fields">
-      <div className={styles.stack}>
-        <TextField label="Project name" placeholder="Salem Todo DevOps" />
-        <TextField
+      <Stack gap={4} maxWidth={420}>
+        <TextInput label="Project name" value={name} onChange={setName} />
+        <TextInput
           label="Key"
-          defaultValue="SALEM"
-          hint="2 to 10 uppercase letters or digits, starting with a letter. It cannot change later."
+          value={key}
+          onChange={setKey}
+          description="2 to 10 uppercase letters or digits, starting with a letter. It cannot change later."
+          status={{
+            type: 'error',
+            message: 'Use uppercase letters or digits, starting with a letter.',
+          }}
         />
-        <TextField
-          label="Key"
-          defaultValue="salem"
-          error="Key must contain 2 to 10 uppercase letters or digits and start with a letter"
-        />
-        <TextField label="Description" disabled defaultValue="Read only in archived projects" />
-      </div>
-      <div className={styles.stack}>
-        <Select
+        <Selector
           label="Priority"
           value={priority}
-          onValueChange={setPriority}
+          onChange={(value) => value && setPriority(value)}
           options={[
             { value: 'LOW', label: 'Low' },
             { value: 'MEDIUM', label: 'Medium' },
@@ -92,14 +92,7 @@ function Fields() {
             { value: 'CRITICAL', label: 'Critical' },
           ]}
         />
-        <Select
-          label="Assignee"
-          value={undefined}
-          onValueChange={() => {}}
-          placeholder="Unassigned"
-          options={[]}
-        />
-      </div>
+      </Stack>
     </Section>
   )
 }
@@ -108,30 +101,28 @@ function Overlays() {
   const [open, setOpen] = useState(false)
   return (
     <Section title="Menu and dialog">
-      <Menu
-        label="Project actions"
-        items={[
-          { label: 'Edit details', onSelect: () => {} },
-          { label: 'Archive project', onSelect: () => setOpen(true), tone: 'danger' },
-        ]}
-      />
-      <Button variant="danger" onClick={() => setOpen(true)}>
-        Archive project
-      </Button>
-      <Dialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Archive Salem Todo DevOps?"
-        description="Archived projects stay readable, but nobody can change their tasks, labels or members."
-        footer={
-          <>
-            <Button onClick={() => setOpen(false)}>Cancel</Button>
-            <Button variant="danger" onClick={() => setOpen(false)}>
-              Archive project
-            </Button>
-          </>
-        }
-      />
+      <Stack direction="horizontal" gap={2}>
+        <DropdownMenu
+          button={{ label: 'Project actions' }}
+          items={[
+            { label: 'Edit details' },
+            { label: 'Archive project', variant: 'destructive', onClick: () => setOpen(true) },
+          ]}
+        />
+        <Button variant="destructive" label="Archive project" onClick={() => setOpen(true)} />
+      </Stack>
+      <Dialog isOpen={open} onOpenChange={setOpen}>
+        <DialogHeader title="Archive Salem Todo DevOps?" onOpenChange={setOpen} />
+        <Stack gap={4} padding={4}>
+          <Text>
+            Archived projects stay readable, but nobody can change their tasks, labels or members.
+          </Text>
+          <Stack direction="horizontal" gap={2} hAlign="end">
+            <Button label="Cancel" onClick={() => setOpen(false)} />
+            <Button variant="destructive" label="Archive project" onClick={() => setOpen(false)} />
+          </Stack>
+        </Stack>
+      </Dialog>
     </Section>
   )
 }
@@ -139,60 +130,36 @@ function Overlays() {
 function Marks() {
   return (
     <Section title="Badges, labels and people">
-      <Badge>Owner</Badge>
-      <Badge>Viewer</Badge>
-      <Badge>Archived</Badge>
-      <Badge tone="danger">Overdue</Badge>
-      <Badge tone="success">Completed</Badge>
-      {['frontend', 'backend', 'infra', 'bug-bash', 'design', 'docs', 'security', 'release'].map(
-        (name) => (
-          <LabelChip key={name} name={name} />
-        ),
-      )}
-      <Avatar name="Ada Lovelace" />
-      <Avatar name="Grace Hopper" size="sm" />
-      <span className={styles.date}>Due {formatDate('2026-12-11')}</span>
-      <span className={styles.date}>Created {formatDate('2025-03-02T10:15:00Z')}</span>
-    </Section>
-  )
-}
-
-function Salem() {
-  return (
-    <Section title="Salem">
-      <div className={styles.marks}>
-        <CatMark size={16} />
-        <CatMark size={20} />
-        <CatMark size={32} label="Salem Todo DevOps" />
-      </div>
-      {CAT_POSES.map((pose) => (
-        <figure key={pose} className={styles.pose}>
-          <SalemCat pose={pose} />
-          <figcaption>{pose}</figcaption>
-        </figure>
-      ))}
-      <EmptyState
-        title="No projects yet"
-        body="Salem is napping until there is work to do."
-        illustration={<SalemCat pose="asleep" size={120} />}
-        action={<Button variant="primary">Create project</Button>}
-      />
+      <Stack direction="horizontal" gap={2}>
+        <Badge label="In progress" variant="info" />
+        <Badge label="Completed" variant="success" />
+        <Badge label="Overdue" variant="error" />
+        {['frontend', 'backend', 'infra', 'design', 'docs', 'security'].map((name) => (
+          <Badge key={name} label={name} variant={labelVariant(name)} />
+        ))}
+      </Stack>
+      <Stack direction="horizontal" gap={3} vAlign="center">
+        <Avatar name="Ada Lovelace" />
+        <Avatar name="Grace Hopper" size="sm" />
+        <Text color="secondary">Due {formatDate('2026-12-11')}</Text>
+      </Stack>
     </Section>
   )
 }
 
 function Feedback() {
-  const toast = useToast()
+  const showToast = useToast()
   return (
     <Section title="Empty, error and toast">
       <EmptyState
         title="No projects yet"
-        body="Create a project to start planning work."
-        action={<Button variant="primary">Create project</Button>}
+        description="Salem is napping until there is work to do."
+        icon={<SalemCat pose="asleep" size={120} />}
+        actions={<Button variant="primary" label="Create project" />}
       />
-      <div className={styles.stack}>
-        <ErrorMessage error="The server could not be reached. Check your connection." />
-        <ErrorMessage
+      <Stack gap={3} maxWidth={520}>
+        <ApiErrorBanner error="The server could not be reached. Check your connection." />
+        <ApiErrorBanner
           error={
             new ApiError(400, 'Bad Request', 'Request validation failed', [
               { field: 'key', message: 'Key is already in use' },
@@ -200,19 +167,31 @@ function Feedback() {
             ])
           }
         />
-      </div>
-      <Button onClick={() => toast.show({ title: 'Task archived' })}>Show a toast</Button>
-      <Button
-        onClick={() =>
-          toast.show({
-            title: 'Move failed',
-            description: 'This project is archived. Its tasks cannot change.',
-            tone: 'danger',
-          })
-        }
-      >
-        Show an error toast
-      </Button>
+      </Stack>
+      <Stack direction="horizontal" gap={2}>
+        <Button label="Show a toast" onClick={() => showToast({ body: 'Task archived' })} />
+        <Button
+          label="Show an error toast"
+          onClick={() =>
+            showToast({ body: 'Move failed: this project is archived.', type: 'error' })
+          }
+        />
+      </Stack>
+    </Section>
+  )
+}
+
+function Salem() {
+  return (
+    <Section title="Salem">
+      <Stack direction="horizontal" gap={4} vAlign="center">
+        <CatMark size={16} />
+        <CatMark size={20} />
+        <CatMark size={32} label="Salem Todo DevOps" />
+        {CAT_POSES.map((pose) => (
+          <SalemCat key={pose} pose={pose} />
+        ))}
+      </Stack>
     </Section>
   )
 }

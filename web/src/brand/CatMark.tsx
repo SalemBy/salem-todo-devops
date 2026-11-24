@@ -1,9 +1,9 @@
 import { CatEyesShape, HEAD_PATH } from './CatHead'
 
 /**
- * Salem's quiet mark: a black cat's head in the notebook's ink, with amber eyes. Colours come from the
- * cat tokens (`--cat-body`, `--cat-line`, `--cat-eye`), so it follows light and dark; a parent can set
- * `--cat-line` to `--cat-line-on-rail` on dark grounds. No ids inside, so any number can share a page.
+ * Salem's quiet mark: a black cat's head with amber eyes. Colours come from the cat tokens
+ * (`--cat-body`, `--cat-line`, `--cat-eye`); the outline is the Astryx theme's text colour, so the mark
+ * follows light and dark. No ids inside, so any number can share a page.
  */
 export function CatMark({ size = 20, label }: { size?: number; label?: string }) {
   const a11y = label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true as const }
