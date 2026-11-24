@@ -48,6 +48,9 @@ describe('App', () => {
     const { router } = setup('/projects/SALEM/board?type=BUG', unauthorized)
 
     expect(await screen.findByRole('heading', { name: 'Log in' })).toBeVisible()
+    expect(screen.getByRole('main')).toContainElement(
+      screen.getByRole('heading', { name: 'Log in' }),
+    )
     expect(router.state.location.pathname).toBe('/login')
     expect(router.state.location.search).toBe('?next=%2Fprojects%2FSALEM%2Fboard%3Ftype%3DBUG')
   })
@@ -122,5 +125,6 @@ describe('App', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Session store unavailable')
     expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible()
+    expect(screen.getByRole('main')).toContainElement(screen.getByRole('alert'))
   })
 })

@@ -33,7 +33,7 @@ export function AppShell() {
     // A 401 is already on its way to the login page.
     if (me.error instanceof ApiError && me.error.status === 401) return null
     return (
-      <Stack padding={8} gap={4} maxWidth={520}>
+      <Stack as="main" padding={8} gap={4} maxWidth={520}>
         <ApiErrorBanner
           error={
             me.error instanceof ApiError

@@ -7,7 +7,7 @@ import { usePageTitle } from '../shell/usePageTitle'
 export function LoginPlaceholder() {
   usePageTitle('Log in')
   return (
-    <Stack padding={10} gap={2} maxWidth={480}>
+    <Stack as="main" padding={10} gap={2} maxWidth={480}>
       <Heading level={1}>Log in</Heading>
       <Text color="secondary">You are not logged in, or your session has ended.</Text>
     </Stack>
