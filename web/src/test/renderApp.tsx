@@ -50,10 +50,15 @@ export function renderApp(
   }
 }
 
-/** The page's one message in a live region. Astryx renders empty live regions of its own. */
+/**
+ * The page's one message in a live region. Astryx adds live regions of its own: empty ones, and a
+ * page-wide announcer that can still hold an earlier test's words. Those are not the page's message.
+ */
 export const live = (role: 'status' | 'alert') =>
   waitFor(() => {
-    const found = screen.queryAllByRole(role).filter((el) => el.textContent?.trim())
+    const found = screen
+      .queryAllByRole(role)
+      .filter((el) => el.textContent?.trim() && !el.closest('[data-astryx-live-region]'))
     expect(found).toHaveLength(1)
     return found[0] as HTMLElement
   })
