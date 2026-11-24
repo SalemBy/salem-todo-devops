@@ -16,8 +16,6 @@ const files = sources().filter(
   (path) =>
     !path.startsWith('src/brand/') &&
     path !== 'src/styles/tokens.css' &&
-    // The shell is rebuilt from the Astryx template in the next task (#103, Task 2).
-    !path.startsWith('src/shell/') &&
     !path.endsWith('no-old-design-system.test.ts'),
 )
 

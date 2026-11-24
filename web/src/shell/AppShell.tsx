@@ -1,29 +1,40 @@
+import { AppShell as AstryxAppShell } from '@astryxdesign/core/AppShell'
+import { Avatar } from '@astryxdesign/core/Avatar'
+import { Button } from '@astryxdesign/core/Button'
+import { Heading } from '@astryxdesign/core/Heading'
+import { Layout, LayoutContent, LayoutHeader } from '@astryxdesign/core/Layout'
+import { NavIcon } from '@astryxdesign/core/NavIcon'
+import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from '@astryxdesign/core/SideNav'
+import { Stack } from '@astryxdesign/core/Stack'
+import { Text } from '@astryxdesign/core/Text'
 import { LayoutGrid } from 'lucide-react'
-import { NavLink, Outlet, useMatches } from 'react-router'
+import { Outlet, useLocation, useMatches } from 'react-router'
 import { ApiError } from '../api/client'
 import { useCurrentAccount } from '../auth/useCurrentAccount'
 import { CatMark } from '../brand/CatMark'
-import { Avatar } from '@astryxdesign/core/Avatar'
-import { Button } from '@astryxdesign/core/Button'
 import { ApiErrorBanner } from '../components/ApiErrorBanner'
-import styles from './AppShell.module.css'
 import { usePageTitle, type PageHandle } from './usePageTitle'
 
-/** The signed-in frame: project rail, a header with the page title and account, and the page. */
+/**
+ * The signed-in frame, from the Astryx shell-side-nav template: the side nav (Salem's mark, the
+ * product name, the project links), a header with the page title and the account, and the page.
+ * Astryx's AppShell brings the skip link to the content.
+ */
 export function AppShell() {
   const me = useCurrentAccount()
+  const { pathname } = useLocation()
   // The deepest route that names itself titles the page; routes declare it in their handle.
   const page = useMatches()
     .map((match) => match.handle as PageHandle | undefined)
     .findLast((handle) => handle?.title)
   usePageTitle(page?.title)
 
-  if (me.isPending) return <div className={styles.loading} aria-busy="true" />
+  if (me.isPending) return null
   if (me.isError) {
     // A 401 is already on its way to the login page.
     if (me.error instanceof ApiError && me.error.status === 401) return null
     return (
-      <main className={styles.failed}>
+      <Stack padding={8} gap={4} maxWidth={520}>
         <ApiErrorBanner
           error={
             me.error instanceof ApiError
@@ -32,38 +43,56 @@ export function AppShell() {
           }
         />
         <Button label="Try again" onClick={() => void me.refetch()} isLoading={me.isFetching} />
-      </main>
+      </Stack>
     )
   }
 
   return (
-    <div className={styles.shell}>
-      <a className={styles.skip} href="#content">
-        Skip to content
-      </a>
-      <nav className={styles.rail} aria-label="Projects">
-        <span className={styles.brand}>
-          <CatMark />
-          Salem Todo DevOps
-        </span>
-        <NavLink to="/" end className={styles.link}>
-          <LayoutGrid size={16} aria-hidden="true" />
-          All projects
-        </NavLink>
-      </nav>
-      <header className={styles.header}>
-        <div className={styles.heading}>
-          {page?.crumb && <span className={styles.crumb}>{page.crumb} /</span>}
-          {page && <h1 className={styles.title}>{page.title}</h1>}
-        </div>
-        <span className={styles.account}>
-          <span className={styles.name}>{me.data.displayName}</span>
-          <Avatar name={me.data.displayName} />
-        </span>
-      </header>
-      <main id="content" tabIndex={-1} className={styles.main}>
-        <Outlet />
-      </main>
-    </div>
+    <AstryxAppShell
+      contentPadding={0}
+      sideNav={
+        <SideNav
+          header={
+            <SideNavHeading
+              heading="Salem Todo DevOps"
+              icon={<NavIcon icon={<CatMark size={20} />} />}
+              headingHref="/"
+            />
+          }
+        >
+          <SideNavSection title="Projects" isHeaderHidden>
+            <SideNavItem
+              label="All projects"
+              icon={LayoutGrid}
+              href="/"
+              isSelected={pathname === '/'}
+            />
+          </SideNavSection>
+        </SideNav>
+      }
+    >
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <Stack direction="horizontal" hAlign="between" vAlign="center">
+              <Stack direction="horizontal" gap={2} vAlign="center">
+                {page?.crumb && <Text color="secondary">{page.crumb} /</Text>}
+                {page && <Heading level={1}>{page.title}</Heading>}
+              </Stack>
+              <Stack direction="horizontal" gap={2} vAlign="center">
+                <Text color="secondary">{me.data.displayName}</Text>
+                <Avatar name={me.data.displayName} size="sm" tooltip={false} />
+              </Stack>
+            </Stack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={6}>
+            <Outlet />
+          </LayoutContent>
+        }
+      />
+    </AstryxAppShell>
   )
 }
