@@ -252,6 +252,32 @@ describe('responses', () => {
     expect((error as InstanceType<Client['ApiError']>).detail).not.toBe('')
   })
 
+  it.each([
+    ['120', 120],
+    [null, undefined],
+    ['soon', undefined],
+  ])('a 429 carries Retry-After %s as seconds', async (header, seconds) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/problem+json' }
+    if (header) headers['Retry-After'] = header
+    fakeFetch({
+      'GET /api/projects': [
+        () =>
+          new Response(
+            JSON.stringify({
+              title: 'Too Many Requests',
+              detail: 'Too many requests. Try again later.',
+            }),
+            { status: 429, headers },
+          ),
+      ],
+    })
+
+    const error = await client.api.get('/projects').catch((e: unknown) => e)
+
+    expect(error).toMatchObject({ status: 429 })
+    expect((error as InstanceType<Client['ApiError']>).retryAfter).toBe(seconds)
+  })
+
   it('a network failure gives an ApiError with status 0', async () => {
     vi.stubGlobal(
       'fetch',
@@ -268,6 +294,16 @@ describe('responses', () => {
     })
 
     await expect(client.api.delete('/projects/1')).resolves.toBeUndefined()
+  })
+
+  it('asks the API for English, the language of the UI', async () => {
+    fakeFetch({ 'GET /api/projects': [() => json(200, [])] })
+
+    await client.api.get('/projects')
+
+    expect(new Headers(vi.mocked(fetch).mock.calls[0]?.[1]?.headers).get('Accept-Language')).toBe(
+      'en',
+    )
   })
 
   it('sends cookies with every request', async () => {
