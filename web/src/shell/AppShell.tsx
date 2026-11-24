@@ -1,6 +1,7 @@
 import { AppShell as AstryxAppShell } from '@astryxdesign/core/AppShell'
 import { Avatar } from '@astryxdesign/core/Avatar'
 import { Button } from '@astryxdesign/core/Button'
+import { DropdownMenu } from '@astryxdesign/core/DropdownMenu'
 import { Heading } from '@astryxdesign/core/Heading'
 import { Layout, LayoutContent, LayoutHeader } from '@astryxdesign/core/Layout'
 import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from '@astryxdesign/core/SideNav'
@@ -10,6 +11,7 @@ import { LayoutGrid } from 'lucide-react'
 import { Outlet, useLocation, useMatches } from 'react-router'
 import { ApiError } from '../api/client'
 import { useCurrentAccount } from '../auth/useCurrentAccount'
+import { useLogout } from '../auth/useLogout'
 import { CatMark } from '../brand/CatMark'
 import { ApiErrorBanner } from '../components/ApiErrorBanner'
 import { usePageTitle, type PageHandle } from './usePageTitle'
@@ -21,6 +23,7 @@ import { usePageTitle, type PageHandle } from './usePageTitle'
  */
 export function AppShell() {
   const me = useCurrentAccount()
+  const logout = useLogout()
   const { pathname } = useLocation()
   // The deepest route that names itself titles the page; routes declare it in their handle.
   const page = useMatches()
@@ -80,7 +83,14 @@ export function AppShell() {
                 {page && <Heading level={1}>{page.title}</Heading>}
               </Stack>
               <Stack direction="horizontal" gap={2} vAlign="center">
-                <Text color="secondary">{me.data.displayName}</Text>
+                <DropdownMenu
+                  button={{
+                    label: me.data.displayName,
+                    'aria-label': `Account: ${me.data.displayName}`,
+                    variant: 'ghost',
+                  }}
+                  items={[{ label: 'Log out', onClick: () => logout.mutate() }]}
+                />
                 <Avatar name={me.data.displayName} size="sm" tooltip={false} />
               </Stack>
             </Stack>
