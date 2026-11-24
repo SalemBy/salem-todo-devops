@@ -1,5 +1,6 @@
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
+import { LayerProvider } from '@astryxdesign/core/Layer'
 import { LinkProvider } from '@astryxdesign/core/Link'
 import { RouterProvider } from 'react-router'
 import { RouterLink } from './shell/RouterLink'
@@ -10,7 +11,10 @@ export function App({ router, queryClient }: { router: AppRouter; queryClient: Q
   return (
     <QueryClientProvider client={queryClient}>
       <LinkProvider component={RouterLink}>
-        <RouterProvider router={router} />
+        {/* Toasts render inside the app, so their links go through the router too. */}
+        <LayerProvider>
+          <RouterProvider router={router} />
+        </LayerProvider>
       </LinkProvider>
     </QueryClientProvider>
   )

@@ -26,14 +26,23 @@ export class ApiError extends Error {
   readonly title: string
   readonly detail: string
   readonly errors: FieldError[]
+  /** Seconds to wait before trying again, from a 429's Retry-After header. */
+  readonly retryAfter: number | undefined
 
-  constructor(status: number, title: string, detail: string, errors: FieldError[] = []) {
+  constructor(
+    status: number,
+    title: string,
+    detail: string,
+    errors: FieldError[] = [],
+    retryAfter?: number,
+  ) {
     super(detail)
     this.name = 'ApiError'
     this.status = status
     this.title = title
     this.detail = detail
     this.errors = errors
+    this.retryAfter = retryAfter
   }
 }
 
@@ -59,7 +68,11 @@ function token(): Promise<CsrfResponse> {
 }
 
 async function send<T>(method: string, path: string, body?: unknown, retried = false): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json, application/problem+json' }
+  const headers: Record<string, string> = {
+    Accept: 'application/json, application/problem+json',
+    // The UI is in English; without this the API words its validation messages in the browser's language.
+    'Accept-Language': 'en',
+  }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (method !== 'GET') {
     const { token: value, headerName } = await token()
@@ -106,10 +119,14 @@ async function readBody(response: Response): Promise<unknown> {
 }
 
 async function toError(response: Response): Promise<ApiError> {
+  const header = response.headers.get('Retry-After') ?? ''
+  const retryAfter = /^\d+$/.test(header) ? Number(header) : undefined
   const fallback = new ApiError(
     response.status,
     response.statusText || 'Error',
     `The server sent an unexpected response (${response.status}). Try again in a moment.`,
+    [],
+    retryAfter,
   )
   const type = response.headers.get('Content-Type') ?? ''
   if (!type.includes('json')) return fallback
@@ -124,6 +141,7 @@ async function toError(response: Response): Promise<ApiError> {
       problem.title ?? fallback.title,
       problem.detail ?? fallback.detail,
       Array.isArray(problem.errors) ? problem.errors : [],
+      retryAfter,
     )
   } catch {
     return fallback

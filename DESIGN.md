@@ -25,6 +25,7 @@ The rules below are this product's own, on top of Astryx.
   - axe (WCAG 2.1 A/AA) runs in Playwright on every page, in both themes;
   - the shell reflows at 320 CSS px;
   - keyboard and screen-reader behaviour is unit-tested.
+- **Sign-in pages** (log in, register, check your email, verify email) share `AuthLayout`, from Astryx's `login-split` template: one card with the form on one half and Salem asleep on the other; on a narrow screen the form comes first. The cat is never part of an error message.
 - **Page colour:** outside the app shell, the page takes the theme's body colour (`web/src/styles/tokens.css`).
 
 ## Salem
