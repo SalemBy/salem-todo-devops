@@ -89,7 +89,7 @@ return 503.
 ## Web UI
 
 The web UI lives in `web/`: React, TypeScript and Vite. It is under construction
-(#74); for now it has its foundation only. You need Node 22 LTS (`web/.nvmrc`)
+(#74); today it has its foundation and the sign-in pages. You need Node 22 LTS (`web/.nvmrc`)
 and npm. With the API running:
 
 ```powershell
@@ -115,6 +115,12 @@ forward to another address. `npm run preview` serves the production build
 | `npm test` | Vitest unit and component tests |
 | `npm run e2e` | Playwright end-to-end tests (see below) |
 
+**Signing in.** `/login`, `/register` and `/verify-email` (the page the
+verification email links to) work against the API as it is configured:
+registration follows `AUTH_REGISTRATION_ENABLED`, and when it is off the
+register page says so. After a session expires, logging in returns to the page
+you were on. Log out from the account menu in the header.
+
 The UI is built on [Astryx](https://github.com/meta/astryx) with its Neutral
 theme; [DESIGN.md](DESIGN.md) has this product's own rules on top (Salem, label
 colours, dates, accessibility) and `web/AGENTS.md` the Astryx conventions. It
@@ -124,7 +130,7 @@ shows the components this app uses in their states. Run `npx astryx doctor` in
 
 **End-to-end tests** run against the real API. Start the local services and the
 API as above (registration enabled and `SESSION_COOKIE_SECURE=false`, as in
-`.env.example`). Each run registers five accounts, and the default limit is five
+`.env.example`). Each run registers eight accounts, and the default limit is five
 registrations per address per hour, so also uncomment the local-only
 `app.rate-limit.*` lines from `.env.example` in your `.env` before starting the
 API. Install Chromium once, then run them:
