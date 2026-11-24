@@ -8,3 +8,8 @@
   --cat-eye: light-dark(#e0a82e, #f0c25a);
   --cat-line: var(--color-text-primary);
 }
+
+/* Pages outside the app shell (the sign-in pages) sit on the theme's page colour, not the browser's. */
+[data-astryx-theme] {
+  background-color: var(--color-background-body);
+}
