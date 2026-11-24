@@ -19,6 +19,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     test('the login page has no automatic accessibility violations', async ({ page }) => {
       await page.goto('/projects/SALEM/board')
       await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible()
+      await expect(page.getByRole('textbox', { name: 'Email' })).toBeVisible()
 
       expect(await violations(page)).toEqual([])
     })
@@ -46,6 +47,19 @@ test('the shell reflows at 320 CSS pixels (400% zoom) without sideways scrolling
     320,
   )
   expect(main?.width ?? 0).toBeGreaterThanOrEqual(280)
+})
+
+test('the login page reflows at 320 CSS pixels with the form first', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 })
+  await page.goto('/login')
+  const email = page.getByRole('textbox', { name: 'Email' })
+  await expect(email).toBeVisible()
+
+  expect(Number(await page.evaluate('document.documentElement.scrollWidth'))).toBeLessThanOrEqual(
+    320,
+  )
+  const box = await email.boundingBox()
+  expect((box?.y ?? Infinity) + (box?.height ?? 0)).toBeLessThanOrEqual(640)
 })
 
 test('each page names itself in the window title', async ({ page }) => {
