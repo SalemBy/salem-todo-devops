@@ -1,20 +1,10 @@
 /*
- * Salem the cat. The rest of the UI takes its look from the Astryx Neutral theme; these four
- * colours are the only ones this project defines (mapped onto Astryx tokens in #103, Task 3).
+ * Salem the cat. Everything else takes its look from the Astryx Neutral theme. The cat's body and
+ * eyes are brand colours (a black cat with amber eyes); its outline is the theme's text colour, so it
+ * is solid ink by day and keeps a light outline at night. Declared where Astryx sets its variables.
  */
-:root {
-  --cat-body: #1b1e22;
-  --cat-line: #1b1e22;
-  --cat-line-on-rail: #d3dcea;
-  --cat-eye: #e0a82e;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* At night the black cat keeps its shape with a chalk outline. */
-    --cat-body: #0b0e12;
-    --cat-line: #dfe5ea;
-    --cat-line-on-rail: #c2cddc;
-    --cat-eye: #f0c25a;
-  }
+[data-astryx-theme] {
+  --cat-body: light-dark(#1b1e22, #0b0e12);
+  --cat-eye: light-dark(#e0a82e, #f0c25a);
+  --cat-line: var(--color-text-primary);
 }

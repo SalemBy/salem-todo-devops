@@ -1,17 +1,29 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
 import { HEAD_PATH } from './CatHead'
 
 // Relative to web/, where Vitest runs. The tab icon cannot read CSS variables, so it mirrors the tokens.
 const favicon = readFileSync('public/favicon.svg', 'utf8').toLowerCase().replace(/\s+/g, ' ')
 const tokens = readFileSync('src/styles/tokens.css', 'utf8').toLowerCase()
+const neutral = readFileSync(
+  createRequire(`${process.cwd()}/package.json`).resolve('@astryxdesign/theme-neutral/theme.css'),
+  'utf8',
+).toLowerCase()
 const DARK = '@media (prefers-color-scheme: dark)'
 
+/**
+ * The colour a cat token has in one theme. Body and eyes are light-dark() pairs in tokens.css; the
+ * outline is the Astryx Neutral theme's text colour.
+ */
 function token(name: string, theme: 'light' | 'dark'): string {
-  const at = tokens.indexOf(DARK)
-  const block = theme === 'light' ? tokens.slice(0, at) : tokens.slice(at)
-  const value = new RegExp(`${name}:\\s*(#[0-9a-f]{6})`).exec(block)?.[1]
+  const css = name === '--cat-line' ? neutral : tokens
+  const source = name === '--cat-line' ? '--color-text-primary' : name
+  const match = new RegExp(`${source}:\\s*light-dark\\((#[0-9a-f]{6}),\\s*(#[0-9a-f]{6})\\)`).exec(
+    css,
+  )
+  const value = match?.[theme === 'light' ? 1 : 2]
   if (!value) throw new Error(`${theme} theme is missing ${name}`)
   return value
 }

@@ -3,7 +3,6 @@ import { Avatar } from '@astryxdesign/core/Avatar'
 import { Button } from '@astryxdesign/core/Button'
 import { Heading } from '@astryxdesign/core/Heading'
 import { Layout, LayoutContent, LayoutHeader } from '@astryxdesign/core/Layout'
-import { NavIcon } from '@astryxdesign/core/NavIcon'
 import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from '@astryxdesign/core/SideNav'
 import { Stack } from '@astryxdesign/core/Stack'
 import { Text } from '@astryxdesign/core/Text'
@@ -55,7 +54,7 @@ export function AppShell() {
           header={
             <SideNavHeading
               heading="Salem Todo DevOps"
-              icon={<NavIcon icon={<CatMark size={20} />} />}
+              icon={<CatMark size={24} />}
               headingHref="/"
             />
           }

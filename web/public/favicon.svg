@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <!-- Salem's mark. Mirrors the cat tokens in src/styles/tokens.css (a test keeps them equal). -->
+  <!-- Salem's mark. Mirrors the cat tokens and the Neutral theme's text colour (a test keeps them equal). -->
   <style>
-    .body { fill: #1b1e22; stroke: #1b1e22; }
+    .body { fill: #1b1e22; stroke: #000000; }
     .eye { fill: #e0a82e; }
     .pupil { fill: #1b1e22; }
     @media (prefers-color-scheme: dark) {
-      .body { fill: #0b0e12; stroke: #dfe5ea; }
+      .body { fill: #0b0e12; stroke: #ffffff; }
       .eye { fill: #f0c25a; }
       .pupil { fill: #0b0e12; }
     }
